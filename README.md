@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icon.svg" alt="Kick Fullscreen Chat icon" width="96" height="96">
+<img src="icon.svg" width="108" height="108" alt="Kick Fullscreen Chat">
 
 <h1>Kick Fullscreen Chat</h1>
 
@@ -30,15 +30,40 @@
 - Re-uses Kick's own button markup and design tokens — visually identical to Kick's native buttons
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-teardown: clicking Kick's native **Hide chat** restores fullscreen video and re-shows the **Chat** button so chat can be re-opened
+- Disables the **Chat** button while the player is reloading (quality change, seek, "go to live") with a short grace period after the video reports ready, so a click can never land mid-reload and trigger Kick's 404 page
 - Forces a containing block on the video slot so Kick's `position: fixed` player layers (video + timeline + controls) stay inside the video area instead of overlapping the chat
 - Restores the original DOM on exit — chat returns to its original location, no leftover wrappers
 - No network requests, no `localStorage`, no GM_* permissions
 
-## Installation & Usage
+## Requirements
 
-See [INSTALL.md](INSTALL.md) for setup instructions (Safari + Userscripts, Tampermonkey, Violentmonkey), usage walkthrough, update notes, and a troubleshooting table.
+The script works with any userscript manager (Tampermonkey, Violentmonkey, Greasemonkey, etc.) but is developed and tested on **Safari + Userscripts** only. Other browsers and managers may work but are untested.
 
-**Tested on:** Safari + [Userscripts](https://apps.apple.com/app/userscripts/id1463298887) extension. Other browsers / userscript managers should work (the script uses `@grant none` and is pure DOM manipulation) but are untested.
+**Recommended setup:**
+- macOS with Safari
+- [Userscripts](https://apps.apple.com/app/userscripts/id1463298887) extension (free, by Justin Wasack)
+
+## Installation
+
+See [INSTALL.md](INSTALL.md) for step-by-step instructions.
+
+**Safari (recommended):**
+1. Install the **[Userscripts](https://apps.apple.com/app/userscripts/id1463298887)** extension from the Mac App Store
+2. Configure a scripts folder in the extension settings
+3. Copy `kick-fullscreen-chat.user.js` into that folder
+
+**Other browsers (untested):**
+1. Install [Tampermonkey](https://www.tampermonkey.net) or [Violentmonkey](https://violentmonkey.github.io)
+2. Open `kick-fullscreen-chat.user.js` and paste it into a new script, or drag the file into the extension dashboard
+
+## Usage
+
+1. Open any Kick channel.
+2. Click the player's fullscreen icon.
+3. The **Chat** button appears top-right (matches Kick's native button styling).
+4. Click it — the video shrinks to the left and the chat panel docks on the right.
+5. To hide chat again, use Kick's native **Hide chat** button inside the chat panel. The split layout tears down and the **Chat** button reappears.
+6. Exit fullscreen at any time — the DOM is restored to its original state.
 
 ## How it works
 
@@ -52,7 +77,15 @@ On fullscreen exit, the chat node is returned to its original parent and origina
 
 ## Troubleshooting
 
-See the troubleshooting table in [INSTALL.md](INSTALL.md#troubleshooting).
+| Symptom | Fix |
+|---------|-----|
+| Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
+| Button appears, clicking it does nothing | The chat selector did not match Kick's current DOM. You will see `chat container not found` in the console. Inspect the chat panel in DevTools and add its selector to `CHAT_SELECTORS` near the top of the userscript. |
+| Re-opening chat shows an empty dark panel | Update to **0.5.0+** — the script now sets `data-chat="true"` before moving the chat, which prevents Kick's CSS from hiding the moved chat. |
+| Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video slot now creates a containing block for Kick's `position: fixed` player layers. |
+| Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
+| Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.3+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |
+| Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |
 
 ## License
 

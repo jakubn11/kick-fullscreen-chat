@@ -4,9 +4,10 @@ Browser userscript that adds a Twitch-style side-by-side fullscreen-with-chat mo
 
 ## Project Overview
 
-**Type:** Single-file JavaScript userscript
-**Primary file:** `kick-fullscreen-chat.user.js`
-**Target:** Any userscript manager (Tampermonkey, Violentmonkey, Greasemonkey, Safari Userscripts, etc.) on any browser
+**Type:** Single-file JavaScript userscript  
+**Primary file:** `kick-fullscreen-chat.user.js`  
+**Install docs:** `INSTALL.md`  
+**Target:** Any userscript manager (Tampermonkey, Violentmonkey, Greasemonkey, Safari Userscripts, etc.) on any browser; developed and tested on Safari + Userscripts  
 **Git:** `git@github.com:jakubn11/kick-fullscreen-chat.git` (default branch: `main`).
 
 ## Commands

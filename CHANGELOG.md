@@ -1,43 +1,43 @@
-  # Changelog
+# Changelog
 
-  All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this file.
 
-  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-  ## [0.8.5] - 2026-05-14
+## [0.8.5] - 2026-05-14
 
-  ### Added
-  - `icon.svg` — a green chat-bubble icon on Kick's near-black background. Wired into the userscript header via `@icon` so userscript managers display it next to the install dialog and update banner, and embedded at the top of `README.md`.
+### Added
+- `icon.svg` — a green chat-bubble icon on Kick's near-black background. Wired into the userscript header via `@icon` so userscript managers display it next to the install dialog and update banner, and embedded at the top of `README.md`.
 
-  ## [0.8.4] - 2026-05-14
+## [0.8.4] - 2026-05-14
 
-  ### Changed
-  - Added `@author jakubnl94@gmail.com` and `@license GPL-3.0-only` to the userscript metadata header so userscript managers show author and license info next to the install dialog and update banner.
+### Changed
+- Added `@author jakubnl94@gmail.com` and `@license GPL-3.0-only` to the userscript metadata header so userscript managers show author and license info next to the install dialog and update banner.
 
-  ## [0.8.3] - 2026-05-14
+## [0.8.3] - 2026-05-14
 
-  ### Fixed
-  - The **Chat** button stayed clickable across a quality change, defeating the 0.8.1 protection. Root cause: when `disableSideChat` ran from the capture-phase quality handler, it called `startVideoLoadingMonitor`, which unconditionally detached the previous video listeners (nulling `fullscreenVideoEl`) and then re-attached to the same `<video>` element. The "video element changed and is already past readyState 2" branch in `tryAttach` then mistakenly synthesized an `onVideoLoaded()` call against the *stale* `readyState=4` the old element still reported, starting the 750ms grace timer and re-enabling the button before Kick had even begun the reload. The synthesize-on-already-ready path now compares against the *previous* video element captured before the detach, so re-attaching to the same element waits for the real `loadstart` → `loadeddata`/`canplay` sequence and only genuine element swaps go through the synthetic fast path.
+### Fixed
+- The **Chat** button stayed clickable across a quality change, defeating the 0.8.1 protection. Root cause: when `disableSideChat` ran from the capture-phase quality handler, it called `startVideoLoadingMonitor`, which unconditionally detached the previous video listeners (nulling `fullscreenVideoEl`) and then re-attached to the same `<video>` element. The "video element changed and is already past readyState 2" branch in `tryAttach` then mistakenly synthesized an `onVideoLoaded()` call against the *stale* `readyState=4` the old element still reported, starting the 750ms grace timer and re-enabling the button before Kick had even begun the reload. The synthesize-on-already-ready path now compares against the *previous* video element captured before the detach, so re-attaching to the same element waits for the real `loadstart` → `loadeddata`/`canplay` sequence and only genuine element swaps go through the synthetic fast path.
 
-  ## [0.8.2] - 2026-05-14
+## [0.8.2] - 2026-05-14
 
-  ### Changed
-  - Repository moved to `github.com/jakubn11/kick-fullscreen-chat`. `@namespace`, `@updateURL`, and `@downloadURL` in the userscript metadata header now point at the new location, so Tampermonkey / Userscripts auto-update fetches from the new repo. Added `INSTALL.md` (extracted from `README.md`) covering setup per userscript manager, usage, update notes, and the troubleshooting table. `README.md` now links out to it instead of duplicating the content.
+### Changed
+- Repository moved to `github.com/jakubn11/kick-fullscreen-chat`. `@namespace`, `@updateURL`, and `@downloadURL` in the userscript metadata header now point at the new location, so Tampermonkey / Userscripts auto-update fetches from the new repo. Added `INSTALL.md` (extracted from `README.md`) covering setup per userscript manager, usage, update notes, and the troubleshooting table. `README.md` now links out to it instead of duplicating the content.
 
-  ## [0.8.1] - 2026-05-14
+## [0.8.1] - 2026-05-14
 
-  ### Fixed
-  - The **Chat** button could still navigate to Kick's 404 page when clicked right after the side chat had torn itself down due to a quality change, seek, or "go to live" click while the player was reloading. The 0.8.0 disabled-while-loading check only ran on `fullscreenchange`, so its listeners stayed on the now-dead `<video>` element after Kick re-mounted the player tree, and the old element could briefly still report `readyState=4` in the gap before Kick wiped it — letting the button look enabled. Now: a `videoReloading` flag is raised synchronously in the capture-phase quality / seekbar / go-live handlers (and by the monitor's `loadstart` / `emptied` listeners for reloads we didn't trigger ourselves) and only cleared when the (possibly new) `<video>` fires `canplay` / `loadeddata`. The monitor also installs a `MutationObserver` on the fullscreen element so it re-attaches its listeners to whatever video element Kick mounts next. `enableSideChat` additionally bails out when no `<video>` is present and defers when the flag is set, as a last line of defense against clicks that slip through the disabled state.
+### Fixed
+- The **Chat** button could still navigate to Kick's 404 page when clicked right after the side chat had torn itself down due to a quality change, seek, or "go to live" click while the player was reloading. The 0.8.0 disabled-while-loading check only ran on `fullscreenchange`, so its listeners stayed on the now-dead `<video>` element after Kick re-mounted the player tree, and the old element could briefly still report `readyState=4` in the gap before Kick wiped it — letting the button look enabled. Now: a `videoReloading` flag is raised synchronously in the capture-phase quality / seekbar / go-live handlers (and by the monitor's `loadstart` / `emptied` listeners for reloads we didn't trigger ourselves) and only cleared when the (possibly new) `<video>` fires `canplay` / `loadeddata`. The monitor also installs a `MutationObserver` on the fullscreen element so it re-attaches its listeners to whatever video element Kick mounts next. `enableSideChat` additionally bails out when no `<video>` is present and defers when the flag is set, as a last line of defense against clicks that slip through the disabled state.
 
-  ### Changed
-  - The **Chat** button no longer re-enables instantly when the video fires `canplay`/`loadeddata`. Even when the video reports ready, React can still be mid-commit on Kick's player tree, and a click that lands in that window can still hit the 404. The button now waits `VIDEO_READY_GRACE_MS` (750ms) after the ready event before becoming clickable; if another `loadstart`/`emptied` fires during the grace, the timer is canceled and the button stays disabled until the next stable ready event. Initial-fullscreen-enter with an already-loaded video is unaffected (no reload conflict to worry about).
+### Changed
+- The **Chat** button no longer re-enables instantly when the video fires `canplay`/`loadeddata`. Even when the video reports ready, React can still be mid-commit on Kick's player tree, and a click that lands in that window can still hit the 404. The button now waits `VIDEO_READY_GRACE_MS` (750ms) after the ready event before becoming clickable; if another `loadstart`/`emptied` fires during the grace, the timer is canceled and the button stays disabled until the next stable ready event. Initial-fullscreen-enter with an already-loaded video is unaffected (no reload conflict to worry about).
 
-  ## [0.8.0] - 2026-05-14
+## [0.8.0] - 2026-05-14
 
-  ### Changed
-  - The **Chat** button is now disabled while the video is loading. Once the video reaches `HAVE_CURRENT_DATA` (readyState ≥ 2), the button is automatically enabled. This prevents users from attempting to enable side chat before the player is fully initialized, which could lead to layout issues. The button's `aria-label` also updates to show "Loading video..." while disabled.
+### Changed
+- The **Chat** button is now disabled while the video is loading. Once the video reaches `HAVE_CURRENT_DATA` (readyState ≥ 2), the button is automatically enabled. This prevents users from attempting to enable side chat before the player is fully initialized, which could lead to layout issues. The button's `aria-label` also updates to show "Loading video..." while disabled.
 
-  ## [0.7.8] - 2026-05-14
+## [0.7.8] - 2026-05-14
 
 ### Fixed
 - Clicking the **Chat** button to open the side chat *while the video was still loading* (e.g. right after entering fullscreen, after a quality change, or after seeking) navigated to Kick's 404 page. Cause: wrapping fsEl's children mid-load collides with React's in-progress reconciliation as Kick mounts the player tree, so the very next commit phase throws and the error boundary navigates away. The script now checks `video.readyState` before wrapping; if the video hasn't reached `HAVE_CURRENT_DATA` (readyState ≥ 2), the wrap is deferred until the video fires `loadeddata` or `canplay`. A 10-second timeout abandons the pending enable so a stalled load doesn't leave the user with a stuck button. The pending state is also cleared on fullscreen exit.
