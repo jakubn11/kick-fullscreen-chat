@@ -18,7 +18,7 @@ Useful local checks:
 
 ```bash
 sed -n '1,80p' kick-fullscreen-chat.user.js
-wc -l kick-fullscreen-chat.user.js
+wc -l kick-fullscreen-chat.user.js INSTALL.md
 ```
 
 Manual testing is required in a browser with a userscript manager installed:
@@ -30,8 +30,9 @@ Manual testing is required in a browser with a userscript manager installed:
 5. Click it — video should shrink, chat should dock to the right.
 6. Click Kick's native **Hide chat** inside the chat panel — split layout should tear down and the **Chat** button should reappear.
 7. Click **Chat** again — chat should reappear in the split layout (not stay empty).
-8. Exit fullscreen — DOM should be restored to its original state, chat back in its original location.
-9. Check the browser developer console for `[KickFullscreenChat]` log lines if something doesn't work.
+8. Change stream quality / seek / "Go to live" with side chat open — layout should tear down and the **Chat** button should stay disabled until the new stream is playing.
+9. Exit fullscreen — DOM should be restored to its original state, chat back in its original location.
+10. Check the browser developer console for `[KickFullscreenChat]` log lines if something doesn't work.
 
 ## Userscript Metadata
 
@@ -39,6 +40,7 @@ The userscript header controls permissions and host access. Keep it valid across
 
 - `@match` should remain scoped to `https://kick.com/*` unless the target changes.
 - `@grant none` — this userscript does not need any GM_* APIs. Do not add grants unless a feature actually requires one.
+- `@updateURL` / `@downloadURL` point at the `main` branch on GitHub. If the repo or branch moves, update both.
 - Bump `@version` when changing user-facing behavior or DOM logic.
 
 Do not add `Co-Authored-By:` trailers to git commits.
@@ -54,9 +56,23 @@ Do not add `Co-Authored-By:` trailers to git commits.
 - Kick state helpers — `setKickDataChat()` toggles the `data-chat` attribute Kick uses to drive chat visibility via Tailwind `group-data-[chat=false]/main` rules
 - Style injection — `injectStyles()` adds the `.kfc-active` flex layout, slot rules, and button wrapper positioning
 - Split-layout state — `savedChatParent`, `savedChatNextSibling`, `chatSlot`, `videoSlot`, `active`, `suppressObserver`
+- Reload-resilience state — `videoReloading`, `videoReadyTimer`, `fullscreenVideoEl`, `videoSwapObserver`, `pendingVideoEl`
+- Capture-phase teardown handlers — `onDocClickCapture` (quality / seekbar / go-live), `onDocPointerDownCapture` (seekbar), `onChatSlotClick` (Kick's hide-chat button)
 - Layout toggle — `enableSideChat()`, `disableSideChat()`
 - Button — `ensureButton()`, `removeButton()`, `updateBtnLabel()`
-- Observers and listeners — `dataChatObserver` (watches for Kick toggling `data-chat="false"`) and the `fullscreenchange` / `webkitfullscreenchange` handlers
+- Video monitor — `startVideoLoadingMonitor()`, `stopVideoLoadingMonitor()`, `attachVideoListeners()`, `detachVideoListeners()`
+- Observers and listeners — `dataChatObserver` (watches for Kick toggling `data-chat="false"`), `videoSwapObserver` (watches for Kick replacing the `<video>` element), and the `fullscreenchange` / `webkitfullscreenchange` handlers
+
+The central state that drives the split layout is:
+
+```js
+let active = false;             // split layout currently mounted
+let videoReloading = false;     // player is reloading; Chat button must stay disabled
+let savedChatParent = null;     // where to put chat back on teardown
+let savedChatNextSibling = null;
+let chatSlot = null;            // .kfc-chat-slot we created
+let videoSlot = null;           // .kfc-video-slot we created
+```
 
 The core idea: when the user activates the side chat, the chat node is **moved** into a new `.kfc-chat-slot` inside the fullscreen element, and the existing fullscreen children are wrapped in a `.kfc-video-slot`. On tear-down, the chat node is restored to its original parent (and original `nextSibling` insertion point if still present).
 
@@ -87,16 +103,24 @@ Always test after selector or attribute changes:
 - Re-activating split layout — chat content is visible (not an empty dark slot)
 - Exiting fullscreen — chat returns to its original DOM location
 
-## UI Design Notes
+## Layout Notes
 
-The injected button intentionally re-uses Kick's own button markup so it inherits Kick's design tokens automatically:
+- The fullscreen element is laid out via `display: flex; flex-direction: row` (`.kfc-active` class), with `.kfc-video-slot` (`flex: 1 1 auto`) on the left and `.kfc-chat-slot` (`flex: 0 0 340px`) on the right.
+- Slot CSS is intentionally **not** scoped under `.kfc-active`. Kick's React periodically re-renders the fullscreen element and writes its own `className`, stripping `.kfc-active`. Targeting the slot classes directly keeps the rules applied for as long as the slot nodes exist.
+- `.kfc-video-slot` sets `transform: translateZ(0)` so it acts as a containing block for Kick's `position: fixed` video and controls layers — without this, the timeline / controls overflow across the chat panel.
+- The video element inside the slot is forced to `width/height: 100%` with `object-fit: contain` so it fills the slot without leaving black side bars.
 
-- The toggle button uses Kick's exact class string (`BTN_CLASS`) — `bg-surface-base`, `betterhover:hover:!bg-surface-highest`, `text-white`, `rounded`, etc.
-- The toggle button SVG is the exact icon Kick uses on its native "Show chat" button.
-- The wrapper is positioned with `top: 1.75rem; right: 1.75rem` to match Kick's `top-7 right-7` placement.
-- When the split layout is active, the toggle button is hidden via `display: none` — Kick's native **Hide chat** button inside the chat panel takes over.
+## Reload-Resilience Notes
 
-Do not introduce custom button styling or palette tokens. If Kick changes their button classes, update `BTN_CLASS` to match the new ones rather than introducing a parallel design language.
+When Kick's React reconciler re-mounts the player tree (quality change, seek, DVR exit, popstate), our wrapped layout collides with the reconciliation and the page navigates to Kick's 404 error page. The script defends against this in three layers:
+
+1. **Capture-phase teardown.** `onDocClickCapture` and `onDocPointerDownCapture` catch clicks on quality popover items, the seekbar, and "Go to live" buttons *before* Kick's onClick runs, set `videoReloading = true`, and call `disableSideChat()` synchronously so the DOM is back in Kick's expected shape before reconciliation runs.
+2. **Disabled Chat button.** `updateBtnLabel()` disables the **Chat** button whenever `videoReloading` is true or the `<video>` element reports `readyState < 2`. The disabled state is enforced via `btn.disabled = true` plus Kick's own `disabled:pointer-events-none` Tailwind class on `BTN_CLASS`.
+3. **Grace delay.** Even after `canplay`/`loadeddata` fires, React may still be mid-commit. `VIDEO_READY_GRACE_MS` (750ms) defers re-enabling the button. A `loadstart`/`emptied` during the grace cancels the timer and keeps the button disabled.
+
+The video monitor (`startVideoLoadingMonitor`) attaches to whatever `<video>` is currently in `fsEl` and re-attaches on swap via a `MutationObserver`. It also synthesizes the `onVideoLoaded()` path when a *new* element is already past `readyState 2` by the time the observer wakes — but only when the element is genuinely different from the previous one (compared against `previousVideo` captured before the detach), so re-attaching to the same element doesn't clear `videoReloading` based on stale `readyState`.
+
+`enableSideChat()` is the last line of defense: it bails when no `<video>` is present and defers (via `pendingVideoEl`) when `videoReloading` is true or `readyState < 2`.
 
 ## Security
 
@@ -117,19 +141,49 @@ Do not introduce custom button styling or palette tokens. If Kick changes their 
 - Does any new code mutate `data-chat` without raising `suppressObserver` first? → Wrap the write.
 - Does any new code use string-based dynamic execution (`eval`, etc.)? → Remove it.
 
+### Existing security measures (do not remove or weaken)
+
+- `looksLikePlayer` check in `onFullscreenChange` — only injects the toggle when the fullscreen target is a Kick player container.
+- Hardcoded `BTN_SVG` + `<span>Chat</span>` template for the toggle button — the only `innerHTML` use in the script.
+- `suppressObserver` flag around our own `data-chat` writes — prevents the `dataChatObserver` from tearing down the layout we just enabled.
+- `@grant none` and zero `fetch` / `XMLHttpRequest` / image-load calls — keeps the attack surface to in-page DOM manipulation only.
+- `showToast()` (instead of `alert()`) for surfacing errors — avoids stealing focus and breaking fullscreen.
+
+## UI Design System
+
+All script-injected UI must follow this design language consistently. Do not deviate from it when adding new buttons, overlays, or controls.
+
+### Palette
+
+This script does not define its own design tokens — all visible UI inherits Kick's tokens by reusing Kick's exact class strings and SVG.
+
+| Token | Source | Usage |
+|---|---|---|
+| `BTN_CLASS` | Kick's native chat-toggle button class string | The injected **Chat** button |
+| `BTN_SVG` | Kick's native "Show chat" icon | The injected **Chat** button icon |
+| `top: 1.75rem; right: 1.75rem` | Kick's `top-7 right-7` placement | `#kfc-toggle-wrap` positioning |
+| `rgba(0,0,0,.88)` + `rgba(255,255,255,.1)` border | Neutral toast palette | `#kfc-toast` (errors only) |
+
+### Rules
+
+- **Re-use Kick's tokens, never invent new ones.** All inherited styling comes from `BTN_CLASS` (Tailwind classes Kick already ships). If Kick changes the class names, update `BTN_CLASS` rather than introducing a parallel design language.
+- **Hide the toggle when split layout is active** — Kick's native **Hide chat** button inside the chat panel takes over. The wrapper toggles `display: none` via the `.kfc-hidden` class.
+- **Disabled state via Kick's own classes.** `BTN_CLASS` already includes `disabled:pointer-events-none disabled:opacity-30` — set `btn.disabled = true`/`false`, do not paint custom disabled styling.
+- **Toasts are neutral, not Kick-themed.** `#kfc-toast` uses a black-on-translucent palette for surfacing internal errors (e.g. "chat panel not found"). It is not part of Kick's design language and intentionally looks different.
+- **No tooltips, no menus, no popovers** — the script's UI surface is intentionally limited to one button + one slot + one toast.
+
+### Reference implementations
+
+- `BTN_CLASS` / `BTN_SVG` constants — the injected toggle button (Kick-themed)
+- `#kfc-toggle-wrap` — the positioned wrapper for the toggle button
+- `.kfc-chat-slot` / `.kfc-video-slot` — split-layout slots (transparent / dark backgrounds; no Kick tokens needed because Kick's own chat and player chrome render inside them)
+- `#kfc-toast` — neutral error toast
+
 ## Documentation
 
-The repo carries these user-facing docs:
+Update `INSTALL.md` when installation steps, supported browsers, troubleshooting guidance, or user-visible behavior changes.
 
-- `README.md` — high-level overview, features, "how it works", links out.
-- `INSTALL.md` — installation per userscript manager, usage walkthrough, update notes, and the troubleshooting table.
-- `LICENSE` — full GPLv3 text.
-
-Update rules:
-
-- When installation steps, supported browsers, troubleshooting guidance, or user-visible behavior change → update `INSTALL.md`.
-- When features, "how it works" copy, or top-level positioning changes → update `README.md`. Do not duplicate installation or troubleshooting content from `INSTALL.md` here; link to it.
-- Keep docs browser-agnostic. Cover the general flow and call out manager-specific differences (Userscripts for Safari, Tampermonkey, Violentmonkey, etc.) where they matter.
+Keep docs browser-agnostic. When mentioning installation steps, cover the general flow and call out manager-specific differences (Userscripts for Safari, Tampermonkey, Violentmonkey, etc.) where they matter.
 
 ## Before Every Commit
 
@@ -144,7 +198,7 @@ Before committing any change, always:
    | Breaking change or full rewrite | **major** `+1.0.0` | `0.x.x → 1.0.0` |
 
 2. **Update `CHANGELOG.md`** — add an entry under the new version with a short summary of what changed.
-3. **Update `INSTALL.md`** if installation steps, supported browsers, usage flow, or troubleshooting guidance change. Update `README.md` only if features or top-level positioning change. Internal refactors and bug fixes that don't change user-facing behaviour don't require either.
+3. **Update `README.md`** if the change is user-facing: new or removed features, changed behaviour, new keyboard shortcuts, or updated troubleshooting steps. Internal refactors and bug fixes that don't change user-facing behaviour do not require a README update.
 4. **Suggest a GitHub Release** after every commit if any of the following apply — say "this looks like a good point to publish a GitHub Release":
    - A security fix was made
    - A user-facing feature was added (new toggle, new layout, new keyboard shortcut)
