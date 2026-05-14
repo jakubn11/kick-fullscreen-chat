@@ -4,6 +4,11 @@
 
   The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [0.8.4] - 2026-05-14
+
+  ### Changed
+  - Added `@author jakubnl94@gmail.com` and `@license GPL-3.0-only` to the userscript metadata header so userscript managers show author and license info next to the install dialog and update banner.
+
   ## [0.8.3] - 2026-05-14
 
   ### Fixed
