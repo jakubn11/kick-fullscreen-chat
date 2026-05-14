@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-05-15
+
+### Fixed
+- The side-chat layout could still navigate to Kick's 404 / "Oops, something went wrong" page after sitting open in fullscreen for a while, even without a quality change, seek, or "Go to live" click. Root cause: the script moved Kick's fullscreen player children into its own `.kfc-video-slot`, so a later background React refresh could try to reconcile/remove nodes from their original parent and hit Kick's error boundary. The script now leaves Kick's player nodes in place, docks chat in a fixed `.kfc-chat-slot`, and temporarily marks fullscreen-sized player layers with `data-kfc-video-root` for CSS sizing / containing-block behavior. A small observer re-marks replacement player layers without touching small popovers.
+
 ## [0.9.1] - 2026-05-15
 
 ### Fixed

@@ -32,7 +32,8 @@
 - Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
 - Auto-teardown: clicking Kick's native **Hide chat** restores fullscreen video and re-shows the **Chat** button so chat can be re-opened
 - Disables the **Chat** button while the player is reloading (quality change, seek, "go to live") with a short grace period after the video reports ready, so a click can never land mid-reload and trigger Kick's 404 page
-- Forces a containing block on the video slot so Kick's `position: fixed` player layers (video + timeline + controls) stay inside the video area instead of overlapping the chat
+- Leaves Kick's player nodes in their original DOM parent and marks them only for CSS sizing, so background player refreshes can reconcile without hitting Kick's 404 page
+- Forces a containing block on the video area so Kick's `position: fixed` player layers (video + timeline + controls) stay inside the video area instead of overlapping the chat
 - Restores the original DOM on exit — chat returns to its original location, no leftover wrappers
 - No network requests, no `localStorage`, no GM_* permissions
 
@@ -77,9 +78,10 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
 | Button appears, clicking it does nothing | The chat selector did not match Kick's current DOM. You will see `chat container not found` in the console. Inspect the chat panel in DevTools and add its selector to `CHAT_SELECTORS` near the top of the userscript. |
 | Re-opening chat shows an empty dark panel | Update to **0.5.0+** — the script now sets `data-chat="true"` before moving the chat, which prevents Kick's CSS from hiding the moved chat. |
-| Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video slot now creates a containing block for Kick's `position: fixed` player layers. |
+| Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video area now creates a containing block for Kick's `position: fixed` player layers. |
 | Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
 | Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.3+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |
+| Kick 404s after chat has been open in fullscreen for a while | Update to **0.9.2+** — the script no longer moves Kick's player nodes into its own wrapper, so background player refreshes can reconcile cleanly. |
 | Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |
 
 ## License
