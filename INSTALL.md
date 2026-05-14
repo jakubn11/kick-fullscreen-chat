@@ -39,6 +39,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 | Enter fullscreen on a Kick channel | Script injects a **Chat** toggle button (re-using Kick's own button class string and SVG) into the top-right of the fullscreen player. |
 | Click **Chat** | Wraps the fullscreen element's children in a `.kfc-video-slot` and moves the chat panel into a `.kfc-chat-slot` flexed alongside it (340px). |
 | Click Kick's native **Hide chat** inside the chat panel | A `MutationObserver` on `data-chat` (and a click listener for the chat-slot button) tears the split layout down. |
+| Stop moving the mouse for 3 seconds | The **Chat** button fades out alongside Kick's controls overlay. Any mouse movement brings it back instantly. |
 | Change stream quality / seek / "Go to live" | Capture-phase click handlers tear the layout down before Kick's React remounts the player tree, avoiding the 404 you'd otherwise hit. The **Chat** button stays disabled until the player finishes reloading. |
 | Exit fullscreen | The chat node is restored to its original parent and `nextSibling` position; the slot wrappers and toggle button are removed. |
 

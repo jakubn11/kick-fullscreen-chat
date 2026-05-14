@@ -60,6 +60,7 @@ Do not add `Co-Authored-By:` trailers to git commits.
 - Capture-phase teardown handlers — `onDocClickCapture` (quality / seekbar / go-live), `onDocPointerDownCapture` (seekbar), `onChatSlotClick` (Kick's hide-chat button)
 - Layout toggle — `enableSideChat()`, `disableSideChat()`
 - Button — `ensureButton()`, `removeButton()`, `updateBtnLabel()`
+- Idle auto-hide — `startIdleTracking()`, `stopIdleTracking()`, `onFsMouseMove()`, `setIdle()`, `IDLE_MS`
 - Video monitor — `startVideoLoadingMonitor()`, `stopVideoLoadingMonitor()`, `attachVideoListeners()`, `detachVideoListeners()`
 - Observers and listeners — `dataChatObserver` (watches for Kick toggling `data-chat="false"`), `videoSwapObserver` (watches for Kick replacing the `<video>` element), and the `fullscreenchange` / `webkitfullscreenchange` handlers
 
@@ -109,6 +110,7 @@ Always test after selector or attribute changes:
 - Slot CSS is intentionally **not** scoped under `.kfc-active`. Kick's React periodically re-renders the fullscreen element and writes its own `className`, stripping `.kfc-active`. Targeting the slot classes directly keeps the rules applied for as long as the slot nodes exist.
 - `.kfc-video-slot` sets `transform: translateZ(0)` so it acts as a containing block for Kick's `position: fixed` video and controls layers — without this, the timeline / controls overflow across the chat panel.
 - The video element inside the slot is forced to `width/height: 100%` with `object-fit: contain` so it fills the slot without leaving black side bars.
+- The toggle button wrapper (`#kfc-toggle-wrap`) fades via the `.kfc-idle` class (`opacity: 0; pointer-events: none`) after `IDLE_MS` of no `mousemove` on the fullscreen element. Kick's own controls overlay does the same; the timing is independent (no DOM coupling) but visually synchronised.
 
 ## Reload-Resilience Notes
 

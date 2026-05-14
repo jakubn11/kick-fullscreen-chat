@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-  // @version      0.8.5
+  // @version      0.9.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -122,8 +122,17 @@
         right: 1.75rem;
         z-index: 2147483647;
         pointer-events: auto;
+        opacity: 1;
+        transition: opacity 0.2s ease;
       }
       #${WRAP_ID}.kfc-hidden { display: none; }
+      /* Mirrors Kick's own controls-overlay fade so the toggle button
+         disappears alongside the timeline / play controls when the user is
+         idle, and reappears as soon as the mouse moves. */
+      #${WRAP_ID}.kfc-idle {
+        opacity: 0;
+        pointer-events: none;
+      }
       #${BTN_ID} svg { transition: transform 0.15s ease; }
       .kfc-active #${BTN_ID} svg { transform: scaleX(-1); }
 
@@ -696,6 +705,38 @@
     if (wrap) wrap.remove();
   };
 
+  // Idle auto-hide: fade the toggle button out when the user stops moving the
+  // mouse, mirroring how Kick's own controls overlay disappears. Any
+  // mousemove on the fullscreen element brings it back instantly.
+  const IDLE_MS = 3000;
+  let idleTimer = 0;
+  let idleFsEl = null;
+  const setIdle = (idle) => {
+    const wrap = document.getElementById(WRAP_ID);
+    if (!wrap) return;
+    wrap.classList.toggle('kfc-idle', idle);
+  };
+  const onFsMouseMove = () => {
+    setIdle(false);
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => setIdle(true), IDLE_MS);
+  };
+  const startIdleTracking = (fsEl) => {
+    stopIdleTracking();
+    idleFsEl = fsEl;
+    fsEl.addEventListener('mousemove', onFsMouseMove);
+    onFsMouseMove();
+  };
+  const stopIdleTracking = () => {
+    if (idleFsEl) idleFsEl.removeEventListener('mousemove', onFsMouseMove);
+    idleFsEl = null;
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = 0;
+    }
+    setIdle(false);
+  };
+
   // When Kick's own hide-chat button toggles data-chat="false", tear down our layout
   // so the empty chat slot collapses and our "Chat" button reappears.
   const dataChatObserver = new MutationObserver((muts) => {
@@ -730,10 +771,12 @@
       if (!looksLikePlayer) return;
       ensureButton(fsEl);
       startVideoLoadingMonitor(fsEl);
+      startIdleTracking(fsEl);
     } else {
       // Exiting fullscreen — clean up.
       clearPendingEnable();
       stopVideoLoadingMonitor();
+      stopIdleTracking();
       if (active) {
         // We need to operate against the previous fullscreen element; rebuild from current DOM.
         const parent = videoSlot?.parentElement;

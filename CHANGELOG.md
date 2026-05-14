@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-05-15
+
+### Added
+- The **Chat** toggle button now fades out when the user is idle on the fullscreen player, mirroring how Kick's own controls overlay disappears after a few seconds of no mouse movement. Any `mousemove` on the fullscreen element brings the button back instantly. Idle timeout is `IDLE_MS = 3000` (3 seconds). Only applies while in fullscreen and while the side chat is *not* active (when chat is open Kick's native **Hide chat** button takes over and our toggle is hidden via `display: none` regardless of idle state).
+
 ## [0.8.5] - 2026-05-14
 
 ### Added
