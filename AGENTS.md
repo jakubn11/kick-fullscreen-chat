@@ -7,7 +7,7 @@ Browser userscript that adds a Twitch-style side-by-side fullscreen-with-chat mo
 **Type:** Single-file JavaScript userscript  
 **Primary file:** `kick-fullscreen-chat.user.js`  
 **Install docs:** `INSTALL.md`  
-**Target:** Any userscript manager (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, Safari Userscripts, etc.) on any browser; developed and tested on Safari + Userscripts  
+**Target:** Any userscript manager (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other) on any browser; developed and tested on Safari + Userscripts  
 **Git:** `git@github.com:jakubn11/kick-fullscreen-chat.git` (default branch: `main`).
 
 ## Commands
@@ -23,7 +23,7 @@ wc -l kick-fullscreen-chat.user.js INSTALL.md
 
 Manual testing is required in a browser with a userscript manager installed:
 
-1. Install the userscript via your manager (e.g. drag the `.user.js` file into Tampermonkey / Violentmonkey / Greasemonkey / ScriptCat, or copy it into the folder configured in the Userscripts extension on Safari).
+1. Install the userscript via your manager (e.g. drag the `.user.js` file into Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other, or copy it into the folder configured in the Userscripts extension on Safari).
 2. Open a Kick channel page.
 3. Click the player's fullscreen button.
 4. Verify the **Chat** button appears top-right.
@@ -36,7 +36,7 @@ Manual testing is required in a browser with a userscript manager installed:
 
 ## Userscript Metadata
 
-The userscript header controls permissions and host access. Keep it valid across all common userscript managers (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, Userscripts, etc.):
+The userscript header controls permissions and host access. Keep it valid across all common userscript managers (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other):
 
 - `@match` should remain scoped to `https://kick.com/*` unless the target changes.
 - `@grant none` — this userscript does not need any GM_* APIs. Do not add grants unless a feature actually requires one.
@@ -185,7 +185,7 @@ This script does not define its own design tokens — all visible UI inherits Ki
 
 Update `INSTALL.md` when installation steps, supported browsers, troubleshooting guidance, or user-visible behavior changes.
 
-Keep docs browser-agnostic. When mentioning installation steps, cover the general flow and call out manager-specific differences (Userscripts for Safari, Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, etc.) where they matter.
+Keep docs browser-agnostic. When mentioning installation steps, cover the general flow and call out manager-specific differences (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other) where they matter.
 
 ## Before Every Commit
 

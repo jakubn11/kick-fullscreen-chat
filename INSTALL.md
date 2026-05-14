@@ -32,7 +32,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 2. Click the Violentmonkey icon → **+** → **New script**.
 3. Paste the contents of `kick-fullscreen-chat.user.js` and save.
 
-**[Greasemonkey](https://www.greasespot.net)** (Firefox only):
+**[Greasemonkey](https://www.greasespot.net)**:
 1. Install the Greasemonkey add-on from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/greasemonkey/).
 2. Click the Greasemonkey icon → **New user script…**.
 3. Fill in any name, click **OK**, then paste the contents of `kick-fullscreen-chat.user.js` over the template and save.
@@ -60,7 +60,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 
 ## Updating
 
-The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the `main` branch on GitHub. Most managers (Tampermonkey, Userscripts, Violentmonkey, ScriptCat) honour these and auto-update when a new `@version` is published. Greasemonkey 4+ also supports `@updateURL` but with a longer default check interval (set in its preferences). To update manually in any manager, replace `kick-fullscreen-chat.user.js` with the new version.
+The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the `main` branch on GitHub. Most managers (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other) honour these and auto-update when a new `@version` is published. Greasemonkey uses a longer default check interval (set in its preferences). To update manually in any manager, replace `kick-fullscreen-chat.user.js` with the new version.
 
 ## Troubleshooting
 
