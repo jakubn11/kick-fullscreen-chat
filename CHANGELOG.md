@@ -4,6 +4,11 @@
 
   The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [0.8.5] - 2026-05-14
+
+  ### Added
+  - `icon.svg` — a green chat-bubble icon on Kick's near-black background. Wired into the userscript header via `@icon` so userscript managers display it next to the install dialog and update banner, and embedded at the top of `README.md`.
+
   ## [0.8.4] - 2026-05-14
 
   ### Changed

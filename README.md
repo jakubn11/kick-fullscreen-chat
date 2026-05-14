@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="icon.svg" alt="Kick Fullscreen Chat icon" width="96" height="96">
+
 <h1>Kick Fullscreen Chat</h1>
 
 <p>
