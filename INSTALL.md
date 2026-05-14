@@ -20,9 +20,9 @@ Safari requires a userscript host app. **[Userscripts](https://apps.apple.com/ap
 
 ## Other browsers (untested)
 
-The script is pure DOM manipulation and uses `@grant none`, so it should work with any userscript manager, but has only been tested on Safari + Userscripts.
+The script is pure DOM manipulation and uses `@grant none`, so it should work with **any** userscript manager — none of the manager-specific GM_* APIs are needed. Tested only on Safari + Userscripts; the rest are listed for reference.
 
-**[Tampermonkey](https://www.tampermonkey.net)** (Chrome, Firefox, Edge, Safari):
+**[Tampermonkey](https://www.tampermonkey.net)** (Chrome, Firefox, Edge, Safari, Opera):
 1. Install the Tampermonkey extension for your browser.
 2. Open the Tampermonkey dashboard → **Create a new script**.
 3. Replace the default content with the contents of `kick-fullscreen-chat.user.js` and save.
@@ -31,6 +31,18 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 1. Install the Violentmonkey extension.
 2. Click the Violentmonkey icon → **+** → **New script**.
 3. Paste the contents of `kick-fullscreen-chat.user.js` and save.
+
+**[Greasemonkey](https://www.greasespot.net)** (Firefox only):
+1. Install the Greasemonkey add-on from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/greasemonkey/).
+2. Click the Greasemonkey icon → **New user script…**.
+3. Fill in any name, click **OK**, then paste the contents of `kick-fullscreen-chat.user.js` over the template and save.
+
+**[ScriptCat](https://scriptcat.org)** (Chrome, Firefox, Edge):
+1. Install the ScriptCat extension.
+2. Open the ScriptCat manager → **+** → **New script**.
+3. Paste the contents of `kick-fullscreen-chat.user.js` and save.
+
+**Other managers** (e.g. AdGuard, Stay for Safari, Userscript Loader): the install flow is the same — create a new script in the manager's UI and paste the file contents. Auto-update via `@updateURL` works in any manager that honours that directive.
 
 ## How it works
 
@@ -48,7 +60,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 
 ## Updating
 
-The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the `main` branch on GitHub, so Tampermonkey and Userscripts auto-update when a new version is published. To update manually, replace `kick-fullscreen-chat.user.js` with the new version.
+The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the `main` branch on GitHub. Most managers (Tampermonkey, Userscripts, Violentmonkey, ScriptCat) honour these and auto-update when a new `@version` is published. Greasemonkey 4+ also supports `@updateURL` but with a longer default check interval (set in its preferences). To update manually in any manager, replace `kick-fullscreen-chat.user.js` with the new version.
 
 ## Troubleshooting
 
