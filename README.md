@@ -56,15 +56,6 @@ See [INSTALL.md](INSTALL.md) for step-by-step instructions.
 1. Install [Tampermonkey](https://www.tampermonkey.net) or [Violentmonkey](https://violentmonkey.github.io)
 2. Open `kick-fullscreen-chat.user.js` and paste it into a new script, or drag the file into the extension dashboard
 
-## Usage
-
-1. Open any Kick channel.
-2. Click the player's fullscreen icon.
-3. The **Chat** button appears top-right (matches Kick's native button styling).
-4. Click it — the video shrinks to the left and the chat panel docks on the right.
-5. To hide chat again, use Kick's native **Hide chat** button inside the chat panel. The split layout tears down and the **Chat** button reappears.
-6. Exit fullscreen at any time — the DOM is restored to its original state.
-
 ## How it works
 
 The userscript listens for `fullscreenchange` events. When Kick's player enters fullscreen, it injects a button using Kick's own class string and SVG so it inherits the native design tokens automatically.
