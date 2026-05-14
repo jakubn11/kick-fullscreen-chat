@@ -10,12 +10,12 @@ Safari requires a userscript host app. **[Userscripts](https://apps.apple.com/ap
 
 2. Open Safari → **Settings** → **Extensions** → enable **Userscripts**.
 
-3. Click the Userscripts toolbar icon and choose a folder to store your scripts
+3. Click the Userscripts toolbar icon and choose a folder to store your scripts  
    (e.g. `~/Documents/Userscripts`).
 
 4. Copy `kick-fullscreen-chat.user.js` into that folder — Userscripts picks it up automatically.
 
-   Alternatively, click the Userscripts icon while on any page and use
+   Alternatively, click the Userscripts icon while on any page and use  
    **"Open Scripts Directory"** to locate the right folder.
 
 ## Other browsers (untested)
@@ -32,14 +32,18 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 2. Click the Violentmonkey icon → **+** → **New script**.
 3. Paste the contents of `kick-fullscreen-chat.user.js` and save.
 
-## Usage
+## How it works
 
-1. Open any Kick channel.
-2. Click the player's fullscreen icon.
-3. The **Chat** button appears top-right (matches Kick's native button styling).
-4. Click it — the video shrinks to the left and the chat panel docks on the right.
-5. To hide chat again, use Kick's native **Hide chat** button inside the chat panel. The split layout tears down and the **Chat** button reappears.
-6. Exit fullscreen at any time — the DOM is restored to its original state.
+| Trigger | Behaviour |
+|---------|-----------|
+| Enter fullscreen on a Kick channel | Script injects a **Chat** toggle button (re-using Kick's own button class string and SVG) into the top-right of the fullscreen player. |
+| Click **Chat** | Wraps the fullscreen element's children in a `.kfc-video-slot` and moves the chat panel into a `.kfc-chat-slot` flexed alongside it (340px). |
+| Click Kick's native **Hide chat** inside the chat panel | A `MutationObserver` on `data-chat` (and a click listener for the chat-slot button) tears the split layout down. |
+| Change stream quality / seek / "Go to live" | Capture-phase click handlers tear the layout down before Kick's React remounts the player tree, avoiding the 404 you'd otherwise hit. The **Chat** button stays disabled until the player finishes reloading. |
+| Exit fullscreen | The chat node is restored to its original parent and `nextSibling` position; the slot wrappers and toggle button are removed. |
+
+- The script uses `@grant none` and makes no network requests — purely DOM manipulation against the Kick page.
+- A `transform`-based containing block on the video slot keeps Kick's `position: fixed` video and controls layers inside the slot instead of stretching across the chat panel.
 
 ## Updating
 
@@ -54,6 +58,6 @@ The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the
 | Re-opening chat shows an empty dark panel | Update to **0.5.0+** — the script now sets `data-chat="true"` before moving the chat, which prevents Kick's CSS from hiding the moved chat. |
 | Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video slot now creates a containing block for Kick's `position: fixed` player layers. |
 | Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
-| Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.1+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |
+| Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.3+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |
 | Want to see what the script is doing in the console | Set `const DEBUG = false;` to `true` near the top of the userscript and reload. Warnings always print; verbose logs are gated behind this flag. |
 | Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |

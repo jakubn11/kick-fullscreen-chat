@@ -56,15 +56,16 @@ See [INSTALL.md](INSTALL.md) for step-by-step instructions.
 1. Install [Tampermonkey](https://www.tampermonkey.net) or [Violentmonkey](https://violentmonkey.github.io)
 2. Open `kick-fullscreen-chat.user.js` and paste it into a new script, or drag the file into the extension dashboard
 
-## How it works
+## Usage
 
-The userscript listens for `fullscreenchange` events. When Kick's player enters fullscreen, it injects a button using Kick's own class string and SVG so it inherits the native design tokens automatically.
+Open any Kick channel and enter fullscreen with the player's fullscreen icon. The **Chat** button appears in the top-right corner.
 
-Toggling the button moves the chat DOM node into a `.kfc-chat-slot` flexed alongside a `.kfc-video-slot` that wraps the player. The video slot is given a `transform`-based containing block so Kick's `position: fixed` video and controls layers stay inside the slot instead of stretching across the chat.
-
-A `MutationObserver` watches the `data-chat` attribute Kick uses to drive chat visibility. When Kick sets `data-chat="false"` (its native hide button), the script tears down the split layout cleanly.
-
-On fullscreen exit, the chat node is returned to its original parent and original `nextSibling` position, the slot wrappers are removed, and the button is destroyed.
+| Action | Result |
+|--------|--------|
+| Click **Chat** | Video shrinks to the left, chat panel docks on the right (340px) |
+| Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
+| Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
+| Exit fullscreen | DOM restored to its original state — chat returns to its original location |
 
 ## Troubleshooting
 
