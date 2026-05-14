@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-  // @version      0.9.0
+  // @version      0.9.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -707,8 +707,10 @@
 
   // Idle auto-hide: fade the toggle button out when the user stops moving the
   // mouse, mirroring how Kick's own controls overlay disappears. Any
-  // mousemove on the fullscreen element brings it back instantly.
-  const IDLE_MS = 3000;
+  // mousemove on the fullscreen element brings it back instantly. Tuned to
+  // 4000ms because Kick's controls fade noticeably later than the standard
+  // 3000ms HTML5-video-player default.
+  const IDLE_MS = 4000;
   let idleTimer = 0;
   let idleFsEl = null;
   const setIdle = (idle) => {

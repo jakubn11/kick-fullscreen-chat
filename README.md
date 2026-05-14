@@ -29,7 +29,7 @@
 - Click it to shrink the video and dock the chat panel on the right (340px wide)
 - Re-uses Kick's own button markup and design tokens — visually identical to Kick's native buttons
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
-- Auto-fades after 3 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
+- Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
 - Auto-teardown: clicking Kick's native **Hide chat** restores fullscreen video and re-shows the **Chat** button so chat can be re-opened
 - Disables the **Chat** button while the player is reloading (quality change, seek, "go to live") with a short grace period after the video reports ready, so a click can never land mid-reload and trigger Kick's 404 page
 - Forces a containing block on the video slot so Kick's `position: fixed` player layers (video + timeline + controls) stay inside the video area instead of overlapping the chat
