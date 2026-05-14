@@ -4,6 +4,11 @@
 
   The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [0.8.3] - 2026-05-14
+
+  ### Fixed
+  - The **Chat** button stayed clickable across a quality change, defeating the 0.8.1 protection. Root cause: when `disableSideChat` ran from the capture-phase quality handler, it called `startVideoLoadingMonitor`, which unconditionally detached the previous video listeners (nulling `fullscreenVideoEl`) and then re-attached to the same `<video>` element. The "video element changed and is already past readyState 2" branch in `tryAttach` then mistakenly synthesized an `onVideoLoaded()` call against the *stale* `readyState=4` the old element still reported, starting the 750ms grace timer and re-enabling the button before Kick had even begun the reload. The synthesize-on-already-ready path now compares against the *previous* video element captured before the detach, so re-attaching to the same element waits for the real `loadstart` → `loadeddata`/`canplay` sequence and only genuine element swaps go through the synthetic fast path.
+
   ## [0.8.2] - 2026-05-14
 
   ### Changed

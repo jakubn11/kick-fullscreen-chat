@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-  // @version      0.8.2
+  // @version      0.8.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @match        https://kick.com/*
 // @run-at       document-idle
@@ -596,6 +596,13 @@
   };
 
   const startVideoLoadingMonitor = (fsEl) => {
+    // Remember which element we were on *before* the detach. Re-attaching
+    // to the same element should NOT synthesize a synthetic onVideoLoaded —
+    // the readyState we'd be reading is stale (the player is mid-reload),
+    // and triggering the grace timer here would re-enable the button before
+    // Kick has actually swapped to the new video. We only synthesize when
+    // we land on a genuinely different element.
+    const previousVideo = fullscreenVideoEl;
     detachVideoListeners();
     if (videoSwapObserver) {
       videoSwapObserver.disconnect();
@@ -608,18 +615,18 @@
       if (video === fullscreenVideoEl) return true;
       detachVideoListeners();
       attachVideoListeners(video);
-      // If we attached to a video that's *already* past readyState 2, no
-      // canplay/loadeddata event will fire after our listener installs, so we
-      // synthesize the grace-delayed clear here. (Otherwise the flag would
-      // stay stuck `true` whenever Kick swaps the element fast enough that
-      // the new one is already ready by the time the MutationObserver wakes.)
-      // We still don't clear the flag synchronously — same reason as the
-      // event-driven path: react may still be mid-commit.
-      if (videoReloading && video.readyState >= 2 && onVideoLoaded) {
+      // Synthesize the grace-delayed clear only when we attached to a
+      // genuinely different <video> element than the previous one — this
+      // covers the case where Kick swapped the element fast enough that the
+      // new one is already past readyState 2 by the time the
+      // MutationObserver wakes. For same-element re-attach (e.g. the initial
+      // call inside disableSideChat right after a quality click), we wait
+      // for the real loadstart → loadeddata/canplay sequence instead.
+      if (video !== previousVideo && videoReloading && video.readyState >= 2 && onVideoLoaded) {
         onVideoLoaded();
       }
       updateBtnLabel();
-      log('video monitor attached, readyState=', video.readyState);
+      log('video monitor attached, readyState=', video.readyState, 'newElement=', video !== previousVideo);
       return true;
     };
 
