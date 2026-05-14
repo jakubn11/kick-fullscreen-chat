@@ -49,14 +49,14 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 | Trigger | Behaviour |
 |---------|-----------|
 | Enter fullscreen on a Kick channel | Script injects a **Chat** toggle button (re-using Kick's own button class string and SVG) into the top-right of the fullscreen player. |
-| Click **Chat** | Moves the chat panel into a fixed `.kfc-chat-slot` (340px) and marks Kick's fullscreen player layers with `data-kfc-video-root` so they shrink into the left video area without leaving their original DOM parent. |
+| Click **Chat** | Wraps the fullscreen element's children in a `.kfc-video-slot` and moves the chat panel into a `.kfc-chat-slot` flexed alongside it (340px). |
 | Click Kick's native **Hide chat** inside the chat panel | A `MutationObserver` on `data-chat` (and a click listener for the chat-slot button) tears the split layout down. |
 | Stop moving the mouse for 4 seconds | The **Chat** button fades out alongside Kick's controls overlay. Any mouse movement brings it back instantly. |
 | Change stream quality / seek / "Go to live" | Capture-phase click handlers tear the layout down before Kick's React remounts the player tree, avoiding the 404 you'd otherwise hit. The **Chat** button stays disabled until the player finishes reloading. |
-| Exit fullscreen | The chat node is restored to its original parent and `nextSibling` position; the chat slot and toggle button are removed. |
+| Exit fullscreen | The chat node is restored to its original parent and `nextSibling` position; the slot wrappers and toggle button are removed. |
 
 - The script uses `@grant none` and makes no network requests — purely DOM manipulation against the Kick page.
-- A `transform`-based containing block on the marked video area keeps Kick's `position: fixed` video and controls layers inside the left side instead of stretching across the chat panel.
+- A `transform`-based containing block on the video slot keeps Kick's `position: fixed` video and controls layers inside the slot instead of stretching across the chat panel.
 
 ## Updating
 
@@ -69,9 +69,8 @@ The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the
 | Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
 | Button appears, clicking it does nothing | The chat selector did not match Kick's current DOM. You will see `chat container not found` in the console. Inspect the chat panel in DevTools and add its selector to `CHAT_SELECTORS` near the top of the userscript. |
 | Re-opening chat shows an empty dark panel | Update to **0.5.0+** — the script now sets `data-chat="true"` before moving the chat, which prevents Kick's CSS from hiding the moved chat. |
-| Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video area now creates a containing block for Kick's `position: fixed` player layers. |
+| Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video slot now creates a containing block for Kick's `position: fixed` player layers. |
 | Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
 | Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.3+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |
-| Kick 404s after chat has been open in fullscreen for a while | Update to **0.9.2+** — the script no longer moves Kick's player nodes into its own wrapper, so background player refreshes can reconcile cleanly. |
 | Want to see what the script is doing in the console | Set `const DEBUG = false;` to `true` near the top of the userscript and reload. Warnings always print; verbose logs are gated behind this flag. |
 | Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |

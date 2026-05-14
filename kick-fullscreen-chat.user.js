@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.9.2
+// @version      0.9.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -23,7 +23,6 @@
   const WRAP_ID = 'kfc-toggle-wrap';
   const TOAST_ID = 'kfc-toast';
   const STYLE_ID = 'kfc-style';
-  const VIDEO_ROOT_ATTR = 'data-kfc-video-root';
   const CHAT_WIDTH = '340px';
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
@@ -138,28 +137,29 @@
       .kfc-active #${BTN_ID} svg { transform: scaleX(-1); }
 
       .kfc-active {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: stretch !important;
         background: #000;
-        overflow: hidden !important;
       }
-      /* Keep Kick's player nodes in their original parent so React can reconcile
-         long-running fullscreen refreshes without trying to remove nodes we moved.
-         The marker only reserves room for our fixed chat panel and gives fixed
-         player descendants a containing block inside the left video area. */
-      [${VIDEO_ROOT_ATTR}] {
-        width: calc(100% - ${CHAT_WIDTH}) !important;
-        max-width: calc(100% - ${CHAT_WIDTH}) !important;
-        height: 100% !important;
+      /* Slot styles are intentionally NOT scoped under .kfc-active. Kick's React
+         re-renders the fullscreen element periodically and writes its own className,
+         stripping the .kfc-active class we added. When that happened, .kfc-video-slot
+         lost its \`position: relative\` and \`transform: translateZ(0)\`, the controls
+         overlay (\`absolute inset-0\`) escaped its containing block and stretched
+         across fsEl, and the bottom timeline/control row overflowed under the chat.
+         Targeting the slot classes directly keeps these properties applied for as
+         long as our slot nodes exist, regardless of fsEl's className churn. */
+      .kfc-video-slot {
+        flex: 1 1 auto;
         min-width: 0;
+        position: relative;
         overflow: hidden;
-        box-sizing: border-box !important;
-        left: 0 !important;
-        right: auto !important;
         /* Creates a containing block so position:fixed/absolute player layers
-           (video element + controls/timeline grid) anchor to the video area. */
+           (video element + controls/timeline grid) anchor to this slot. */
         transform: translateZ(0);
       }
-      video[${VIDEO_ROOT_ATTR}],
-      [${VIDEO_ROOT_ATTR}] video {
+      .kfc-video-slot video {
         position: relative;
         width: 100% !important;
         height: 100% !important;
@@ -168,12 +168,7 @@
         object-fit: contain !important;
       }
       .kfc-chat-slot {
-        position: fixed;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: ${CHAT_WIDTH};
-        z-index: 2147483646;
+        flex: 0 0 ${CHAT_WIDTH};
         background: #0e0e10;
         overflow: hidden;
         display: flex;
@@ -218,9 +213,7 @@
   let savedChatParent = null;
   let savedChatNextSibling = null;
   let chatSlot = null;
-  let videoRoots = [];
-  let videoRootHost = null;
-  let videoRootObserver = null;
+  let videoSlot = null;
   let active = false;
   let suppressObserver = false;
   let videoEl = null;
@@ -253,9 +246,9 @@
   };
 
   // Pending-enable state: when the user clicks Chat while the video is still
-  // loading (readyState < 2), we defer the layout change until the video reaches
-  // a stable state. Changing fullscreen DOM mid-load can trip React's reconciler
-  // (Kick is re-mounting parts of the player tree right then) and end with a 404.
+  // loading (readyState < 2), we defer the wrap until the video reaches a
+  // stable state. Wrapping mid-load can trip React's reconciler (Kick is
+  // re-mounting parts of the player tree right then) and end with a 404.
   let pendingVideoEl = null;
   let pendingOnReady = null;
   let pendingTimeoutId = 0;
@@ -270,70 +263,8 @@
     pendingTimeoutId = 0;
   };
 
-  const isKfcOwnedDirectChild = (el) =>
-    el === chatSlot ||
-    el.id === WRAP_ID ||
-    el.id === TOAST_ID ||
-    el.classList?.contains('kfc-chat-slot');
-
-  const looksLikeFullscreenLayer = (el) => {
-    if (el.querySelector?.('video')) return true;
-    const rect = el.getBoundingClientRect();
-    return rect.width >= window.innerWidth * 0.5 || rect.height >= window.innerHeight * 0.5;
-  };
-
-  const refreshVideoRoots = (fsEl) => {
-    if (!fsEl) return;
-    const roots = Array.from(fsEl.children).filter(
-      (child) =>
-        child instanceof Element &&
-        !isKfcOwnedDirectChild(child) &&
-        looksLikeFullscreenLayer(child)
-    );
-    const nextRoots = new Set(roots);
-    videoRoots.forEach((root) => {
-      if (!nextRoots.has(root)) root.removeAttribute(VIDEO_ROOT_ATTR);
-    });
-    roots.forEach((root) => root.setAttribute(VIDEO_ROOT_ATTR, ''));
-    videoRoots = roots;
-  };
-
-  const clearVideoRoots = () => {
-    videoRoots.forEach((root) => root.removeAttribute(VIDEO_ROOT_ATTR));
-    videoRoots = [];
-  };
-
-  const stopVideoRootObserver = () => {
-    if (videoRootObserver) {
-      videoRootObserver.disconnect();
-      videoRootObserver = null;
-    }
-    clearVideoRoots();
-    videoRootHost = null;
-  };
-
-  const startVideoRootObserver = (fsEl) => {
-    stopVideoRootObserver();
-    videoRootHost = fsEl;
-    refreshVideoRoots(fsEl);
-    const refreshSoon = () => {
-      if (!active || videoRootHost !== fsEl) return;
-      refreshVideoRoots(fsEl);
-      requestAnimationFrame(() => {
-        if (active && videoRootHost === fsEl) refreshVideoRoots(fsEl);
-      });
-      setTimeout(() => {
-        if (active && videoRootHost === fsEl) refreshVideoRoots(fsEl);
-      }, 150);
-    };
-    videoRootObserver = new MutationObserver(() => {
-      refreshSoon();
-    });
-    videoRootObserver.observe(fsEl, { childList: true });
-  };
-
   // When the user changes stream quality (or anything else that causes Kick to reload
-  // the player), Kick's React reconciliation can conflict with our docked layout and
+  // the player), Kick's React reconciliation conflicts with our wrapped layout and
   // can navigate the page to a 404 error. Tearing the layout down at the first sign
   // of a reload prevents the conflict.
   const teardownIfActive = (reason) => {
@@ -352,9 +283,9 @@
   const onPopState = () => teardownIfActive('popstate');
   window.addEventListener('popstate', onPopState);
 
-  // Reloading the video element (via emptied/loadstart) can be too late: React's
-  // reconciler may already be mid-commit, and Kick's error boundary can navigate
-  // to its 404 page before our async handlers fire.
+  // Reloading the video element (via emptied/loadstart) is too late: React's reconciler
+  // throws synchronously when it tries to remove a node we've moved into videoSlot, and
+  // Kick's error boundary navigates to its 404 page before our async handlers fire.
   // Catch the user's click on actions that re-mount the player (quality change, seeking)
   // in the capture phase and tear down synchronously, so the DOM is back in Kick's
   // expected shape before its onClick runs.
@@ -456,9 +387,9 @@
     }
     if (active || pendingVideoEl) return;
 
-    // Defer while the video is still loading — Kick's React is in the middle
-    // of mounting the player tree, and changing the fullscreen layout mid-mount
-    // can still cause reconciliation to fail and Kick to navigate to its 404 page.
+    // Defer wrapping while the video is still loading — Kick's React is in the
+    // middle of mounting the player tree, and moving its children mid-mount
+    // causes reconciliation to fail and Kick to navigate to its 404 page.
     const probeVideo = fsEl.querySelector('video');
     if (!probeVideo) {
       log('no video element yet, ignoring click — button should be disabled');
@@ -500,6 +431,14 @@
       suppressObserver = false;
     });
 
+    // Wrap the fullscreen element's children so we can lay them out as flex columns.
+    // Stage moves in a DocumentFragment so we only reflow once.
+    videoSlot = document.createElement('div');
+    videoSlot.className = 'kfc-video-slot';
+    const videoFrag = document.createDocumentFragment();
+    while (fsEl.firstChild) videoFrag.appendChild(fsEl.firstChild);
+    videoSlot.appendChild(videoFrag);
+
     chatSlot = document.createElement('div');
     chatSlot.className = 'kfc-chat-slot';
     chatSlot.addEventListener('click', onChatSlotClick, true);
@@ -508,16 +447,15 @@
     savedChatNextSibling = chat.nextSibling;
     chatSlot.appendChild(chat);
 
+    fsEl.appendChild(videoSlot);
     fsEl.appendChild(chatSlot);
     fsEl.classList.add('kfc-active');
 
-    active = true;
-    startVideoRootObserver(fsEl);
-
-    // Keep the toggle button in fullscreen DOM. It stays hidden while chat is active.
+    // Re-mount the toggle button wrapper on top of the video slot.
     const wrap = document.getElementById(WRAP_ID);
-    if (wrap) fsEl.appendChild(wrap);
+    if (wrap) videoSlot.appendChild(wrap);
 
+    active = true;
     enabledAt = Date.now();
     videoEl = fsEl.querySelector('video');
     if (videoEl) {
@@ -529,11 +467,10 @@
   };
 
   const disableSideChat = (fsEl) => {
-    if (!fsEl || !chatSlot) return;
+    if (!fsEl || !videoSlot || !chatSlot) return;
     // Mark inactive immediately so re-entrant teardown attempts (e.g. popstate firing
     // while we're already cleaning up) short-circuit out.
     active = false;
-    stopVideoRootObserver();
     if (videoEl) {
       videoEl.removeEventListener('emptied', onVideoEmptied);
       videoEl.removeEventListener('loadstart', onVideoLoadStart);
@@ -550,8 +487,15 @@
       }
     }
 
+    // Unwrap the video slot. Use a fragment so we only reflow once.
+    const unwrapFrag = document.createDocumentFragment();
+    while (videoSlot.firstChild) unwrapFrag.appendChild(videoSlot.firstChild);
+    fsEl.appendChild(unwrapFrag);
+
     fsEl.classList.remove('kfc-active');
+    videoSlot.remove();
     chatSlot.remove();
+    videoSlot = null;
     chatSlot = null;
     savedChatParent = null;
     savedChatNextSibling = null;
@@ -594,8 +538,8 @@
     if (!btn) return;
     const label = btn.querySelector('span');
     if (label) label.textContent = 'Chat';
-
-    // Check video loading state to set correct disabled state and aria-label.
+    
+    // Check video loading state to set correct disabled state and aria-label
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
     if (fs) {
       const video = fs.querySelector('video');
@@ -752,7 +696,7 @@
 
       wrap.appendChild(btn);
     }
-    fsEl.appendChild(wrap);
+    (active && videoSlot ? videoSlot : fsEl).appendChild(wrap);
     updateBtnLabel();
   };
 
@@ -837,7 +781,7 @@
       stopIdleTracking();
       if (active) {
         // We need to operate against the previous fullscreen element; rebuild from current DOM.
-        const parent = chatSlot?.parentElement;
+        const parent = videoSlot?.parentElement;
         if (parent) disableSideChat(parent);
       }
       removeButton();
