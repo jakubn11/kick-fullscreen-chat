@@ -54,8 +54,8 @@ Do not add `Co-Authored-By:` trailers to git commits.
 - Fragile DOM selectors — `VIDEO_WRAPPER_SELECTORS`, `CHAT_SELECTORS`
 - Chat discovery — `pick()`, `findChatByInput()`, `findChat()`
 - Kick state helpers — `setKickDataChat()` toggles the `data-chat` attribute Kick uses to drive chat visibility via Tailwind `group-data-[chat=false]/main` rules
-- Style injection — `injectStyles()` adds the `.kfc-active` flex layout, slot rules, and button wrapper positioning
-- Split-layout state — `savedChatParent`, `savedChatNextSibling`, `chatSlot`, `videoSlot`, `active`, `suppressObserver`
+- Style injection — `injectStyles()` adds the `[data-kfc-video-root]` shrink rules, chat-slot positioning, and button wrapper positioning
+- Split-layout state — `savedChatParent`, `savedChatNextSibling`, `chatSlot`, `videoRoots`, `videoRootHost`, `videoRootObserver`, `active`, `suppressObserver`
 - Reload-resilience state — `videoReloading`, `videoReadyTimer`, `fullscreenVideoEl`, `videoSwapObserver`, `pendingVideoEl`
 - Capture-phase teardown handlers — `onDocClickCapture` (quality / seekbar / go-live), `onDocPointerDownCapture` (seekbar), `onChatSlotClick` (Kick's hide-chat button)
 - Layout toggle — `enableSideChat()`, `disableSideChat()`
@@ -72,10 +72,14 @@ let videoReloading = false;     // player is reloading; Chat button must stay di
 let savedChatParent = null;     // where to put chat back on teardown
 let savedChatNextSibling = null;
 let chatSlot = null;            // .kfc-chat-slot we created
-let videoSlot = null;           // .kfc-video-slot we created
+let videoRoots = [];            // fsEl children currently tagged data-kfc-video-root
+let videoRootHost = null;       // the fsEl those markers are on
+let videoRootObserver = null;   // MutationObserver re-marking after Kick swaps layers
 ```
 
-The core idea: when the user activates the side chat, the chat node is **moved** into a new `.kfc-chat-slot` inside the fullscreen element, and the existing fullscreen children are wrapped in a `.kfc-video-slot`. On tear-down, the chat node is restored to its original parent (and original `nextSibling` insertion point if still present).
+The core idea: when the user activates the side chat, the chat node is **moved** into a new `.kfc-chat-slot` (`position: fixed` on the right) inside the fullscreen element. Kick's player nodes stay parented to `fsEl` — they are not moved. Instead, the script tags the full-coverage direct children of `fsEl` with `data-kfc-video-root`, and CSS shrinks them to `calc(100% - 340px)` while `transform: translateZ(0)` makes each marked element a containing block for its `position: fixed/absolute` descendants. On tear-down, the chat node is restored to its original parent (and original `nextSibling` insertion point if still present); the markers and chat slot are removed.
+
+This in-place marker design replaced the older `.kfc-video-slot` wrapper (0.9.1 and earlier). Wrapping `fsEl`'s children caused React to throw on long-running background refreshes — its reconciler would try to remove a node from `fsEl` and find it inside our wrapper instead, and Kick's error boundary navigated to its 404 page.
 
 ## External APIs
 
@@ -106,15 +110,16 @@ Always test after selector or attribute changes:
 
 ## Layout Notes
 
-- The fullscreen element is laid out via `display: flex; flex-direction: row` (`.kfc-active` class), with `.kfc-video-slot` (`flex: 1 1 auto`) on the left and `.kfc-chat-slot` (`flex: 0 0 340px`) on the right.
-- Slot CSS is intentionally **not** scoped under `.kfc-active`. Kick's React periodically re-renders the fullscreen element and writes its own `className`, stripping `.kfc-active`. Targeting the slot classes directly keeps the rules applied for as long as the slot nodes exist.
-- `.kfc-video-slot` sets `transform: translateZ(0)` so it acts as a containing block for Kick's `position: fixed` video and controls layers — without this, the timeline / controls overflow across the chat panel.
-- The video element inside the slot is forced to `width/height: 100%` with `object-fit: contain` so it fills the slot without leaving black side bars.
+- Kick's player nodes are **not** moved. The script tags the full-coverage direct children of `fsEl` with `data-kfc-video-root`, CSS shrinks each marked element to `width: calc(100% - 340px) !important; max-width: same; height: 100% !important`, and the chat panel is docked as `position: fixed; top: 0; right: 0; bottom: 0; width: 340px` so it overlays the right side of the screen.
+- `looksLikeFullscreenLayer` only marks direct `fsEl` children whose `getBoundingClientRect()` covers **both** ≥70% of viewport width *and* ≥70% of viewport height (or which contain a `<video>` regardless of size). Earlier OR-based heuristics dragged tall-but-narrow popovers (quality / settings menus) into the shrink and broke their placement.
+- Marker selectors (`[data-kfc-video-root]`, `.kfc-chat-slot`) are intentionally **not** scoped under `.kfc-active`. Kick's React periodically re-renders `fsEl` and writes its own `className`, stripping `.kfc-active`. The `data-kfc-video-root` attribute is set on Kick's own nodes, so a `MutationObserver` (`videoRootObserver`) re-applies it whenever Kick swaps a layer. `.kfc-chat-slot` is on a node we created and Kick never touches.
+- `[data-kfc-video-root]` sets `transform: translateZ(0)` so each marked layer acts as a containing block for Kick's `position: fixed/absolute` descendants — without this, the timeline / controls anchor to the viewport and overflow across the chat panel.
+- The video element inside a marked layer is forced to `width/height: 100%` with `object-fit: contain` so it fills the shrunken area without leaving black side bars.
 - The toggle button wrapper (`#kfc-toggle-wrap`) fades via the `.kfc-idle` class (`opacity: 0; pointer-events: none`) after `IDLE_MS` of no `mousemove` on the fullscreen element. Kick's own controls overlay does the same; the timing is independent (no DOM coupling) but visually synchronised.
 
 ## Reload-Resilience Notes
 
-When Kick's React reconciler re-mounts the player tree (quality change, seek, DVR exit, popstate), our wrapped layout collides with the reconciliation and the page navigates to Kick's 404 error page. The script defends against this in three layers:
+When Kick's React reconciler re-mounts the player tree (quality change, seek, DVR exit, popstate), our layout can collide with the reconciliation and the page navigates to Kick's 404 error page. The script defends against this in three layers:
 
 1. **Capture-phase teardown.** `onDocClickCapture` and `onDocPointerDownCapture` catch clicks on quality popover items, the seekbar, and "Go to live" buttons *before* Kick's onClick runs, set `videoReloading = true`, and call `disableSideChat()` synchronously so the DOM is back in Kick's expected shape before reconciliation runs.
 2. **Disabled Chat button.** `updateBtnLabel()` disables the **Chat** button whenever `videoReloading` is true or the `<video>` element reports `readyState < 2`. The disabled state is enforced via `btn.disabled = true` plus Kick's own `disabled:pointer-events-none` Tailwind class on `BTN_CLASS`.
@@ -178,7 +183,8 @@ This script does not define its own design tokens — all visible UI inherits Ki
 
 - `BTN_CLASS` / `BTN_SVG` constants — the injected toggle button (Kick-themed)
 - `#kfc-toggle-wrap` — the positioned wrapper for the toggle button
-- `.kfc-chat-slot` / `.kfc-video-slot` — split-layout slots (transparent / dark backgrounds; no Kick tokens needed because Kick's own chat and player chrome render inside them)
+- `.kfc-chat-slot` — fixed-position chat dock (dark background; no Kick tokens needed because Kick's own chat renders inside)
+- `[data-kfc-video-root]` — in-place marker on Kick's full-coverage player layers; CSS-only shrink to the left of the chat slot
 - `#kfc-toast` — neutral error toast
 
 ## Documentation

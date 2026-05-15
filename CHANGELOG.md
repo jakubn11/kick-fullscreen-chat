@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-05-15
+
+### Fixed
+- The **Chat** button was only disabled by `loadstart`/`emptied`/`canplay`/`loadeddata` listeners, so it stayed clickable through other "video not ready" states — mainly mid-playback buffering (`waiting`, `stalled`) and seeks. The video monitor now also listens for `waiting`, `stalled`, `seeking`, `seeked`, `playing`, and `pause` and re-runs `updateBtnLabel`, which already reads `video.readyState` directly. The result: the **Chat** button is disabled whenever the video is loading or buffering in fullscreen, not just during full reloads.
+- The **Chat** button stayed clickable through a quality change / seek / "Go to live" when the side chat was *not* yet open, because the capture-phase reload-detection handlers (`onDocClickCapture`, `onDocPointerDownCapture`) bailed out on `!active` before raising the `videoReloading` flag. The button only disabled later, once the `<video>` fired `loadstart` — leaving a window where a user could click **Chat** mid-reload and trigger the 404. The handlers now raise `videoReloading = true` synchronously regardless of chat state (and still tear down the layout preemptively when chat is active). A 5s safety timeout (`RELOAD_SAFETY_MS`) releases the flag if the click doesn't actually reload the player (e.g. clicking the already-selected quality), so the button isn't stuck disabled.
+- The side-chat layout could navigate to Kick's 404 / "Oops, something went wrong" page after sitting open in fullscreen for a while (typical trigger: leaving the stream playing in fullscreen on a background macOS Space for a few minutes). Root cause: the script wrapped Kick's fullscreen children in a `.kfc-video-slot`, and a later background React refresh would try to remove a node from its original parent (`fsEl`), find it inside our wrapper, throw, and Kick's error boundary navigated to 404. The script now leaves Kick's player nodes parented to `fsEl` and marks the full-coverage player layers in place with `data-kfc-video-root` — CSS shrinks them to `calc(100% - 340px)` and creates a containing block for their fixed/absolute descendants. The chat panel docks as a `position: fixed` slot on the right. A small `MutationObserver` re-marks replacement layers when Kick swaps them. Selection is restricted to direct `fsEl` children that cover ≥70% of the viewport in *both* dimensions, so popovers (quality / settings menu) aren't dragged into the shrink.
+
 ## [0.9.1] - 2026-05-15
 
 ### Fixed
