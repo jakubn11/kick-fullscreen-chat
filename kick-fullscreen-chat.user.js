@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.9.3
+// @version      0.9.4
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -181,6 +181,17 @@
            kick-emotes autocomplete popup and tooltip, which the Fullscreen API
            forces those scripts to re-parent into fsEl, and which previously
            landed below our slot's background). */
+      }
+      /* Kick's player container (fsEl) typically has user-select: none so the
+         video / controls aren't selectable. Once chat moves into our slot
+         inside fsEl, it inherits that — making chat messages uncopyable.
+         Force text selection back on inside the chat slot. The selector
+         covers descendants so a chat ancestor with its own user-select:none
+         can't block us. */
+      .kfc-chat-slot,
+      .kfc-chat-slot * {
+        -webkit-user-select: text;
+        user-select: text;
       }
       .kfc-chat-slot > * {
         flex: 1 1 auto;

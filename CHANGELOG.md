@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4] - 2026-05-15
+
+### Fixed
+- Chat messages couldn't be selected (and therefore couldn't be copied) inside the fullscreen side-chat layout. Kick's fullscreen player container has `user-select: none` to keep the video / controls non-selectable, and once we moved the chat panel into our slot inside the fullscreen element, it inherited that. CSS now forces `-webkit-user-select: text` / `user-select: text` on `.kfc-chat-slot` and its descendants, so chat messages are selectable and copyable again.
+
 ## [0.9.3] - 2026-05-15
 
 ### Fixed
