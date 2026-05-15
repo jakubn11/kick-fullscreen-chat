@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.9.2
+// @version      0.9.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -170,11 +170,17 @@
         right: 0;
         bottom: 0;
         width: ${CHAT_WIDTH};
-        z-index: 2147483646;
         background: #0e0e10;
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        /* No explicit z-index. position:fixed already creates a stacking
+           context, and the slot is appended after Kick's player layers so it
+           renders on top by DOM order. Avoid a high z-index — it stacked over
+           sibling overlays appended by other Kick userscripts (e.g. the
+           kick-emotes autocomplete popup and tooltip, which the Fullscreen API
+           forces those scripts to re-parent into fsEl, and which previously
+           landed below our slot's background). */
       }
       .kfc-chat-slot > * {
         flex: 1 1 auto;

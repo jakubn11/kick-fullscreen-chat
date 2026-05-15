@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-05-15
+
+### Fixed
+- Other Kick userscripts that re-parent floating overlays into `document.fullscreenElement` (e.g. `kick-emotes`' autocomplete popup and emote-name tooltip) rendered *behind* the side-chat panel. Our `.kfc-chat-slot` was `position: fixed; z-index: 2147483646`, and any sibling overlay with a normal `z-index` (kick-emotes uses 9999 / 99999) lost the stacking comparison. The huge value was a copy-paste from the toggle button (where it has to sit on top of the video) and unnecessary on the chat slot — `position: fixed` already creates a stacking context, and the slot is appended after Kick's player layers so it renders on top by DOM order. Dropping the explicit `z-index` lets sibling overlays appear in front of the chat panel as expected.
+
 ## [0.9.2] - 2026-05-15
 
 ### Fixed
