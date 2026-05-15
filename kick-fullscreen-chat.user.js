@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.9.4
+// @version      0.9.7
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -24,6 +24,8 @@
   const TOAST_ID = 'kfc-toast';
   const STYLE_ID = 'kfc-style';
   const VIDEO_ROOT_ATTR = 'data-kfc-video-root';
+  const VIDEO_FRAME_ATTR = 'data-kfc-video-frame';
+  const VIDEO_EL_ATTR = 'data-kfc-video-el';
   const CHAT_WIDTH = '340px';
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
@@ -142,27 +144,52 @@
          them into a wrapper. Wrapping fsEl's children caused React's reconciler
          to throw on background re-renders (it tried to remove a node from fsEl
          that we'd reparented into our wrapper) and navigate to Kick's 404 page.
-         Selecting only big full-coverage layers here — width AND height ≥ 70%
-         of the viewport — avoids dragging popovers (quality menu, settings)
-         into the shrink, which earlier marker heuristics did. */
+         Non-video layers are filtered further in JS so transient loading/blur
+         overlays do not become transformed hit targets above the controls. */
       [${VIDEO_ROOT_ATTR}] {
         width: calc(100% - ${CHAT_WIDTH}) !important;
         max-width: calc(100% - ${CHAT_WIDTH}) !important;
         height: 100% !important;
-        min-width: 0;
+        min-width: 0 !important;
+        min-height: 0 !important;
         overflow: hidden;
+        box-sizing: border-box !important;
         /* Containing block for any position:fixed/absolute descendants so the
            controls/timeline grid anchors to the shrunken area instead of the
            viewport. */
         transform: translateZ(0);
       }
-      video[${VIDEO_ROOT_ATTR}],
+      /* Kick can keep the actual <video> inside one or more inner wrappers that
+         are sized from the viewport rather than from the marked player layer.
+         Constrain that wrapper chain too so the picture follows the timeline
+         into the left-side video area when chat opens. */
+      [${VIDEO_FRAME_ATTR}] {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        overflow: hidden;
+        box-sizing: border-box !important;
+      }
       [${VIDEO_ROOT_ATTR}] video {
         width: 100% !important;
         height: 100% !important;
         max-width: 100% !important;
         max-height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
         object-fit: contain !important;
+      }
+      video[${VIDEO_ROOT_ATTR}] {
+        object-fit: contain !important;
+        object-position: center center !important;
+      }
+      video[${VIDEO_EL_ATTR}] {
+        object-fit: contain !important;
+        object-position: center center !important;
+        pointer-events: none !important;
       }
       .kfc-chat-slot {
         position: fixed;
@@ -233,6 +260,8 @@
   let savedChatNextSibling = null;
   let chatSlot = null;
   let videoRoots = [];
+  let videoFrames = [];
+  let markedVideos = [];
   let videoRootHost = null;
   let videoRootObserver = null;
   let active = false;
@@ -306,18 +335,27 @@
     el.id === TOAST_ID ||
     el.classList?.contains('kfc-chat-slot');
 
-  // Mark direct children of fsEl that visually cover (≥70% of viewport in BOTH
-  // dimensions) so the CSS shrink applies to player layers but NOT to popovers
-  // like the quality / settings menu, which are tall but narrow. Also marks any
-  // direct child containing the <video> regardless of size, in case it hasn't
-  // measured yet.
-  const looksLikeFullscreenLayer = (el) => {
-    if (el.querySelector?.('video')) return true;
+  const coversFullscreen = (el) => {
     const rect = el.getBoundingClientRect();
     return (
       rect.width >= window.innerWidth * 0.7 &&
       rect.height >= window.innerHeight * 0.7
     );
+  };
+
+  const looksLikePlayerControls = (el) =>
+    !!el.querySelector?.(
+      'button, [role="button"], [role="slider"], [class*="group/seekbar"], [class*="seekbar"]'
+    );
+
+  // Mark direct children of fsEl that are likely to be player layers. The video
+  // owner is always marked, even before it has measured. Other large layers are
+  // only marked when they contain controls, which avoids turning Kick's transient
+  // loading/blur overlays into transformed hit targets above the timeline.
+  const looksLikeFullscreenLayer = (el) => {
+    if (el.matches?.('video')) return true;
+    if (el.querySelector?.('video')) return true;
+    return coversFullscreen(el) && looksLikePlayerControls(el);
   };
 
   const refreshVideoRoots = (fsEl) => {
@@ -334,11 +372,45 @@
     });
     roots.forEach((root) => root.setAttribute(VIDEO_ROOT_ATTR, ''));
     videoRoots = roots;
+    refreshVideoFrames(roots);
+  };
+
+  const refreshVideoFrames = (roots) => {
+    const frames = [];
+    const videos = [];
+    roots.forEach((root) => {
+      if (root.matches?.('video')) videos.push(root);
+      root.querySelectorAll?.('video').forEach((video) => {
+        videos.push(video);
+        let node = video.parentElement;
+        while (node && node !== root) {
+          if (node instanceof Element) frames.push(node);
+          node = node.parentElement;
+        }
+      });
+    });
+    const nextFrames = new Set(frames);
+    videoFrames.forEach((frame) => {
+      if (!nextFrames.has(frame)) frame.removeAttribute(VIDEO_FRAME_ATTR);
+    });
+    nextFrames.forEach((frame) => frame.setAttribute(VIDEO_FRAME_ATTR, ''));
+    videoFrames = Array.from(nextFrames);
+
+    const nextVideos = new Set(videos);
+    markedVideos.forEach((video) => {
+      if (!nextVideos.has(video)) video.removeAttribute(VIDEO_EL_ATTR);
+    });
+    nextVideos.forEach((video) => video.setAttribute(VIDEO_EL_ATTR, ''));
+    markedVideos = Array.from(nextVideos);
   };
 
   const clearVideoRoots = () => {
     videoRoots.forEach((root) => root.removeAttribute(VIDEO_ROOT_ATTR));
     videoRoots = [];
+    videoFrames.forEach((frame) => frame.removeAttribute(VIDEO_FRAME_ATTR));
+    videoFrames = [];
+    markedVideos.forEach((video) => video.removeAttribute(VIDEO_EL_ATTR));
+    markedVideos = [];
   };
 
   const stopVideoRootObserver = () => {
@@ -356,7 +428,12 @@
     // Re-mark on subsequent frames — when fsEl was just made fullscreen the
     // children haven't necessarily measured to their final size yet, so a
     // single sync call can miss them.
-    const refreshSoon = () => {
+    const isPlayerMutation = (mutation) => {
+      const target = mutation.target;
+      return target instanceof Node && !chatSlot?.contains(target);
+    };
+    const refreshSoon = (mutations = []) => {
+      if (mutations.length && !mutations.some(isPlayerMutation)) return;
       if (!active || videoRootHost !== fsEl) return;
       refreshVideoRoots(fsEl);
       requestAnimationFrame(() => {
@@ -367,7 +444,7 @@
       }, 150);
     };
     videoRootObserver = new MutationObserver(refreshSoon);
-    videoRootObserver.observe(fsEl, { childList: true });
+    videoRootObserver.observe(fsEl, { childList: true, subtree: true });
     refreshSoon();
   };
 

@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7] - 2026-05-16
+
+### Fixed
+- After the stream sat in the background with side chat open, Kick's loading/blur overlay could remain above the player and block clicks on the play button and timeline. The script now marks only the video owner and likely control layers, instead of every large fullscreen overlay, and the marked `<video>` ignores pointer events so clicks can reach Kick's controls.
+- Removed the aggressive viewport-sized rule added in 0.9.6 for marked videos. Video sizing now comes from the shrunken player root and frame chain, which avoids leaving the video/loading surface as a top-level hit target after Kick refreshes the player.
+
+## [0.9.6] - 2026-05-16
+
+### Fixed
+- The video picture could still remain full-width while the timeline shrank when Kick exposed the `<video>` itself as a direct fullscreen layer. The direct video layer now keeps the shrunken root width instead of being reset to `width: 100%`, and the script marks direct video roots with the same video-sizing guard used for nested videos.
+- The video layer refresh now watches player subtree changes, not only direct fullscreen-child swaps, so late-mounted or replaced video elements are constrained while chat is open.
+
+## [0.9.5] - 2026-05-16
+
+### Fixed
+- Opening side chat could shrink Kick's timeline / controls correctly while leaving the actual video picture full-width behind the chat panel. Kick can size inner video wrapper elements from the viewport, so the script now marks the wrapper chain around the `<video>` and constrains those frames to the same shrunken player area.
+
 ## [0.9.4] - 2026-05-15
 
 ### Fixed
