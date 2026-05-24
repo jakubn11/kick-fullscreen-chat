@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.9] - 2026-05-24
+
+### Fixed
+- Double-clicking the video to exit fullscreen worked in the plain fullscreen layout but did nothing once the side chat was open. Kick's native double-click handler lives on the `<video>` element, and the marked `<video>` runs with `pointer-events: none` while side chat is active (introduced in 0.9.7 so clicks pass through to the controls), which also blocks the native dblclick. The script now attaches its own `dblclick` listener on the fullscreen element while side chat is active and calls `document.exitFullscreen()` on it. Double-clicks inside the chat slot (text selection, message UI) and on interactive controls (buttons, sliders, links, inputs) are ignored, so only video-area double-clicks tear fullscreen down. The listener is removed in `disableSideChat`, so Kick's native handler resumes responsibility once side chat closes.
+
+## [0.9.8] - 2026-05-24
+
+### Fixed
+- Emote-name tooltips no longer appeared when hovering chat emotes inside the fullscreen side-chat layout. Kick renders those popovers as direct children of `document.body`, and the Fullscreen API only displays descendants of the fullscreen element, so the popovers were invisible even though Kick was still rendering them. While the side chat is active, the script now watches `document.body` for new popover-shaped elements (matching `[role="tooltip"]`, `[data-radix-popper-content-wrapper]`, `[data-radix-portal]`, `[data-floating-ui-portal]`, or `[data-popper-placement]`) and renders a deep-cloned copy of each one inside the fullscreen element. The clone inherits Kick's class names and viewport-relative inline styles, so it picks up the same global / Tailwind styling and renders at the same screen position as the (hidden) original. A per-popover sync observer re-clones whenever the original's subtree changes (`childList` / `characterData` mutations), because React often mounts the popover wrapper first and writes the tooltip content into it on a later commit — without the sync, the initial clone would be the empty wrapper. Attribute mutations are deliberately not synced, so the fade-in animation Kick drives via `data-state` / `style` attributes isn't restarted on every animation tick. The clone is removed when the original is removed from `document.body`. The observer is torn down — and any tracked clones / sync observers are removed — when side chat closes or fullscreen exits.
+
+  Cloning was chosen over moving the popover because Kick uses React `createPortal` to render tooltips with `document.body` as the portal container. React's unmount path calls `body.removeChild(popover)` on cleanup. A moved popover is no longer in `body`, so `removeChild` throws `NotFoundError`, Kick's error boundary catches it, and the page navigates to its 404 / "We are sorry, something went wrong" page (with the moved popover stranded on top of the 404). Cloning leaves the original in place where React expects it.
+
 ## [0.9.7] - 2026-05-16
 
 ### Fixed

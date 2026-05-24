@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.9.7
+// @version      0.9.9
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -555,6 +555,31 @@
   // on Kick's "Hide chat" button toggles Kick's state from hidden→shown — so data-chat
   // doesn't change to "false" and the MutationObserver doesn't fire. Catch the click
   // directly so one click always tears down, regardless of Kick's internal state.
+  // Kick's native double-click-to-exit-fullscreen handler lives on the
+  // `<video>` element, but we set `pointer-events: none` on the marked
+  // video while side chat is active so clicks pass through to Kick's
+  // controls (introduced in 0.9.7). That also blocks the native dblclick.
+  // Provide our own dblclick → exit-fullscreen while the side chat is up,
+  // so users keep the same gesture they have in the non-side-chat layout.
+  const onFsDblClick = (e) => {
+    if (!active) return;
+    // Double-click inside the chat slot is text selection / message UI —
+    // don't exit fullscreen.
+    if (chatSlot?.contains(e.target)) return;
+    // Let interactive controls run their own handlers (timeline scrub,
+    // setting buttons, etc.) without us tearing fullscreen down on top.
+    if (
+      e.target instanceof Element &&
+      e.target.closest('button, [role="button"], [role="slider"], a, input, textarea')
+    ) return;
+    log('double-click on video area, exiting fullscreen');
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  };
+
   const HIDE_CHAT_RE = /hide\s*chat|close\s*chat|collapse\s*chat/;
   const onChatSlotClick = (e) => {
     if (!active) return;
@@ -640,6 +665,9 @@
     // moving them into a wrapper (which would break React's reconciler on
     // background refreshes and 404 the page).
     startVideoRootObserver(fsEl);
+    // Adopt Kick's body-portaled popovers (emote-name tooltips, etc.) into
+    // fsEl so they remain visible while in fullscreen.
+    startPopoverPortal(fsEl);
 
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) fsEl.appendChild(wrap);
@@ -650,6 +678,7 @@
       videoEl.addEventListener('emptied', onVideoEmptied);
       videoEl.addEventListener('loadstart', onVideoLoadStart);
     }
+    fsEl.addEventListener('dblclick', onFsDblClick);
     updateBtnLabel();
     nudgePlayerResize();
   };
@@ -660,11 +689,13 @@
     // while we're already cleaning up) short-circuit out.
     active = false;
     stopVideoRootObserver();
+    stopPopoverPortal();
     if (videoEl) {
       videoEl.removeEventListener('emptied', onVideoEmptied);
       videoEl.removeEventListener('loadstart', onVideoLoadStart);
       videoEl = null;
     }
+    fsEl.removeEventListener('dblclick', onFsDblClick);
 
     // Put chat back where it came from.
     const chat = chatSlot.firstChild;
@@ -872,6 +903,212 @@
       videoSwapObserver = null;
     }
     videoReloading = false;
+  };
+
+  // Kick renders small popovers (emote-name tooltips, etc.) by appending them
+  // to document.body. The Fullscreen API only displays descendants of the
+  // fullscreen element, so once the player is fullscreen, hovering an emote
+  // inside the side chat shows no tooltip even though Kick is rendering one.
+  //
+  // We *clone* these popovers into fsEl rather than moving them. Moving them
+  // (the obvious approach) breaks React's reconciliation: Kick uses
+  // createPortal with body as the container, and React's unmount path calls
+  // body.removeChild(popover) on cleanup. If the popover has been moved into
+  // fsEl, removeChild throws NotFoundError, Kick's error boundary catches it,
+  // and the page navigates to its 404 / "We are sorry, something went wrong"
+  // page (with the moved popover left stranded on top of the 404).
+  //
+  // Cloning side-steps that. The original stays in body where React expects
+  // it (and is unmounted normally — invisibly to the user, since the
+  // Fullscreen API hides it). The clone in fsEl is what the user actually
+  // sees. We track original→clone in a Map, and remove the clone when the
+  // original is removed from body. Styling carries over because the clone
+  // keeps the original's class names and inline styles — global Kick /
+  // Tailwind rules match the clone the same way they match the original.
+  // Position is preserved because Floating UI / Radix write
+  // viewport-relative `position: fixed` inline styles, which render the
+  // clone in the same screen location as the (hidden) original.
+  //
+  // A per-popover sync observer (`popoverSyncObservers`) re-clones when the
+  // original's subtree changes (childList / characterData). React often
+  // mounts the popover wrapper first and writes the tooltip content into
+  // it on a later commit; without sync, the initial clone would be the
+  // empty wrapper and the user would see nothing. Attribute mutations are
+  // deliberately *not* synced — Radix/Floating UI drive their fade-in
+  // animation by mutating `data-state` / `style` on every tick, and
+  // re-cloning on each tick would restart the animation forever.
+  //
+  // The design system rule "no tooltips, no menus, no popovers" applies to
+  // UI we paint ourselves, not to making Kick's existing popovers visible.
+  const POPOVER_SELECTORS = [
+    '[role="tooltip"]',
+    '[data-radix-popper-content-wrapper]',
+    '[data-radix-portal]',
+    '[data-floating-ui-portal]',
+    '[data-popper-placement]',
+  ];
+  const POPOVER_SELECTOR_STR = POPOVER_SELECTORS.join(',');
+  const POPOVER_CLONE_ATTR = 'data-kfc-popover-clone';
+
+  const isPopoverHost = (el) =>
+    el instanceof Element &&
+    (el.matches?.(POPOVER_SELECTOR_STR) || !!el.querySelector?.(POPOVER_SELECTOR_STR));
+
+  let popoverPortalObserver = null;
+  let popoverPortalHost = null;
+  const popoverClones = new Map(); // original Element -> clone Element
+  const popoverSyncObservers = new Map(); // original Element -> MutationObserver
+
+  const removePopoverClone = (original) => {
+    const clone = popoverClones.get(original);
+    if (clone) {
+      try {
+        clone.remove();
+      } catch (err) {
+        log('remove popover clone failed:', err);
+      }
+      popoverClones.delete(original);
+    }
+    const syncObserver = popoverSyncObservers.get(original);
+    if (syncObserver) {
+      syncObserver.disconnect();
+      popoverSyncObservers.delete(original);
+    }
+  };
+
+  const adoptPopover = (node, fsEl) => {
+    if (!(node instanceof Element)) return;
+    if (fsEl.contains(node) || isKfcOwnedChild(node)) return;
+    if (node.hasAttribute?.(POPOVER_CLONE_ATTR)) return;
+    if (!isPopoverHost(node)) return;
+    if (popoverClones.has(node)) return;
+    // With subtree:true on the body observer we can see popovers added at
+    // any depth, so check whether one of our existing adopted originals
+    // already contains this node — if so, the sync observer on that
+    // adopted ancestor will already track the new content.
+    for (const adopted of popoverClones.keys()) {
+      if (adopted.contains?.(node)) return;
+    }
+
+    // React mounts the popover wrapper first and may write content into it
+    // and flip its `data-state` from "instant-open" / "delayed-open" / etc.
+    // to "open" on a later commit. A single clone taken at adoption time
+    // therefore captures an empty wrapper at a non-visible state and the
+    // user sees nothing. Re-clone the original on any subtree mutation
+    // (childList / characterData / attributes) so the clone tracks the
+    // original. `requestAnimationFrame` debounces a burst of mutations into
+    // one DOM update per frame. CSS *transitions* don't restart on element
+    // replacement (they only fire on property changes, and the new clone
+    // already has the final property values inline), so the open animation
+    // still looks right. CSS *keyframe* animations would restart on each
+    // reclone, but Radix-style tooltips drive their fade-in through
+    // transitions rather than keyframes, so this is fine in practice.
+    let pendingReclone = false;
+    const performReclone = () => {
+      pendingReclone = false;
+      if (!popoverClones.has(node) && popoverSyncObservers.get(node) == null) return; // disposed
+      if (!document.body.contains(node)) return; // original already gone
+      try {
+        const newClone = node.cloneNode(true);
+        newClone.setAttribute(POPOVER_CLONE_ATTR, '');
+        const existing = popoverClones.get(node);
+        if (existing && existing.parentNode) {
+          existing.replaceWith(newClone);
+        } else {
+          fsEl.appendChild(newClone);
+        }
+        popoverClones.set(node, newClone);
+      } catch (err) {
+        log('reclone popover failed:', err);
+      }
+    };
+    const scheduleReclone = () => {
+      if (pendingReclone) return;
+      pendingReclone = true;
+      requestAnimationFrame(performReclone);
+    };
+
+    try {
+      const clone = node.cloneNode(true);
+      clone.setAttribute(POPOVER_CLONE_ATTR, '');
+      fsEl.appendChild(clone);
+      popoverClones.set(node, clone);
+    } catch (err) {
+      log('clone popover failed:', err);
+      return;
+    }
+
+    const syncObserver = new MutationObserver(() => scheduleReclone());
+    syncObserver.observe(node, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    });
+    popoverSyncObservers.set(node, syncObserver);
+    log('cloned popover into fsEl');
+  };
+
+  // Reconcile tracked originals when something is removed from body. The
+  // direct match handles the common case (Kick removes the popover wrapper
+  // itself). The contains() scan handles the rarer case where a removed
+  // ancestor took our tracked popover with it. The final `document.body.contains`
+  // sweep covers anything we missed (e.g. removals deeper than the direct
+  // children we observe).
+  const reconcilePopoverClones = (removedNode) => {
+    if (removedNode instanceof Element && popoverClones.has(removedNode)) {
+      removePopoverClone(removedNode);
+    }
+    const toRemove = [];
+    popoverClones.forEach((_clone, original) => {
+      if (
+        (removedNode instanceof Element && removedNode.contains?.(original)) ||
+        !document.body.contains(original)
+      ) {
+        toRemove.push(original);
+      }
+    });
+    toRemove.forEach((o) => removePopoverClone(o));
+  };
+
+  const startPopoverPortal = (fsEl) => {
+    stopPopoverPortal();
+    popoverPortalHost = fsEl;
+    // Adopt any popovers that are already on screen when we activate. Scan
+    // the whole body subtree so we catch popovers Kick already mounted into
+    // nested portal containers before we started observing.
+    document.body.querySelectorAll(POPOVER_SELECTOR_STR).forEach((el) => {
+      if (!fsEl.contains(el)) adoptPopover(el, fsEl);
+    });
+    popoverPortalObserver = new MutationObserver((muts) => {
+      if (popoverPortalHost !== fsEl) return;
+      for (const m of muts) {
+        m.addedNodes.forEach((n) => adoptPopover(n, fsEl));
+        m.removedNodes.forEach((n) => reconcilePopoverClones(n));
+      }
+    });
+    // subtree:true so we catch popovers Kick mounts into nested portal
+    // containers (not all React apps portal directly to body — some
+    // userscripts and Kick chrome may add intermediate containers).
+    popoverPortalObserver.observe(document.body, { childList: true, subtree: true });
+  };
+
+  const stopPopoverPortal = () => {
+    if (popoverPortalObserver) {
+      popoverPortalObserver.disconnect();
+      popoverPortalObserver = null;
+    }
+    popoverSyncObservers.forEach((observer) => observer.disconnect());
+    popoverSyncObservers.clear();
+    popoverClones.forEach((clone) => {
+      try {
+        clone.remove();
+      } catch (err) {
+        log('teardown remove popover clone failed:', err);
+      }
+    });
+    popoverClones.clear();
+    popoverPortalHost = null;
   };
 
   const ensureButton = (fsEl) => {

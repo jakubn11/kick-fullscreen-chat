@@ -62,7 +62,8 @@ Do not add `Co-Authored-By:` trailers to git commits.
 - Button — `ensureButton()`, `removeButton()`, `updateBtnLabel()`
 - Idle auto-hide — `startIdleTracking()`, `stopIdleTracking()`, `onFsMouseMove()`, `setIdle()`, `IDLE_MS`
 - Video monitor — `startVideoLoadingMonitor()`, `stopVideoLoadingMonitor()`, `attachVideoListeners()`, `detachVideoListeners()`
-- Observers and listeners — `dataChatObserver` (watches for Kick toggling `data-chat="false"`), `videoSwapObserver` (watches for Kick replacing the `<video>` element), and the `fullscreenchange` / `webkitfullscreenchange` handlers
+- Popover portal — `startPopoverPortal()`, `stopPopoverPortal()`, `adoptPopover()`, `reconcilePopoverClones()`, `removePopoverClone()`; while side chat is active, *clones* body-portaled popovers (emote-name tooltips etc.) into the fullscreen element so the Fullscreen API displays them. The original stays in `document.body` so Kick's React `createPortal` unmount path (which calls `body.removeChild(popover)`) doesn't throw a `NotFoundError` and trip Kick's 404 error boundary. A per-popover sync observer re-clones when the original's subtree changes (`childList` / `characterData`, not attributes — see below) so content React adds to the wrapper on a later commit shows up in the clone. The clone is removed when the original is removed from `document.body`. Tracked in `popoverClones` (Map: original → clone) and `popoverSyncObservers` (Map: original → sync MutationObserver)
+- Observers and listeners — `dataChatObserver` (watches for Kick toggling `data-chat="false"`), `videoSwapObserver` (watches for Kick replacing the `<video>` element), `popoverPortalObserver` (watches `document.body` childList for body-portaled popovers while side chat is active), and the `fullscreenchange` / `webkitfullscreenchange` handlers
 
 The central state that drives the split layout is:
 
