@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [0.11.19] - 2026-05-26
 
+### Removed
+- Removed the `C` keyboard shortcut for toggling fullscreen side chat; the **Chat** button is now the only side-chat toggle.
+
 ### Fixed
 - The fullscreen viewer-count badge now syncs Kick's rolling digit `style` / `class` attribute updates into the existing cloned badge, so the number updates more promptly without recloning the whole overlay or interfering with tooltip portal clones.
 

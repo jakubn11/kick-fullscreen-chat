@@ -27,7 +27,7 @@
 
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
 - Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
-- Click the button — or press **C** — to shrink the video and dock the chat panel on the right (340px wide)
+- Click the button to shrink the video and dock the chat panel on the right (340px wide)
 - Re-uses Kick's own button markup and design tokens — visually identical to Kick's native buttons
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
@@ -67,12 +67,10 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 
 | Action | Result |
 |--------|--------|
-| Click **Chat** (or press **C**) | Video shrinks to the left, chat panel docks on the right (340px) |
-| Press **C** again (or click Kick's native **Hide chat** inside the chat panel) | Split layout tears down, fullscreen video restored, **Chat** button reappears |
+| Click **Chat** | Video shrinks to the left, chat panel docks on the right (340px) |
+| Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
 | Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
-
-The **C** key is ignored when typing in Kick's chat input (or any other input / textarea), and when a modifier key (⌘ / Ctrl / Alt) is held, so copy shortcuts and chat text both work normally.
 
 ## Troubleshooting
 

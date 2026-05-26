@@ -819,43 +819,6 @@
   };
   document.addEventListener('pointerdown', onDocPointerDownCapture, true);
 
-  // Keyboard shortcut: 'C' toggles the side chat while the Kick player is
-  // fullscreen, matching Twitch's convention. Skipped when:
-  //   - the user is typing (input / textarea / contenteditable, including
-  //     Kick's chat input),
-  //   - a modifier key is held (Cmd+C is copy, Ctrl+C is copy/break, etc.),
-  //   - fullscreen target is not a Kick player container,
-  //   - the video is mid-reload (mirrors the button's disabled state, so the
-  //     shortcut can't trigger the 404 the button protects against).
-  const onKeyDown = (e) => {
-    if (e.key !== 'c' && e.key !== 'C') return;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const target = e.target;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      (target instanceof Element && target.isContentEditable)
-    ) {
-      return;
-    }
-    const fs = document.fullscreenElement || document.webkitFullscreenElement;
-    if (!fs) return;
-    const looksLikePlayer =
-      VIDEO_WRAPPER_SELECTORS.some((s) => fs.matches?.(s) || fs.querySelector?.(s)) ||
-      fs.querySelector?.('video');
-    if (!looksLikePlayer) return;
-    const video = fs.querySelector('video');
-    if (videoReloading || !video || video.readyState < 2) return;
-    e.preventDefault();
-    try {
-      if (active) disableSideChat(fs);
-      else enableSideChat(fs);
-    } catch (err) {
-      log('keyboard toggle failed:', err);
-    }
-  };
-  document.addEventListener('keydown', onKeyDown);
-
   // When chat starts hidden (data-chat="false") and the user enables our side layout,
   // Kick's internal "is chat shown" state is out of sync with the DOM. The next click
   // on Kick's "Hide chat" button toggles Kick's state from hidden→shown — so data-chat
