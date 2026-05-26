@@ -26,7 +26,8 @@
 ## Features
 
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
-- Click it to shrink the video and dock the chat panel on the right (340px wide)
+- Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
+- Click the button — or press **C** — to shrink the video and dock the chat panel on the right (340px wide)
 - Re-uses Kick's own button markup and design tokens — visually identical to Kick's native buttons
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
@@ -66,10 +67,12 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 
 | Action | Result |
 |--------|--------|
-| Click **Chat** | Video shrinks to the left, chat panel docks on the right (340px) |
-| Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
+| Click **Chat** (or press **C**) | Video shrinks to the left, chat panel docks on the right (340px) |
+| Press **C** again (or click Kick's native **Hide chat** inside the chat panel) | Split layout tears down, fullscreen video restored, **Chat** button reappears |
 | Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
+
+The **C** key is ignored when typing in Kick's chat input (or any other input / textarea), and when a modifier key (⌘ / Ctrl / Alt) is held, so copy shortcuts and chat text both work normally.
 
 ## Troubleshooting
 
@@ -82,6 +85,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Stream becomes blurred/loading and controls cannot be clicked after sitting in the background | Update to **0.9.7+** — the script avoids marking Kick's transient loading overlays and lets clicks pass through the video surface to the controls. |
 | Emote-name tooltips don't appear when hovering chat emotes in fullscreen | Update to **0.9.8+** — the script now reparents Kick's body-portaled popovers into the fullscreen element while side chat is active, so the Fullscreen API can display them. |
 | Double-clicking the video to exit fullscreen does nothing while side chat is open | Update to **0.9.9+** — the script attaches its own dblclick → exit-fullscreen handler on the fullscreen element while side chat is active, since the side-chat layout sets `pointer-events: none` on the video and blocks Kick's native double-click handler. |
+| Streamer info overlay doesn't appear in fullscreen | The streamer-card selector did not match Kick's current DOM. Inspect the channel-info card in DevTools and add its selector to `STREAMER_INFO_SELECTORS` near the top of the userscript. |
 | Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video slot now creates a containing block for Kick's `position: fixed` player layers. |
 | Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
 | Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.3+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |

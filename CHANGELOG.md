@@ -4,6 +4,161 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.19] - 2026-05-26
+
+### Fixed
+- The fullscreen viewer-count badge now syncs Kick's rolling digit `style` / `class` attribute updates into the existing cloned badge, so the number updates more promptly without recloning the whole overlay or interfering with tooltip portal clones.
+
+## [0.11.18] - 2026-05-26
+
+### Changed
+- Fullscreen overlay clicks on streamer avatar/name/category now exit fullscreen and then dispatch a click on Kick's original in-page element, preserving Kick's native SPA/miniplayer behavior instead of routing by URL directly.
+
+## [0.11.17] - 2026-05-26
+
+### Fixed
+- Popover clones now take a couple of delayed one-shot re-clones after adoption, so native Kick emote-name tooltips that become visible/positioned via attribute-only updates still appear in fullscreen without observing animation attributes forever.
+- Popover clone descendants now inherit the top fullscreen z-index so nested tooltip content cannot sit behind the info overlay or chat slot.
+
+## [0.11.16] - 2026-05-26
+
+### Fixed
+- Native Kick popover clones, including emote-name tooltips, are now explicitly stacked above the fullscreen info overlay.
+- Viewer-count observers no longer watch inline attribute animation on Kick's rolling digits, avoiding constant overlay reclones that could interfere with tooltip portal cloning.
+
+## [0.11.15] - 2026-05-26
+
+### Changed
+- Clicking streamer avatar/name or the category link inside the fullscreen overlay now exits fullscreen before navigating, matching Kick's normal non-fullscreen behavior where the stream minimizes into the page view.
+
+## [0.11.14] - 2026-05-26
+
+### Changed
+- The fullscreen info overlay text is now selectable, and cloned links/buttons inside the card can receive pointer events.
+- Streamer avatar/name affordances in the cloned overlay now navigate to the current channel when Kick rendered them as non-link buttons, while category links remain clickable through their cloned `href`.
+
+## [0.11.13] - 2026-05-26
+
+### Changed
+- The fullscreen category link now strips inherited background, box shadow, and text shadow so it renders transparently over the video.
+
+## [0.11.12] - 2026-05-26
+
+### Changed
+- The fullscreen viewer-count badge now strips inherited text shadow and box shadow from the badge subtree so the green count renders over a transparent background.
+
+## [0.11.11] - 2026-05-26
+
+### Changed
+- The fullscreen viewer-count badge now keeps Kick's `Viewers` label visible next to the green count and forces the label to white for contrast.
+
+## [0.11.10] - 2026-05-26
+
+### Fixed
+- The fullscreen viewer-count badge no longer overrides Kick's animated digit descendants with custom font weight or line height, preventing the rolling digits from splitting vertically.
+
+## [0.11.9] - 2026-05-26
+
+### Fixed
+- The fullscreen viewer-count badge now preserves Kick's own animated digit component instead of rebuilding the number from `textContent`, which was unreliable because the source contains hidden rolling digits.
+- Viewer-count updates now observe attribute changes on the compact badge so Kick's inline transform-based digit updates are reflected in the fullscreen overlay.
+
+## [0.11.8] - 2026-05-26
+
+### Fixed
+- The fullscreen viewer-count badge is now normalized to a cloned icon plus a freshly rendered green number, matching Kick's compact non-fullscreen badge and avoiding stale/nested text-node glitches when the count updates.
+
+## [0.11.7] - 2026-05-26
+
+### Fixed
+- The fullscreen info overlay now detects the first numeric run anywhere inside the cloned viewer-count badge, so the viewer number turns green even when Kick wraps or prefixes the badge text differently.
+
+## [0.11.6] - 2026-05-26
+
+### Changed
+- The fullscreen info overlay now colors only the viewer-count number green while keeping the label and icon white.
+- The separator between category and viewer count is now a CSS-drawn white circle instead of a text glyph, so it renders as a round dot rather than a square.
+
+## [0.11.5] - 2026-05-26
+
+### Changed
+- The fullscreen info overlay separator dot between the category and viewer count is now larger, fully white, and uses the same shadow as the surrounding overlay text.
+
+## [0.11.4] - 2026-05-26
+
+### Changed
+- The fullscreen info overlay now forces the inlined viewer-count badge text and icon to white and strips the badge background/border to transparent, including cloned child nodes whose Kick styles were overriding the overlay CSS.
+
+## [0.11.2] - 2026-05-26
+
+### Changed
+- Streamer-name font-size in the overlay reduced from `1.4em` to `1.15em`. The 1.4em was overshadowing the rest of the card on layouts with a longer username; 1.15em + `font-weight: 700` keeps the visual hierarchy without dominating the overlay.
+- Overlay max-width bumped from `min(50%, 600px)` to `min(60%, 720px)`, and the title's truncate / line-clamp container is now forced to `max-width: 100%; width: 100%` so the 2-row title clamp fills the wider container instead of inheriting Kick's tighter `max-w-*` utility (which they use because the in-page layout shares space with follow / subscribe buttons that aren't in our overlay).
+- `transformClonedCard` now also hides the chevron / dropdown-indicator button next to the title (a `<button>` containing only an `<svg>` — no text, no image). On Kick's page that button opens an "expand title / description" popover; in our detached overlay clone the popover isn't wired up so the button does nothing, and it looked broken sitting next to the title. Verified-badge buttons (those with aria-label "verified") and avatar-wrapping buttons (containing an `<img>`) are exempted from the hide rule.
+
+## [0.11.1] - 2026-05-26
+
+### Changed
+- The fullscreen info overlay no longer renders Kick's tag row (e.g. `Czech`, `irl`, `czech`, `vanlife`) below the title, and the standalone viewer-count badge that was added in 0.10.6 has been moved inline. The bottom row now reads `IRL · 682 Viewers` — the category link with the viewer count appended after a `·` separator, sharing the same row. A `transformClonedCard` pass runs after every clone/reclone: it locates the category link, hides each of its tag-pill-shaped siblings (short text, no images / headings — leaves the category and any structural content alone), and inserts a separator + the viewer-count clone right after it.
+
+## [0.11.0] - 2026-05-26
+
+### Added
+- Keyboard shortcut `C` toggles the side chat while the Kick player is fullscreen, matching Twitch's convention. Skipped when the user is typing (input / textarea / contenteditable — covers Kick's chat input so typing the letter 'c' in chat doesn't close it), when a modifier key is held (so `Cmd+C` / `Ctrl+C` copy still works), when the fullscreen target isn't a Kick player container, and while the video is mid-reload (mirrors the **Chat** button's disabled state so the shortcut can't trigger the 404 the button protects against).
+
+### Fixed
+- The fullscreen info overlay would freeze on stale data if Kick re-mounted the channel-info card or the viewer-count badge while we were still in fullscreen (SPA channel navigation, React reconciler swap). Our `MutationObserver` was stuck on the orphaned original. A new body-level observer (`startInfoSourceWatcher` / `stopInfoSourceWatcher`) now detects when our tracked sources detach from `document.body` and, on the next animation frame, re-runs `findStreamerInfoSource` / `findViewerCountSource`, re-attaches the per-source sync observers, and re-clones into the overlay. The watcher starts when the overlay mounts and stops when fullscreen exits. The viewer source is only refound if one was present at mount time — we don't keep searching when Kick never rendered a viewer-count badge in the first place.
+
+## [0.10.6] - 2026-05-26
+
+### Added
+- The fullscreen info overlay now also includes Kick's viewer-count badge (e.g., `770 Viewers`). The badge is cloned from a separate DOM element via `VIEWER_COUNT_SELECTORS` (data-testid first, then a content-based fallback matching a number followed by a viewer-y label in common languages — English, Czech, French, German, Polish, Russian, Spanish, Italian, Japanese, Korean, Arabic) and appended below the streamer card clone as a sibling. A dedicated `MutationObserver` on the badge source feeds into the same rAF-debounced reclone path as the streamer card, so viewer-count ticks update the overlay live without re-finding the source.
+
+## [0.10.5] - 2026-05-26
+
+### Fixed
+- The streamer info overlay was still missing the avatar and streamer name on some Kick layouts. The category-link walk landed on the title+tags sub-row whenever that row contained both a profile link back to the streamer (used to make the title clickable) and an `<img>` (an emote or status icon), satisfying the `hasStreamerNameSignal + img` check earlier than the actual card row above. The heuristic now runs an **avatar-anchored search first**: it locates the streamer's avatar via `a[href="/${username}"] img/picture` (case-insensitive), then walks up until it hits an ancestor that also contains a category link. The avatar is unique to the full card, so this finds the avatar + name + title + game + tags row reliably. The older category-link walk remains as a fallback.
+
+### Changed
+- The streamer name is now visually dominant in the overlay. Headings (`h1` / `h2` / `h3`) and common name-class patterns (`[class*="username"]`, `[class*="streamer-name"]`, `[class*="channel-name"]`) are forced to `font-size: 1.4em; font-weight: 700; color: #fff` so the name reads as the top element with the title in smaller text below, matching the visual hierarchy of Kick's own compact channel-info card.
+- The 2-row title clamp now explicitly excludes headings (`[class*="truncate"]:not(h1):not(h2):not(h3)` etc.), so a long username doesn't wrap to a second line.
+- The follow / subscribe / share / notification hide rule no longer uses the broad `button:not(:has(img))` pattern. It now targets buttons by `aria-label` (follow / subscribe / notif / share) plus `a[href*="/follow"]` / `a[href*="/subscribe"]`. The older rule was unintentionally hiding text-only buttons that wrapped the streamer name on some Kick layouts.
+
+## [0.10.4] - 2026-05-26
+
+### Changed
+- The stream title inside the fullscreen info overlay is no longer clipped to a single row with an ellipsis. Kick applies Tailwind's `truncate` / `line-clamp-1` utility class to the title in their normal page layout because horizontal space is tight there; in the fullscreen overlay there's more room, so the overlay now overrides those classes to allow up to 2 rows before clipping. Short titles still fit on 1 row (no extra space reserved); long titles wrap to a second row and only get the `…` ellipsis past row 2.
+
+## [0.10.3] - 2026-05-26
+
+### Fixed
+- The content-based streamer-card heuristic added in 0.10.2 returned the title + tags sub-row instead of the full card on Kick's current layout, so the overlay rendered without the avatar / streamer name / viewer count. The heuristic now requires the matched ancestor to contain a streamer-name signal — an `h1` / `h2` / `h3`, *or* a link back to the streamer's own profile (derived from the URL path, e.g. `a[href="/spajKK"]`) — in addition to the existing avatar-image and category-link requirements. The walk skips the title-only row and returns the full card.
+
+### Changed
+- The streamer info overlay no longer renders a black-to-transparent gradient backdrop. The cloned card is now drawn directly over the video with a Twitch-style text shadow propagated to all descendants (`0 1px 3px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.5)`), so the overlay stays readable on bright scenes without the rectangular shaded panel users found visually distracting.
+- The CSS rule that hides follow / subscribe / share controls inside the clone now uses `button:not(:has(img)):not(:has(picture))`, so a button that wraps the avatar image (Kick sometimes does this for the "go to profile" affordance) is kept and the avatar renders correctly. The previous broad `button { display: none }` plus `[class*="follow" i]` rule could clip the avatar on some Kick variants.
+
+## [0.10.2] - 2026-05-26
+
+### Fixed
+- The streamer info overlay added in 0.10.0 didn't appear in fullscreen because none of the static selectors in `STREAMER_INFO_SELECTORS` matched Kick's current channel-page markup. The script now falls back to a content-based heuristic: it walks up from any `a[href*="/categories/"]` link (every live channel page has one inside the streamer card next to the avatar / title / viewer count) until it finds an enclosing element that has reasonable card dimensions, contains an avatar `<img>` / `<picture>` / `[class*="avatar"]`, and doesn't wrap the player itself (so we don't accidentally clone the player). The first such ancestor on the walk-up is the smallest valid match, which is the streamer card. The known selectors are still tried first, so the heuristic only runs as a fallback.
+- The "no streamer info source found" path now logs via `console.warn` (always visible) instead of `log` (DEBUG-only), so users know why the overlay didn't appear and where to add a selector if Kick changes markup again.
+
+## [0.10.1] - 2026-05-26
+
+### Fixed
+- Popover sync observer was watching attribute mutations on cloned popovers despite the design doc and changelog (added in 0.9.8) saying attribute mutations are deliberately not synced. Radix / Floating UI flip `data-state` / inline `style` on every animation tick, so the observer was firing dozens of times per second per visible popover and re-cloning the whole popover subtree on each tick — wasteful even though CSS transitions don't restart on element replacement. The sync observer now only listens for `childList` + `characterData` mutations (matching the documented intent), so re-clones only happen when the popover's actual content changes.
+
+### Performance
+- `videoSwapObserver` (watches for Kick swapping the `<video>` element on quality / DVR exit) was attached to the whole fullscreen subtree with `subtree: true`, so every chat-message DOM mutation while side chat was active fired the callback and ran a fresh `fsEl.querySelector('video')` and equality check. Busy streams could trigger this hundreds of times per minute. The observer now skips mutation batches whose targets are all inside `chatSlot`, mirroring the filter `videoRootObserver` already uses. Video-element swaps still re-attach the monitor as before; chat-message churn is ignored.
+
+## [0.10.0] - 2026-05-26
+
+### Added
+- Twitch-style streamer info overlay in fullscreen. While the Kick player is fullscreen, the avatar / streamer name / verified badge / stream title / game + viewer count from Kick's channel-info card is cloned into the top-left of the fullscreen element so the user can see who they're watching without exiting fullscreen. The overlay fades in and out together with the **Chat** button via the existing `kfc-idle` class — so it appears when the timeline / controls appear (on mouse move) and disappears with them after 4 seconds of inactivity, matching Twitch's overlay behaviour. The overlay is non-interactive (`pointer-events: none`) so clicks pass through to the player, and follow / subscribe / share / notification controls inside the cloned card are hidden via CSS so the overlay stays compact. A debounced `MutationObserver` on the source card re-clones when its content changes (title edit, viewer count tick, etc.), so the overlay stays in sync without restarting any animations.
+
+  Cloning rather than moving the card mirrors the popover approach added in 0.9.8: Kick's React reconciler may unmount or replace the channel-info card in the background, and moving the original would leave it where React doesn't expect it. The clone in fsEl is what the user sees; the original stays in its normal DOM location for React to manage.
+
 ## [0.9.9] - 2026-05-24
 
 ### Fixed

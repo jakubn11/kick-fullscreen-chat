@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.9.9
+// @version      0.11.19
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -23,10 +23,13 @@
   const WRAP_ID = 'kfc-toggle-wrap';
   const TOAST_ID = 'kfc-toast';
   const STYLE_ID = 'kfc-style';
+  const INFO_ID = 'kfc-info-overlay';
   const VIDEO_ROOT_ATTR = 'data-kfc-video-root';
   const VIDEO_FRAME_ATTR = 'data-kfc-video-frame';
   const VIDEO_EL_ATTR = 'data-kfc-video-el';
   const CHAT_WIDTH = '340px';
+  const INFO_MAX_WIDTH = '720px';
+  const VIEWER_COUNT_COLOR = '#53fc18';
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
   const BTN_CLASS = 'group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&_svg]:size-[1em] outline-transparent outline-2 outline-offset-2 disabled:text-disabled-onSurface focus-visible:outline-outline-decorative text-white [&_svg]:fill-current focus-visible:bg-secondary-base/40 disabled:opacity-30 px-3 py-2 text-base bg-surface-base betterhover:hover:!bg-surface-highest';
@@ -47,11 +50,100 @@
     'div[class*="chatroom" i]',
     'section[class*="chat" i]',
   ];
+  // Twitch-style channel info overlay (avatar / streamer name + verified badge /
+  // title with emotes / game + viewer count). We clone Kick's existing
+  // streamer card into the fullscreen element so the user can see who they're
+  // watching while the player is fullscreen. Tried in order; first match wins.
+  // Add fallback selectors at the end as Kick's markup changes.
+  const STREAMER_INFO_SELECTORS = [
+    '[data-testid="streamer-info"]',
+    '[data-testid="channel-info"]',
+    '[data-testid="user-channel-info"]',
+    '[data-testid="channel-header"]',
+    '#channel-header',
+    '#streamer-info',
+    '#channel-info',
+  ];
+  // Viewer-count badge (e.g., "770 Viewers"). Cloned into the overlay as a
+  // separate child below the streamer card, since Kick renders it as its
+  // own element outside the compact streamer card we clone.
+  const VIEWER_COUNT_SELECTORS = [
+    '[data-testid="viewer-count"]',
+    '[data-testid="viewers-count"]',
+    '[data-testid*="viewer-count" i]',
+    '[aria-label*="viewer" i][aria-label*="count" i]',
+  ];
+  // Matches "770 Viewers" / "1,250 Viewers" / "1 234 sledujících" / etc.
+  // Used by the content-based fallback to locate the viewer-count badge
+  // when no direct selector matches. Common languages covered; add more
+  // tokens if Kick localises into a script not listed here.
+  const VIEWER_COUNT_RE =
+    /\b\d[\d, . ]*\s*(?:viewers?|sledujících|diváků|spectateurs|zuschauer|widzów|зрителей|просмотров|espectadores|spettatori|视聴者|시청者|시청자|مشاهد)\b/i;
 
   const log = (...args) => {
     if (DEBUG) console.log('[KickFullscreenChat]', ...args);
   };
   const warn = (...args) => console.warn('[KickFullscreenChat]', ...args);
+
+  const getCurrentChannelPath = () => {
+    const slug = (window.location.pathname || '').split('/').filter(Boolean)[0];
+    if (!slug || slug.includes('.')) return null;
+    return `/${slug}`;
+  };
+
+  const exitFullscreenBeforeAction = (action) => {
+    if (!(document.fullscreenElement || document.webkitFullscreenElement)) {
+      action();
+      return;
+    }
+    if (document.exitFullscreen) {
+      document.exitFullscreen().then(action).catch(action);
+      return;
+    }
+    if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+      setTimeout(action, 50);
+      return;
+    }
+    action();
+  };
+
+  const clickNativeOrNavigate = (nativeEl, fallbackUrl) => {
+    exitFullscreenBeforeAction(() => {
+      if (nativeEl && document.body.contains(nativeEl)) {
+        nativeEl.dispatchEvent(
+          new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          })
+        );
+        return;
+      }
+      if (fallbackUrl) window.location.href = fallbackUrl;
+    });
+  };
+
+  const shouldHandleOverlayNavigation = (event) => {
+    return (
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey
+    );
+  };
+
+  const wireOverlayNavigation = (el, getNativeEl, fallbackUrl) => {
+    if (!el || el.dataset.kfcNavWired === 'true') return;
+    el.dataset.kfcNavWired = 'true';
+    el.addEventListener('click', (event) => {
+      if (!shouldHandleOverlayNavigation(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clickNativeOrNavigate(getNativeEl?.(), fallbackUrl);
+    });
+  };
 
   // Non-blocking on-screen toast for surfacing errors without an `alert()` modal,
   // which would steal focus and can break fullscreen mode in some browsers.
@@ -230,6 +322,176 @@
         width: 100% !important;
         visibility: visible !important;
       }
+      [${POPOVER_CLONE_ATTR}] {
+        z-index: 2147483647 !important;
+        pointer-events: none !important;
+      }
+      [${POPOVER_CLONE_ATTR}] * {
+        z-index: 2147483647 !important;
+      }
+
+      /* Twitch-style streamer info overlay. A clone of Kick's existing
+         channel-info card pinned to the top-left of the fullscreen element,
+         tied to the same idle fade as the toggle button so it appears with
+         the controls/timeline and disappears with them. Mostly click-through
+         so empty overlay space still passes clicks to the player.
+         Background is fully transparent — readability comes from a text
+         shadow propagated to all descendants, the same trick Twitch uses
+         for its fullscreen channel-info overlay. The wrapper itself remains
+         click-through, while the cloned card content opts back into pointer
+         events so links work and text can be selected. */
+      #${INFO_ID} {
+        position: absolute;
+        top: 1.75rem;
+        left: 1.75rem;
+        z-index: 2147483646;
+        max-width: min(60%, ${INFO_MAX_WIDTH});
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 0.2s ease;
+        color: #fff;
+        background: transparent;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: text;
+        -webkit-user-select: text;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.5);
+      }
+      #${INFO_ID} *,
+      #${INFO_ID} *::before,
+      #${INFO_ID} *::after {
+        user-select: text !important;
+        -webkit-user-select: text !important;
+      }
+      #${INFO_ID}.kfc-idle {
+        opacity: 0;
+      }
+      /* Reset positioning on the clone's root so a card that was originally
+         absolutely positioned within its page layout doesn't escape the
+         overlay frame. Inherited Tailwind utility classes (flex / gap /
+         text-* / etc.) on descendants are preserved. */
+      #${INFO_ID} > * {
+        position: static !important;
+        margin: 0 !important;
+        width: auto !important;
+        max-width: 100% !important;
+        background: transparent !important;
+        pointer-events: auto !important;
+      }
+      #${INFO_ID} a,
+      #${INFO_ID} button {
+        pointer-events: auto !important;
+      }
+      #${INFO_ID} a {
+        cursor: pointer !important;
+      }
+      /* Viewer-count badge inlined next to the category link, e.g.
+         "IRL • 682 Viewers". The cloned badge is forced to inline-flex so
+         it sits on the same row as the category. The separator is drawn
+         as a CSS circle so it doesn't depend on font glyph rendering. */
+      #${INFO_ID} .kfc-info-separator {
+        display: inline-block !important;
+        width: 0.38em !important;
+        height: 0.38em !important;
+        margin: 0 0.4rem !important;
+        border-radius: 9999px !important;
+        background: #fff !important;
+        background-color: #fff !important;
+        opacity: 1 !important;
+        vertical-align: middle !important;
+        flex: 0 0 auto !important;
+      }
+      #${INFO_ID} .kfc-info-viewer-inline {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.25rem !important;
+        margin: 0 !important;
+        vertical-align: middle !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+      #${INFO_ID} .kfc-info-viewer-inline * {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+      #${INFO_ID} .kfc-info-viewer-inline svg,
+      #${INFO_ID} .kfc-info-viewer-inline svg * {
+        fill: #fff !important;
+        stroke: #fff !important;
+      }
+      #${INFO_ID} .kfc-info-viewer-inline [class~="text-primary-base"] {
+        color: ${VIEWER_COUNT_COLOR} !important;
+      }
+      #${INFO_ID} .kfc-info-viewer-inline [class~="text-subtle"] {
+        color: #fff !important;
+      }
+      #${INFO_ID} .kfc-info-category-inline,
+      #${INFO_ID} .kfc-info-category-inline * {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+      /* Hide follow / subscribe / share / notification controls so the
+         overlay stays compact. Use aria-label / href patterns instead of
+         a broader 'button:not(:has(img))' rule — Kick wraps the
+         streamer-name text in a plain text button on some layouts, and
+         the broad rule was hiding it. Verified badges render as inline
+         SVG / span and remain visible. */
+      #${INFO_ID} button[aria-label*="follow" i]:not([aria-label*="followers" i]):not([aria-label*="following" i]),
+      #${INFO_ID} button[aria-label*="subscribe" i]:not([aria-label*="subscriber" i]),
+      #${INFO_ID} button[aria-label*="notif" i],
+      #${INFO_ID} button[aria-label*="share" i],
+      #${INFO_ID} a[href*="/follow" i],
+      #${INFO_ID} a[href*="/subscribe" i] {
+        display: none !important;
+      }
+      /* Boost streamer name prominence. The cloned card's headings (or
+         heading-shaped class patterns) get bolder white text so the name
+         reads as the top element above the title. Size is only slightly
+         larger than body text so a long username doesn't dominate the
+         overlay (Kick's own compact card uses a similar restrained
+         hierarchy). */
+      #${INFO_ID} h1,
+      #${INFO_ID} h2,
+      #${INFO_ID} h3,
+      #${INFO_ID} [class*="username" i],
+      #${INFO_ID} [class*="streamer-name" i],
+      #${INFO_ID} [class*="channel-name" i] {
+        font-size: 1.15em !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        color: #fff !important;
+      }
+      /* Allow the stream title to wrap to 2 rows. Kick applies Tailwind's
+         'truncate' / 'line-clamp-1' classes to the title in their normal
+         page layout because horizontal space is tight there; in our
+         overlay we have more room, so let long titles use a second line
+         and only clip with an ellipsis past row 2. The override targets
+         any descendant carrying those utility classes — covers the title
+         specifically and is a no-op on shorter text that already fits.
+         Headings (the streamer name) are excluded so a long username
+         doesn't sprawl across two lines. */
+      #${INFO_ID} [class*="truncate"]:not(h1):not(h2):not(h3),
+      #${INFO_ID} [class*="line-clamp"]:not(h1):not(h2):not(h3) {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        white-space: normal !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        /* Let the title use the overlay's full available width — Kick's
+           own card constrains it tighter (max-w-* utility) for the in-page
+           layout where space is shared with follow / subscribe buttons,
+           but in our overlay the row has more room. */
+        max-width: 100% !important;
+        width: 100% !important;
+      }
 
       #${TOAST_ID} {
         position: fixed;
@@ -264,6 +526,13 @@
   let markedVideos = [];
   let videoRootHost = null;
   let videoRootObserver = null;
+  let infoOverlay = null;
+  let infoOverlaySource = null;
+  let infoOverlayObserver = null;
+  let infoViewerSource = null;
+  let infoViewerObserver = null;
+  let infoOverlayPending = false;
+  let infoViewerAttrSyncPending = false;
   let active = false;
   let suppressObserver = false;
   let videoEl = null;
@@ -549,6 +818,43 @@
     markReloadAndMaybeTeardown(fs, 'seekbar pointerdown');
   };
   document.addEventListener('pointerdown', onDocPointerDownCapture, true);
+
+  // Keyboard shortcut: 'C' toggles the side chat while the Kick player is
+  // fullscreen, matching Twitch's convention. Skipped when:
+  //   - the user is typing (input / textarea / contenteditable, including
+  //     Kick's chat input),
+  //   - a modifier key is held (Cmd+C is copy, Ctrl+C is copy/break, etc.),
+  //   - fullscreen target is not a Kick player container,
+  //   - the video is mid-reload (mirrors the button's disabled state, so the
+  //     shortcut can't trigger the 404 the button protects against).
+  const onKeyDown = (e) => {
+    if (e.key !== 'c' && e.key !== 'C') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const target = e.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof Element && target.isContentEditable)
+    ) {
+      return;
+    }
+    const fs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!fs) return;
+    const looksLikePlayer =
+      VIDEO_WRAPPER_SELECTORS.some((s) => fs.matches?.(s) || fs.querySelector?.(s)) ||
+      fs.querySelector?.('video');
+    if (!looksLikePlayer) return;
+    const video = fs.querySelector('video');
+    if (videoReloading || !video || video.readyState < 2) return;
+    e.preventDefault();
+    try {
+      if (active) disableSideChat(fs);
+      else enableSideChat(fs);
+    } catch (err) {
+      log('keyboard toggle failed:', err);
+    }
+  };
+  document.addEventListener('keydown', onKeyDown);
 
   // When chat starts hidden (data-chat="false") and the user enables our side layout,
   // Kick's internal "is chat shown" state is out of sync with the DOM. The next click
@@ -882,8 +1188,13 @@
     tryAttach();
 
     // Kick may replace the <video> element entirely on quality change or DVR
-    // exit — re-attach listeners whenever the subtree changes.
-    videoSwapObserver = new MutationObserver(() => {
+    // exit — re-attach listeners whenever the player subtree changes. Skip
+    // mutations whose target is inside our chat slot: chat-message churn
+    // would otherwise fire this callback hundreds of times per minute during
+    // busy streams, each running a fresh querySelector('video') on the
+    // whole fsEl subtree. Same filter trick videoRootObserver uses.
+    videoSwapObserver = new MutationObserver((mutations) => {
+      if (chatSlot && mutations.every((m) => chatSlot.contains(m.target))) return;
       const currentVideo = fsEl.querySelector('video');
       if (!currentVideo) return;
       if (currentVideo !== fullscreenVideoEl) {
@@ -933,10 +1244,10 @@
   // original's subtree changes (childList / characterData). React often
   // mounts the popover wrapper first and writes the tooltip content into
   // it on a later commit; without sync, the initial clone would be the
-  // empty wrapper and the user would see nothing. Attribute mutations are
-  // deliberately *not* synced — Radix/Floating UI drive their fade-in
-  // animation by mutating `data-state` / `style` on every tick, and
-  // re-cloning on each tick would restart the animation forever.
+  // empty wrapper and the user would see nothing. We also take a couple of
+  // delayed one-shot re-clones after adoption to catch tooltip wrappers
+  // whose final `style` / `data-state` lands via attribute-only updates,
+  // without observing animation attributes forever.
   //
   // The design system rule "no tooltips, no menus, no popovers" applies to
   // UI we paint ourselves, not to making Kick's existing popovers visible.
@@ -990,19 +1301,14 @@
       if (adopted.contains?.(node)) return;
     }
 
-    // React mounts the popover wrapper first and may write content into it
-    // and flip its `data-state` from "instant-open" / "delayed-open" / etc.
-    // to "open" on a later commit. A single clone taken at adoption time
-    // therefore captures an empty wrapper at a non-visible state and the
-    // user sees nothing. Re-clone the original on any subtree mutation
-    // (childList / characterData / attributes) so the clone tracks the
-    // original. `requestAnimationFrame` debounces a burst of mutations into
-    // one DOM update per frame. CSS *transitions* don't restart on element
-    // replacement (they only fire on property changes, and the new clone
-    // already has the final property values inline), so the open animation
-    // still looks right. CSS *keyframe* animations would restart on each
-    // reclone, but Radix-style tooltips drive their fade-in through
-    // transitions rather than keyframes, so this is fine in practice.
+    // React mounts the popover wrapper first and writes the tooltip content
+    // into it on a later commit. A single clone taken at adoption time
+    // therefore captures an empty wrapper and the user sees nothing.
+    // Re-clone the original on subtree mutations (childList / characterData)
+    // so the clone tracks the original. Attribute mutations are not observed
+    // continuously because Radix/Floating UI flip `data-state` / inline
+    // `style` on animation ticks; delayed one-shot re-clones below catch
+    // the settled visible/positioned state without permanent churn.
     let pendingReclone = false;
     const performReclone = () => {
       pendingReclone = false;
@@ -1043,9 +1349,11 @@
       childList: true,
       subtree: true,
       characterData: true,
-      attributes: true,
     });
     popoverSyncObservers.set(node, syncObserver);
+    requestAnimationFrame(scheduleReclone);
+    setTimeout(scheduleReclone, 50);
+    setTimeout(scheduleReclone, 150);
     log('cloned popover into fsEl');
   };
 
@@ -1111,6 +1419,532 @@
     popoverPortalHost = null;
   };
 
+  // Twitch-style streamer info overlay. We *clone* Kick's existing channel-info
+  // card into fsEl rather than moving it, for the same reason as popovers:
+  // Kick's React reconciler may unmount or replace the card in the background,
+  // and a moved node would no longer be where React expects it. Cloning keeps
+  // the original in its normal DOM location while the user sees a copy
+  // overlaid on the fullscreen player. The clone inherits Kick's class names
+  // and global Tailwind styling so it renders with Kick's avatar / verified
+  // badge / emote / viewer-count formatting. A debounced MutationObserver
+  // re-clones when the source's content changes (title edit, viewer count
+  // tick, etc.), so the overlay stays in sync.
+  const findStreamerInfoSource = () => {
+    // 1. Try known direct selectors first.
+    for (const s of STREAMER_INFO_SELECTORS) {
+      try {
+        const el = document.querySelector(s);
+        if (el) return el;
+      } catch (err) {
+        // Selector syntax error in a fallback shouldn't break the rest.
+      }
+    }
+    const player = document.querySelector(
+      '#injected-channel-player, [data-testid="player"]'
+    );
+    const pathSegments = (window.location.pathname || '')
+      .split('/')
+      .filter(Boolean);
+    const usernameSlug =
+      pathSegments[0] && !pathSegments[0].includes('.') ? pathSegments[0] : null;
+    // 2. Avatar-anchored search (primary). The avatar is the most distinct
+    //    element of the streamer card and lives inside a link back to the
+    //    streamer's own profile — `a[href="/${username}"]`. Walk up from
+    //    that link until we hit an ancestor that also contains a category
+    //    link (the game) and meets reasonable card dimensions. This finds
+    //    the FULL card (avatar + name + title + game + tags) instead of
+    //    just the title+tags sub-row that the older category-link walk
+    //    landed on.
+    if (usernameSlug) {
+      const slug = CSS.escape(usernameSlug);
+      const profileImgSelector =
+        `a[href="/${slug}" i] img, a[href="/${slug}/" i] img, ` +
+        `a[href="/${slug}" i] picture, a[href="/${slug}/" i] picture`;
+      const avatars = document.querySelectorAll(profileImgSelector);
+      for (const avatar of avatars) {
+        let node = avatar.parentElement;
+        for (let i = 0; i < 12 && node && node !== document.body; i++) {
+          if (player && node.contains(player)) break;
+          const rect = node.getBoundingClientRect();
+          if (
+            rect.width > 200 &&
+            rect.height > 60 &&
+            rect.height < window.innerHeight * 0.7 &&
+            node.querySelector('a[href*="/categories/"], a[href*="/category/"]')
+          ) {
+            return node;
+          }
+          node = node.parentElement;
+        }
+      }
+    }
+    // 3. Category-link walk fallback. Used when no profile-link-wrapped
+    //    avatar is found (e.g., URL slug doesn't match the rendered link).
+    //    Requires h1/h2/h3 OR profile link + an avatar img + reasonable
+    //    dimensions.
+    const profileLinkSelector = usernameSlug
+      ? `a[href="/${CSS.escape(usernameSlug)}" i], a[href="/${CSS.escape(usernameSlug)}/" i]`
+      : null;
+    const hasStreamerNameSignal = (el) => {
+      if (el.querySelector('h1, h2, h3')) return true;
+      if (profileLinkSelector && el.querySelector(profileLinkSelector)) return true;
+      return false;
+    };
+    const categoryLinks = document.querySelectorAll(
+      'a[href*="/categories/"], a[href*="/category/"]'
+    );
+    for (const link of categoryLinks) {
+      let node = link.parentElement;
+      for (let i = 0; i < 12 && node && node !== document.body; i++) {
+        if (player && node.contains(player)) break;
+        const rect = node.getBoundingClientRect();
+        if (
+          rect.width > 200 &&
+          rect.height > 80 &&
+          rect.height < window.innerHeight * 0.7 &&
+          node.querySelector('img, picture, [class*="avatar" i]') &&
+          hasStreamerNameSignal(node)
+        ) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+    }
+    return null;
+  };
+
+  // Viewer-count badge on Kick (e.g., "770 Viewers" with a small people
+  // icon). Kick renders this outside the compact streamer card we clone for
+  // the avatar / name / title, so it has to be found and cloned separately,
+  // then appended to the overlay as a sibling of the streamer-card clone.
+  const findViewerCountSource = () => {
+    // Direct selectors first.
+    for (const s of VIEWER_COUNT_SELECTORS) {
+      try {
+        const el = document.querySelector(s);
+        if (el) return el;
+      } catch (err) {}
+    }
+    // Content-based fallback. Find the smallest element whose textContent
+    // matches the viewer-count pattern. Constrain by length so we only
+    // capture the badge (number + label) and not a larger ancestor that
+    // happens to enclose it.
+    const candidates = document.querySelectorAll('div, span, p, a, button');
+    let best = null;
+    for (const el of candidates) {
+      const text = (el.textContent || '').trim();
+      if (text.length === 0 || text.length > 30) continue;
+      if (!VIEWER_COUNT_RE.test(text)) continue;
+      if (
+        !best ||
+        text.length < (best.textContent || '').trim().length
+      ) {
+        best = el;
+      }
+    }
+    return best;
+  };
+
+  // Post-process the cloned streamer card before mounting it in the overlay.
+  // Two changes from Kick's source layout:
+  //  - Hide the tag pills around the category link (e.g., `Czech`, `irl`,
+  //    `czech`, `vanlife`). The category itself (the green link) stays.
+  //  - Inline the viewer-count badge right after the category link, with
+  //    a CSS-drawn circle separator, so the bottom row reads "IRL • 682"
+  //    instead of having a separate viewer-count row below.
+  // Heuristic: walk the category link's parent element and hide siblings
+  // that look like tag pills (short text, no images or headings). The
+  // viewer-count source is cloned in place (preserving Kick's animated
+  // digit component) and added as a sibling of the category link.
+  const styleViewerCountClone = (viewerClone) => {
+    for (const node of [viewerClone, ...viewerClone.querySelectorAll('*')]) {
+      node.style.setProperty('background', 'transparent', 'important');
+      node.style.setProperty('background-color', 'transparent', 'important');
+      node.style.setProperty('border-color', 'transparent', 'important');
+      node.style.setProperty('box-shadow', 'none', 'important');
+      node.style.setProperty('text-shadow', 'none', 'important');
+      if (node instanceof SVGElement) {
+        node.style.setProperty('fill', '#fff', 'important');
+        node.style.setProperty('stroke', '#fff', 'important');
+      }
+      if (node.matches?.('[class~="text-primary-base"]')) {
+        node.style.setProperty('color', VIEWER_COUNT_COLOR, 'important');
+      }
+      if (node.matches?.('[class~="text-subtle"]')) {
+        node.style.setProperty('color', '#fff', 'important');
+      }
+    }
+  };
+
+  const normalizePath = (href) => {
+    try {
+      return new URL(href, window.location.origin).pathname.replace(/\/$/, '');
+    } catch (err) {
+      return '';
+    }
+  };
+
+  const findNativeCategoryTarget = (href) => {
+    const wantedPath = normalizePath(href);
+    if (!infoOverlaySource || !wantedPath) return null;
+    for (const link of infoOverlaySource.querySelectorAll('a[href]')) {
+      if (normalizePath(link.getAttribute('href')) === wantedPath) return link;
+    }
+    return infoOverlaySource.querySelector(
+      'a[href*="/categories/" i], a[href*="/category/" i]'
+    );
+  };
+
+  const findNativeProfileTarget = () => {
+    if (!infoOverlaySource) return null;
+    const profilePath = getCurrentChannelPath();
+    if (!profilePath) return null;
+    for (const link of infoOverlaySource.querySelectorAll('a[href]')) {
+      if (normalizePath(link.getAttribute('href')) === profilePath) return link;
+    }
+    const nameOrAvatar = infoOverlaySource.querySelector(
+      'h1, h2, h3, [class*="username" i], [class*="streamer-name" i], [class*="channel-name" i], img, picture, [class*="avatar" i]'
+    );
+    return nameOrAvatar?.closest('button, a[href]') || null;
+  };
+
+  const makeProfileAffordancesClickable = (cardClone) => {
+    const profilePath = getCurrentChannelPath();
+    if (!profilePath) return;
+    const profileUrl = new URL(profilePath, window.location.origin).href;
+    const navigate = (event) => {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clickNativeOrNavigate(findNativeProfileTarget(), profileUrl);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      clickNativeOrNavigate(findNativeProfileTarget(), profileUrl);
+    };
+
+    const candidates = new Set([
+      ...cardClone.querySelectorAll(
+        'h1, h2, h3, [class*="username" i], [class*="streamer-name" i], [class*="channel-name" i]'
+      ),
+    ]);
+    const avatar = cardClone.querySelector('img, picture, [class*="avatar" i]');
+    if (avatar) candidates.add(avatar);
+    for (const candidate of candidates) {
+      const anchor = candidate.closest('a[href]');
+      if (anchor) {
+        wireOverlayNavigation(
+          anchor,
+          findNativeProfileTarget,
+          new URL(anchor.getAttribute('href'), window.location.origin).href
+        );
+        continue;
+      }
+      const target = candidate.closest('button') || candidate;
+      target.setAttribute('role', 'link');
+      target.setAttribute('tabindex', '0');
+      target.style.setProperty('cursor', 'pointer', 'important');
+      target.addEventListener('click', navigate);
+      target.addEventListener('keydown', onKeyDown);
+    }
+  };
+
+  const transformClonedCard = (cardClone) => {
+    makeProfileAffordancesClickable(cardClone);
+    // Hide chevron / dropdown indicator buttons: a button containing only
+    // an svg with no visible text or image. Kick puts one of these next
+    // to the title to open an "expand title / description" popover; the
+    // popover isn't wired up in our cloned-and-detached overlay, so the
+    // button does nothing and just looks broken. Verified-badge buttons
+    // (which have aria-label "verified") and avatar-wrapping buttons
+    // (which contain an img) are exempted.
+    for (const btn of cardClone.querySelectorAll('button')) {
+      if (btn.querySelector('img, picture')) continue;
+      const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+      if (aria.includes('verified')) continue;
+      if ((btn.textContent || '').trim().length > 0) continue;
+      if (!btn.querySelector('svg')) continue;
+      btn.style.display = 'none';
+    }
+    const categoryLink = cardClone.querySelector(
+      'a[href*="/categories/" i], a[href*="/category/" i]'
+    );
+    if (!categoryLink) return;
+    const categoryHref = categoryLink.getAttribute('href');
+    wireOverlayNavigation(
+      categoryLink,
+      () => findNativeCategoryTarget(categoryHref),
+      new URL(categoryHref, window.location.origin).href
+    );
+    categoryLink.classList.add('kfc-info-category-inline');
+    for (const node of [categoryLink, ...categoryLink.querySelectorAll('*')]) {
+      node.style.setProperty('background', 'transparent', 'important');
+      node.style.setProperty('background-color', 'transparent', 'important');
+      node.style.setProperty('box-shadow', 'none', 'important');
+      node.style.setProperty('text-shadow', 'none', 'important');
+    }
+    const tagsRow = categoryLink.parentElement;
+    if (tagsRow) {
+      for (const sibling of Array.from(tagsRow.children)) {
+        if (sibling === categoryLink) continue;
+        if (sibling.contains(categoryLink)) continue;
+        // Only hide simple tag-pill-shaped siblings: short text, no
+        // imagery or heading content (so name/title rows are never hit
+        // even on layouts where they share a parent with the category).
+        if (sibling.querySelector('img, picture, svg, h1, h2, h3')) continue;
+        const text = (sibling.textContent || '').trim();
+        if (text.length === 0 || text.length > 30) continue;
+        sibling.style.display = 'none';
+      }
+    }
+    if (infoViewerSource && document.body.contains(infoViewerSource)) {
+      const viewerClone = infoViewerSource.cloneNode(true);
+      viewerClone.classList.add('kfc-info-viewer-inline');
+      styleViewerCountClone(viewerClone);
+      const separator = document.createElement('span');
+      separator.className = 'kfc-info-separator';
+      separator.setAttribute('aria-hidden', 'true');
+      categoryLink.after(separator, viewerClone);
+    }
+  };
+
+  const recloneInfoOverlay = () => {
+    infoOverlayPending = false;
+    if (!infoOverlay || !infoOverlaySource) return;
+    if (!document.body.contains(infoOverlaySource)) return;
+    try {
+      const cardClone = infoOverlaySource.cloneNode(true);
+      transformClonedCard(cardClone);
+      infoOverlay.replaceChildren(cardClone);
+    } catch (err) {
+      log('reclone info overlay failed:', err);
+    }
+  };
+
+  const syncViewerCloneAttributes = () => {
+    infoViewerAttrSyncPending = false;
+    if (!infoOverlay || !infoViewerSource || !document.body.contains(infoViewerSource)) return;
+    const viewerClone = infoOverlay.querySelector('.kfc-info-viewer-inline');
+    if (!viewerClone) return;
+    const sourceNodes = [infoViewerSource, ...infoViewerSource.querySelectorAll('*')];
+    const cloneNodes = [viewerClone, ...viewerClone.querySelectorAll('*')];
+    const total = Math.min(sourceNodes.length, cloneNodes.length);
+    for (let i = 0; i < total; i++) {
+      const source = sourceNodes[i];
+      const clone = cloneNodes[i];
+      const sourceStyle = source.getAttribute('style');
+      if (sourceStyle == null) clone.removeAttribute('style');
+      else clone.setAttribute('style', sourceStyle);
+      if (i > 0) {
+        const sourceClass = source.getAttribute('class');
+        if (sourceClass == null) clone.removeAttribute('class');
+        else clone.setAttribute('class', sourceClass);
+      }
+    }
+    styleViewerCountClone(viewerClone);
+  };
+
+  const scheduleViewerAttrSync = () => {
+    if (infoViewerAttrSyncPending) return;
+    infoViewerAttrSyncPending = true;
+    requestAnimationFrame(syncViewerCloneAttributes);
+  };
+
+  const onViewerSourceMutation = (mutations) => {
+    if (mutations.some((mutation) => mutation.type === 'attributes')) {
+      scheduleViewerAttrSync();
+    }
+    if (mutations.some((mutation) => mutation.type !== 'attributes')) {
+      scheduleInfoReclone();
+    }
+  };
+
+  const scheduleInfoReclone = () => {
+    if (infoOverlayPending) return;
+    infoOverlayPending = true;
+    requestAnimationFrame(recloneInfoOverlay);
+  };
+
+  // Kick may re-mount the channel-info card or the viewer-count badge while
+  // we're in fullscreen (SPA channel navigation, React reconciler swaps,
+  // etc.). When that happens, our observers are stuck on the orphaned
+  // original and the overlay would freeze on stale data. A body-level
+  // observer watches for our tracked sources detaching and, when one does,
+  // re-runs the relevant finder and re-attaches its sync observer. The
+  // viewer source is only refound if we had one originally — if no viewer
+  // badge was present at mount time, we don't keep searching (cheap-out).
+  const refindInfoSources = () => {
+    if (!infoOverlay) return;
+    let changed = false;
+    if (
+      infoOverlaySource &&
+      !document.body.contains(infoOverlaySource)
+    ) {
+      const newSource = findStreamerInfoSource();
+      if (newSource && newSource !== infoOverlaySource) {
+        if (infoOverlayObserver) infoOverlayObserver.disconnect();
+        infoOverlaySource = newSource;
+        infoOverlayObserver = new MutationObserver(scheduleInfoReclone);
+        infoOverlayObserver.observe(newSource, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        log('refindInfoSources: re-attached to streamer source');
+        changed = true;
+      } else if (!newSource) {
+        if (infoOverlayObserver) infoOverlayObserver.disconnect();
+        infoOverlayObserver = null;
+        infoOverlaySource = null;
+        log('refindInfoSources: streamer source lost, no replacement');
+        changed = true;
+      }
+    }
+    if (
+      infoViewerSource &&
+      !document.body.contains(infoViewerSource)
+    ) {
+      const newViewer = findViewerCountSource();
+      if (newViewer && newViewer !== infoViewerSource) {
+        if (infoViewerObserver) infoViewerObserver.disconnect();
+        infoViewerSource = newViewer;
+        infoViewerObserver = new MutationObserver(onViewerSourceMutation);
+        infoViewerObserver.observe(newViewer, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: ['style', 'class'],
+        });
+        log('refindInfoSources: re-attached to viewer source');
+        changed = true;
+      } else if (!newViewer) {
+        if (infoViewerObserver) infoViewerObserver.disconnect();
+        infoViewerObserver = null;
+        infoViewerSource = null;
+        log('refindInfoSources: viewer source lost, no replacement');
+        changed = true;
+      }
+    }
+    if (changed) scheduleInfoReclone();
+  };
+
+  let infoBodyObserver = null;
+  let infoBodyCheckPending = false;
+  const startInfoSourceWatcher = () => {
+    stopInfoSourceWatcher();
+    infoBodyObserver = new MutationObserver(() => {
+      if (infoBodyCheckPending) return;
+      infoBodyCheckPending = true;
+      requestAnimationFrame(() => {
+        infoBodyCheckPending = false;
+        if (!infoOverlay) return;
+        const sourceLost =
+          infoOverlaySource && !document.body.contains(infoOverlaySource);
+        const viewerLost =
+          infoViewerSource && !document.body.contains(infoViewerSource);
+        if (sourceLost || viewerLost) refindInfoSources();
+      });
+    });
+    infoBodyObserver.observe(document.body, { childList: true, subtree: true });
+  };
+  const stopInfoSourceWatcher = () => {
+    if (infoBodyObserver) {
+      infoBodyObserver.disconnect();
+      infoBodyObserver = null;
+    }
+    infoBodyCheckPending = false;
+  };
+
+  const mountInfoOverlay = (fsEl) => {
+    unmountInfoOverlay();
+    const source = findStreamerInfoSource();
+    if (!source) {
+      warn(
+        'streamer info card not found — overlay disabled. Inspect Kick\'s channel-info element and add its selector to STREAMER_INFO_SELECTORS near the top of the userscript.'
+      );
+      return;
+    }
+    log('mountInfoOverlay: cloning source', source);
+
+    const viewerSource = findViewerCountSource();
+    if (viewerSource) {
+      log('mountInfoOverlay: cloning viewer-count badge', viewerSource);
+    } else {
+      log('mountInfoOverlay: no viewer-count badge found');
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.id = INFO_ID;
+    // Set the viewer source BEFORE the initial clone+transform so
+    // transformClonedCard can read it during mount, not just reclone.
+    infoViewerSource = viewerSource;
+    try {
+      const cardClone = source.cloneNode(true);
+      transformClonedCard(cardClone);
+      wrapper.appendChild(cardClone);
+    } catch (err) {
+      log('initial clone failed:', err);
+      infoViewerSource = null;
+      return;
+    }
+
+    fsEl.appendChild(wrapper);
+    infoOverlay = wrapper;
+    infoOverlaySource = source;
+
+    // Re-clone the source on subtree / text mutations. Attribute mutations
+    // are deliberately not observed — Kick's UI uses transitions driven by
+    // attribute / class changes for hover and focus states, and re-cloning
+    // on each tick would restart those animations. rAF debouncing coalesces
+    // a burst of mutations into a single replace per frame. Both the
+    // streamer card and the viewer-count badge feed into the same reclone
+    // path for subtree/text changes. The viewer badge also observes style
+    // / class attributes, but those only sync into the existing badge clone
+    // so Kick's rolling digits can update without replacing the whole
+    // overlay or disturbing tooltip portal clones.
+    infoOverlayObserver = new MutationObserver(scheduleInfoReclone);
+    infoOverlayObserver.observe(source, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    if (viewerSource) {
+      infoViewerObserver = new MutationObserver(onViewerSourceMutation);
+      infoViewerObserver.observe(viewerSource, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      });
+    }
+    // Catch source replacement (Kick remounting the card mid-fullscreen)
+    // by watching body for detachment and refinding on the next frame.
+    startInfoSourceWatcher();
+  };
+
+  const unmountInfoOverlay = () => {
+    stopInfoSourceWatcher();
+    if (infoOverlayObserver) {
+      infoOverlayObserver.disconnect();
+      infoOverlayObserver = null;
+    }
+    if (infoViewerObserver) {
+      infoViewerObserver.disconnect();
+      infoViewerObserver = null;
+    }
+    if (infoOverlay) {
+      infoOverlay.remove();
+      infoOverlay = null;
+    }
+    infoOverlaySource = null;
+    infoViewerSource = null;
+    infoOverlayPending = false;
+    infoViewerAttrSyncPending = false;
+  };
+
   const ensureButton = (fsEl) => {
     if (!fsEl) return;
     let wrap = document.getElementById(WRAP_ID);
@@ -1159,8 +1993,9 @@
   let idleFsEl = null;
   const setIdle = (idle) => {
     const wrap = document.getElementById(WRAP_ID);
-    if (!wrap) return;
-    wrap.classList.toggle('kfc-idle', idle);
+    if (wrap) wrap.classList.toggle('kfc-idle', idle);
+    const info = document.getElementById(INFO_ID);
+    if (info) info.classList.toggle('kfc-idle', idle);
   };
   const onFsMouseMove = () => {
     setIdle(false);
@@ -1216,6 +2051,7 @@
         fsEl.querySelector?.('video');
       if (!looksLikePlayer) return;
       ensureButton(fsEl);
+      mountInfoOverlay(fsEl);
       startVideoLoadingMonitor(fsEl);
       startIdleTracking(fsEl);
     } else {
@@ -1228,6 +2064,7 @@
         const parent = chatSlot?.parentElement;
         if (parent) disableSideChat(parent);
       }
+      unmountInfoOverlay();
       removeButton();
     }
   };
