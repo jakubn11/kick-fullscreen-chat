@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.23] - 2026-05-27
+
+### Fixed
+- The fullscreen side chat no longer collapses immediately after enabling when Kick's internal React state thinks chat is hidden (which happens after the first close, on streams where the user previously hid chat, etc.). `enableSideChat()` now synchronises Kick's state by programmatically clicking Kick's own chat-toggle button (`findKickChatToggleBtn()`) before moving the chat node into our slot. As a safety net for sessions where the button can't be located, the `dataChatObserver` now ignores a single React-reconcile flip back to `data-chat="false"` within a 500ms window after enable and re-asserts `"true"`, so the layout survives the initial reconcile pass.
+
+## [0.11.22] - 2026-05-27
+
+### Fixed
+- Closing the fullscreen side chat on a re-opened session (chat opened → closed → opened again) used to require two clicks: after the first close Kick's internal "is chat shown" state is "hidden", so when our side layout re-opens Kick renders the toggle as a floating button **outside** the chat panel — which our chatSlot-scoped click listener never saw. The capture-phase click handler now listens at the document level (still gated on `active`), so it catches the chat-toggle button wherever Kick mounts it and tears down on the first click.
+
+## [0.11.21] - 2026-05-27
+
+### Fixed
+- Closing the fullscreen side chat now reliably tears down on a single click even when Kick's chat-toggle button renders as an icon-only control (no text, aria-label, or title). The capture-phase click handler now also identifies the button by its SVG path signature, on top of the existing text/aria/title match across both `hide`/`close`/`collapse` and `show`/`open`/`expand` directions.
+
 ## [0.11.19] - 2026-05-26
 
 ### Removed

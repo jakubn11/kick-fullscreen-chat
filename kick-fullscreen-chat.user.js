@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.11.19
+// @version      0.11.23
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -535,6 +535,13 @@
   let infoViewerAttrSyncPending = false;
   let active = false;
   let suppressObserver = false;
+  // Timestamp guarded by RECONCILE_GUARD_MS in dataChatObserver: a `data-chat`
+  // flip back to "false" within this window after enableSideChat is treated
+  // as Kick's React reconciler reverting our optimistic write (rather than a
+  // real user "hide chat" action), and we re-assert "true" instead of tearing
+  // down. Falls back from the primary fix (clicking Kick's own chat-toggle
+  // button to sync React state) when that button isn't findable.
+  let enableSyncUntil = 0;
   let videoEl = null;
   let enabledAt = 0;
   let fullscreenVideoEl = null;
@@ -824,6 +831,16 @@
   // on Kick's "Hide chat" button toggles Kick's state from hidden→shown — so data-chat
   // doesn't change to "false" and the MutationObserver doesn't fire. Catch the click
   // directly so one click always tears down, regardless of Kick's internal state.
+  // Also match "Show chat": in the out-of-sync case Kick still labels its toggle
+  // "Show chat" (because it thinks chat is hidden) even though our slot is visible,
+  // so the first click on what the user sees as a close button is on "Show chat".
+  // Listen at document level (capture) rather than on chatSlot, because when
+  // Kick's React thinks chat is hidden it renders the toggle as a floating
+  // button OUTSIDE the chat panel (and therefore outside our slot). That used
+  // to require two clicks — the first to flip Kick's state back to "shown"
+  // (no data-chat change → observer doesn't fire), the second to actually
+  // close. A document-level capture handler catches the toggle wherever Kick
+  // mounts it.
   // Kick's native double-click-to-exit-fullscreen handler lives on the
   // `<video>` element, but we set `pointer-events: none` on the marked
   // video while side chat is active so clicks pass through to Kick's
@@ -849,15 +866,64 @@
     }
   };
 
-  const HIDE_CHAT_RE = /hide\s*chat|close\s*chat|collapse\s*chat/;
-  const onChatSlotClick = (e) => {
+  const CHAT_TOGGLE_RE = /(?:hide|close|collapse|show|open|expand)\s*chat/;
+  // Kick's chat-toggle button is icon-only on the current UI: no text content,
+  // no aria-label, no title. Fall back to recognising the arrow-with-lines SVG
+  // path data lifted into BTN_SVG (Kick's own "Show chat" icon, CSS-flipped
+  // when chat is open). The signature is the first ~12 chars of the arrow
+  // path's `d` attribute — distinctive enough that no other button in the
+  // chat panel shares it, but short enough to survive minor minifier changes.
+  const KICK_CHAT_TOGGLE_PATH_SIG = 'M8.79052 14.6146';
+  const looksLikeChatToggleBtn = (btn) => {
+    const paths = btn.querySelectorAll('path[d]');
+    for (const p of paths) {
+      if ((p.getAttribute('d') || '').startsWith(KICK_CHAT_TOGGLE_PATH_SIG)) return true;
+    }
+    return false;
+  };
+  // Best-effort lookup for Kick's own chat-toggle button anywhere on the page.
+  // Used during enableSideChat to sync Kick's React state when it thinks chat
+  // is hidden (otherwise React reconciles our data-chat="true" back to "false"
+  // and the dataChatObserver immediately tears the layout down).
+  const findKickChatToggleBtn = () => {
+    const buttons = document.querySelectorAll('button');
+    // Pass 1: explicit text/aria/title match — the most reliable signal.
+    for (const b of buttons) {
+      if (b.id === BTN_ID) continue;
+      const text = (b.textContent || '').trim().toLowerCase();
+      const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+      const title = (b.getAttribute('title') || '').toLowerCase();
+      if (
+        CHAT_TOGGLE_RE.test(text) ||
+        CHAT_TOGGLE_RE.test(aria) ||
+        CHAT_TOGGLE_RE.test(title)
+      ) return b;
+    }
+    // Pass 2: SVG-path signature for icon-only buttons.
+    for (const b of buttons) {
+      if (b.id === BTN_ID) continue;
+      if (looksLikeChatToggleBtn(b)) return b;
+    }
+    return null;
+  };
+
+  const onDocChatToggleClickCapture = (e) => {
     if (!active) return;
-    const btn = e.target?.closest?.('button');
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const btn = target.closest('button');
     if (!btn) return;
+    if (btn.id === BTN_ID) return; // ignore our own Chat toggle
     const text = (btn.textContent || '').trim().toLowerCase();
     const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-    if (!HIDE_CHAT_RE.test(text) && !HIDE_CHAT_RE.test(aria)) return;
-    log('hide-chat button clicked, scheduling teardown');
+    const title = (btn.getAttribute('title') || '').toLowerCase();
+    if (
+      !CHAT_TOGGLE_RE.test(text) &&
+      !CHAT_TOGGLE_RE.test(aria) &&
+      !CHAT_TOGGLE_RE.test(title) &&
+      !looksLikeChatToggleBtn(btn)
+    ) return;
+    log('chat-toggle button clicked, scheduling teardown');
     // Let Kick's own onClick handler run first, then tear down on the next tick.
     setTimeout(() => {
       if (!active) return;
@@ -865,6 +931,7 @@
       if (fs) disableSideChat(fs);
     }, 0);
   };
+  document.addEventListener('click', onDocChatToggleClickCapture, true);
 
   const enableSideChat = (fsEl) => {
     if (!fsEl) {
@@ -909,6 +976,33 @@
     }
     log('enableSideChat: using chat node', chat);
 
+    // If Kick's React state currently says chat is HIDDEN, just writing
+    // data-chat="true" is not enough: React will reconcile the attribute back
+    // to "false" on its next commit, our dataChatObserver fires, and the
+    // side-chat layout collapses immediately. Sync Kick's state first by
+    // programmatically clicking its own chat-toggle button — that flips
+    // React's `isChatShown` to true so the attribute write below is what
+    // React itself wants and the reconcile is a no-op.
+    const dataChatHostBefore = document.querySelector('[data-chat]');
+    const kickStateHidden =
+      dataChatHostBefore?.getAttribute('data-chat') === 'false';
+    if (kickStateHidden) {
+      const kickBtn = findKickChatToggleBtn();
+      if (kickBtn) {
+        log('Kick state is hidden; syncing via programmatic click on Kick toggle');
+        // Suppress both the dataChatObserver (Kick's onClick may set
+        // data-chat="true" → no teardown wanted) and the document-level
+        // chat-toggle click capture (active is still false here so it would
+        // bail anyway, but be defensive).
+        suppressObserver = true;
+        kickBtn.click();
+        // Release after Kick's React has had a tick to commit the state flip.
+        setTimeout(() => { suppressObserver = false; }, 0);
+      } else {
+        warn('Kick state is hidden but no chat-toggle button found to sync');
+      }
+    }
+
     // Make sure Kick's CSS is in the "chat visible" state before we move the node.
     suppressObserver = true;
     const flipped = setKickDataChat('true');
@@ -917,10 +1011,18 @@
     queueMicrotask(() => {
       suppressObserver = false;
     });
+    // Open the reconcile-guard window: if React commits data-chat="false"
+    // shortly after this enable (because the programmatic sync click didn't
+    // find a button or didn't flip Kick's state), the observer below will
+    // re-assert "true" instead of tearing the layout down.
+    enableSyncUntil = Date.now() + 500;
 
     chatSlot = document.createElement('div');
     chatSlot.className = 'kfc-chat-slot';
-    chatSlot.addEventListener('click', onChatSlotClick, true);
+    // Note: the chat-toggle click handler is attached at document level so it
+    // catches Kick's floating "Show chat" button (rendered outside chatSlot
+    // when Kick's internal state thinks chat is hidden), not just clicks
+    // inside the panel.
 
     savedChatParent = chat.parentNode;
     savedChatNextSibling = chat.nextSibling;
@@ -1983,12 +2085,29 @@
 
   // When Kick's own hide-chat button toggles data-chat="false", tear down our layout
   // so the empty chat slot collapses and our "Chat" button reappears.
+  // Within the reconcile-guard window opened by enableSideChat, a `false`
+  // value is treated as Kick's React committing the previous "hidden" state
+  // before our sync click took effect — we re-assert "true" instead of
+  // tearing down.
   const dataChatObserver = new MutationObserver((muts) => {
     if (!active || suppressObserver) return;
     for (const m of muts) {
       if (m.attributeName !== 'data-chat') continue;
       const val = m.target.getAttribute?.('data-chat');
       if (val === 'false') {
+        if (Date.now() < enableSyncUntil) {
+          log('data-chat=false within reconcile guard, re-asserting true');
+          // Single-shot: clear the guard so a subsequent React commit (or a
+          // real user "hide chat" click later in the same window) can tear
+          // the layout down normally.
+          enableSyncUntil = 0;
+          suppressObserver = true;
+          setKickDataChat('true');
+          queueMicrotask(() => {
+            suppressObserver = false;
+          });
+          break;
+        }
         const fs = document.fullscreenElement || document.webkitFullscreenElement;
         if (fs) {
           log('detected data-chat=false, tearing down side-chat layout');
