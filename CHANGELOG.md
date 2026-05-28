@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.25] - 2026-05-28
+
+### Changed
+- Redesigned the fullscreen **Chat** toggle button to match the sibling `kick-emotes` userscript's design language: a dark `#101013` glass surface with a translucent border, blur backdrop, layered shadow, and a single green (`#22c55e`) icon accent — instead of reusing Kick's native button classes. Disabled and hover states are now painted by the script.
+
+## [0.11.24] - 2026-05-28
+
+### Changed
+- The fullscreen streamer-info overlay now sits on a subtle dark gradient backdrop (with padding and rounded corners) instead of being fully transparent, so the streamer name / title / category / viewer count stay readable over bright video.
+
 ## [0.11.23] - 2026-05-27
 
 ### Fixed

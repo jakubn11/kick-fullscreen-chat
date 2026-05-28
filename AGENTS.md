@@ -168,27 +168,36 @@ All script-injected UI must follow this design language consistently. Do not dev
 
 ### Palette
 
-This script does not define its own design tokens — all visible UI inherits Kick's tokens by reusing Kick's exact class strings and SVG.
+Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. The one element the script paints itself — the **Chat** toggle button — follows the **kick-emotes design language** (the sibling userscript), so the two scripts feel like one family. These are the shared tokens; keep them in sync with `kick-emotes`' `## UI Design System` section.
 
-| Token | Source | Usage |
+| Token | Value | Usage |
 |---|---|---|
-| `BTN_CLASS` | Kick's native chat-toggle button class string | The injected **Chat** button |
-| `BTN_SVG` | Kick's native "Show chat" icon | The injected **Chat** button icon |
+| Surface | `#101013` | Toggle button background |
+| Green accent | `#22c55e` | Single accent per component — the toggle button's icon (`fill`) |
+| Neutral border | `rgba(255,255,255,.1)` | Toggle button border |
+| Hover tint | `rgba(34,197,94,.1)` | Composited over the surface on hover/focus, never as a standalone (transparent) fill |
+| Box shadow | `0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)` | Toggle button depth |
+| Backdrop | `blur(10px)` | Toggle button glass effect |
+| Border radius | `8px` | Toggle button corners |
+| `BTN_SVG` | Kick's "Show chat" icon | Toggle button icon path data (recoloured green via CSS) |
 | `top: 1.75rem; right: 1.75rem` | Kick's `top-7 right-7` placement | `#kfc-toggle-wrap` positioning |
 | `rgba(0,0,0,.88)` + `rgba(255,255,255,.1)` border | Neutral toast palette | `#kfc-toast` (errors only) |
 
 ### Rules
 
-- **Re-use Kick's tokens, never invent new ones.** All inherited styling comes from `BTN_CLASS` (Tailwind classes Kick already ships). If Kick changes the class names, update `BTN_CLASS` rather than introducing a parallel design language.
+- **The toggle button follows the kick-emotes design system, not Kick's native classes.** It is the script's one self-painted control: `#101013` surface, `rgba(255,255,255,.1)` border, `blur(10px)` backdrop, the layered box-shadow above, and `8px` radius. All styling lives in `injectStyles()` under `#${BTN_ID}` — the button no longer carries any Kick Tailwind class string.
+- **One green accent per component.** The toggle button's single `#22c55e` accent is the icon (`#${BTN_ID} svg { fill: #22c55e }`). Never paint the surface green or add a second green element.
+- **Hover is the green tint composited over the surface.** `#${BTN_ID}:hover` uses `linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013` so the tint sits on an opaque surface and text contrast holds — never set the transparent tint as a standalone background (the video would show through).
+- **Disabled state is painted by the script.** Because the button dropped Kick's `disabled:*` classes, `#${BTN_ID}:disabled { opacity: .3; pointer-events: none }` provides it. Set `btn.disabled = true`/`false`; the CSS does the rest.
 - **Hide the toggle when split layout is active** — Kick's native **Hide chat** button inside the chat panel takes over. The wrapper toggles `display: none` via the `.kfc-hidden` class.
-- **Disabled state via Kick's own classes.** `BTN_CLASS` already includes `disabled:pointer-events-none disabled:opacity-30` — set `btn.disabled = true`/`false`, do not paint custom disabled styling.
-- **Toasts are neutral, not Kick-themed.** `#kfc-toast` uses a black-on-translucent palette for surfacing internal errors (e.g. "chat panel not found"). It is not part of Kick's design language and intentionally looks different.
+- **Toasts are neutral, not themed.** `#kfc-toast` uses a black-on-translucent palette for surfacing internal errors (e.g. "chat panel not found"). It is intentionally distinct from both Kick and the kick-emotes design language.
 - **The info overlay reuses Kick's own card markup.** `#kfc-info-overlay` is a *clone* of Kick's existing channel-info card; the script does not paint streamer name / title / viewer count on its own. The overlay container adds only positioning + a subtle gradient backdrop for readability — it must not introduce custom typography, badges, or colour tokens.
 - **No new tooltips, menus, or popovers painted by the script.** The script's UI surface is intentionally limited to: one toggle button, one chat slot, one toast, one info overlay (clone of Kick's card), and a per-popover clone wrapper. Do not paint new UI from scratch — clone Kick's existing nodes instead.
 
 ### Reference implementations
 
-- `BTN_CLASS` / `BTN_SVG` constants — the injected toggle button (Kick-themed)
+- `#${BTN_ID}` rules in `injectStyles()` — the toggle button, styled in the kick-emotes design language (dark surface, neutral border, blur, green icon accent)
+- `BTN_SVG` constant — the toggle button's icon path data (Kick's "Show chat" glyph, recoloured green via CSS)
 - `#kfc-toggle-wrap` — the positioned wrapper for the toggle button
 - `.kfc-chat-slot` — fixed-position chat dock (dark background; no Kick tokens needed because Kick's own chat renders inside)
 - `[data-kfc-video-root]` — in-place marker on Kick's full-coverage player layers; CSS-only shrink to the left of the chat slot

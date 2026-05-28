@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.11.23
+// @version      0.11.25
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -32,7 +32,6 @@
   const VIEWER_COUNT_COLOR = '#53fc18';
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
-  const BTN_CLASS = 'group inline-flex gap-1.5 items-center justify-center rounded font-semibold box-border relative transition-all betterhover:active:scale-[0.98] disabled:pointer-events-none select-none whitespace-nowrap [&_svg]:size-[1em] outline-transparent outline-2 outline-offset-2 disabled:text-disabled-onSurface focus-visible:outline-outline-decorative text-white [&_svg]:fill-current focus-visible:bg-secondary-base/40 disabled:opacity-30 px-3 py-2 text-base bg-surface-base betterhover:hover:!bg-surface-highest';
 
   // Selectors — Kick changes its markup occasionally, so we try a few.
   const VIDEO_WRAPPER_SELECTORS = [
@@ -228,7 +227,50 @@
         opacity: 0;
         pointer-events: none;
       }
-      #${BTN_ID} svg { transition: transform 0.15s ease; }
+      /* Chat toggle button — styled in the kick-emotes design language
+         (dark #101013 surface, neutral translucent border, blur backdrop,
+         layered shadow) rather than reusing Kick's native button classes.
+         The single green (#22c55e) accent is the icon; the surface stays
+         neutral per the "one green accent per component" rule. */
+      #${BTN_ID} {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.85rem;
+        font-family: sans-serif;
+        font-weight: 700;
+        font-size: 1rem;
+        line-height: 1;
+        color: #fff;
+        background: #101013;
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+        transition: background .08s;
+        outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      /* Hover/focus is the design system's green tint (rgba(34,197,94,.1))
+         composited over the opaque #101013 surface so text contrast holds. */
+      #${BTN_ID}:hover,
+      #${BTN_ID}:focus-visible {
+        background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
+      }
+      #${BTN_ID}:disabled {
+        opacity: .3;
+        pointer-events: none;
+      }
+      #${BTN_ID} svg {
+        width: 1.25em;
+        height: 1.25em;
+        fill: #22c55e;
+        transition: transform 0.15s ease;
+      }
       .kfc-active #${BTN_ID} svg { transform: scaleX(-1); }
 
       .kfc-active { background: #000; }
@@ -350,8 +392,11 @@
         opacity: 1;
         transition: opacity 0.2s ease;
         color: #fff;
-        background: transparent;
-        padding: 0;
+        /* Subtle dark gradient backdrop so the cloned card text stays readable
+           over bright video, while still feeling like an overlay (no hard box). */
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.35));
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
         box-sizing: border-box;
         user-select: text;
         -webkit-user-select: text;
@@ -2020,7 +2065,6 @@
       const btn = document.createElement('button');
       btn.id = BTN_ID;
       btn.type = 'button';
-      btn.className = BTN_CLASS;
       btn.setAttribute('dir', 'ltr');
       btn.innerHTML = `${BTN_SVG}<span>Chat</span>`;
       btn.addEventListener('click', (e) => {

@@ -6,7 +6,7 @@
 
 <p>
   Twitch-style side-by-side fullscreen-with-chat for Kick.com.<br>
-  Native button styling · Auto teardown · Zero network requests.
+  Clean overlay button · Auto teardown · Zero network requests.
 </p>
 
 <p>
@@ -28,7 +28,7 @@
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
 - Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
 - Click the button to shrink the video and dock the chat panel on the right (340px wide)
-- Re-uses Kick's own button markup and design tokens — visually identical to Kick's native buttons
+- A clean dark glass **Chat** button with a green icon accent, matching the sibling [kick-emotes](https://github.com/jakubn11/kick-emotes) userscript's design language
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
 - Auto-teardown: clicking Kick's native **Hide chat** restores fullscreen video and re-shows the **Chat** button so chat can be re-opened
