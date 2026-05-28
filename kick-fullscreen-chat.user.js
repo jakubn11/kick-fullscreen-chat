@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.4
+// @version      0.18.5
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -47,6 +47,7 @@
   let chatSide = 'right';                   // which edge the chat docks to: 'right' | 'left'
   let overlayMode = false;                  // chat floats over video vs. shrinks it
   let infoHidden = false;                   // streamer-info overlay hidden by the user
+  let infoBgOpacity = 60;                   // streamer-info overlay backdrop opacity, 0..90 (%)
   let overlayOpacity = 55;                  // overlay chat opacity, 25..90 (%)
   let autoHideOverlayChat = true;           // fade overlay chat while player is idle
   let autoHideControls = true;              // fade the top control cluster / info overlay
@@ -75,6 +76,7 @@
           restoreChatOnFullscreen,
           idleDelayMs,
           infoHidden,
+          infoBgOpacity,
         })
       );
     } catch (_) {}
@@ -111,6 +113,9 @@
       idleDelayMs = Math.max(2000, Math.min(8000, s.idleDelayMs));
     }
     if (typeof s.infoHidden === 'boolean') infoHidden = s.infoHidden;
+    if (typeof s.infoBgOpacity === 'number') {
+      infoBgOpacity = Math.max(0, Math.min(90, s.infoBgOpacity));
+    }
   };
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
@@ -880,8 +885,12 @@
         transition: opacity 0.2s ease;
         color: #fff;
         /* Subtle dark gradient backdrop so the cloned card text stays readable
-           over bright video, while still feeling like an overlay (no hard box). */
-        background: linear-gradient(135deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.35));
+           over bright video, while still feeling like an overlay (no hard box).
+           Alpha is driven by --kfc-info-bg-opacity (default 0.6); the second
+           stop keeps the original ~0.58 ratio for the same soft gradient. */
+        background: linear-gradient(135deg,
+          rgba(0, 0, 0, var(--kfc-info-bg-opacity, 0.6)),
+          rgba(0, 0, 0, calc(var(--kfc-info-bg-opacity, 0.6) * 0.58)));
         padding: 0.75rem 1rem;
         border-radius: 0.5rem;
         box-sizing: border-box;
@@ -1514,6 +1523,7 @@
     chatSide = 'right';
     overlayMode = false;
     infoHidden = false;
+    infoBgOpacity = 60;
     overlayOpacity = 55;
     autoHideOverlayChat = true;
     autoHideControls = true;
@@ -2761,6 +2771,27 @@
     });
     panel.appendChild(opacityRange.row);
 
+    const infoOpacityInput = document.createElement('input');
+    infoOpacityInput.type = 'range';
+    infoOpacityInput.className = 'kfc-settings-info-opacity-input';
+    infoOpacityInput.min = '0';
+    infoOpacityInput.max = '90';
+    infoOpacityInput.step = '5';
+    infoOpacityInput.value = String(infoBgOpacity);
+    const infoOpacityRange = createSettingsRange(
+      'Stream-info backdrop',
+      `${infoBgOpacity}%`,
+      infoOpacityInput,
+      'kfc-settings-info-opacity-value'
+    );
+    infoOpacityInput.addEventListener('input', () => {
+      infoBgOpacity = Number(infoOpacityInput.value);
+      infoOpacityRange.value.textContent = `${infoBgOpacity}%`;
+      syncControlState();
+      persistSettings();
+    });
+    panel.appendChild(infoOpacityRange.row);
+
     const idleInput = document.createElement('input');
     idleInput.type = 'range';
     idleInput.className = 'kfc-settings-idle-input';
@@ -2953,6 +2984,10 @@
       '--kfc-overlay-opacity',
       (overlayOpacity / 100).toFixed(2)
     );
+    document.documentElement.style.setProperty(
+      '--kfc-info-bg-opacity',
+      (infoBgOpacity / 100).toFixed(2)
+    );
     // Video keeps full width in overlay mode; otherwise fall back to the shrink
     // calc by removing the override. --kfc-control-inset keeps Kick's full-width
     // bottom controls (the timeline) out from under the floating chat: it equals
@@ -3031,6 +3066,10 @@
     }
     const widthValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-width-value`);
     if (widthValue) widthValue.textContent = `${chatWidth}px`;
+    const infoOpacityInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input`);
+    if (infoOpacityInput) infoOpacityInput.value = String(infoBgOpacity);
+    const infoOpacityValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-value`);
+    if (infoOpacityValue) infoOpacityValue.textContent = `${infoBgOpacity}%`;
     const opacityInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-opacity-input`);
     if (opacityInput) opacityInput.value = String(overlayOpacity);
     const opacityValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-opacity-value`);

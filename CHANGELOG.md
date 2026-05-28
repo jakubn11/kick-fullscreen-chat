@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.5] - 2026-05-28
+
+### Added
+- A **Stream-info backdrop** opacity slider (0–90%, default 60%) in fullscreen settings, controlling the darkness of the streamer-info overlay's gradient backdrop. At 0% the backdrop is fully transparent (text stays readable via its shadow). Persisted across reloads.
+
 ## [0.18.4] - 2026-05-28
 
 ### Fixed

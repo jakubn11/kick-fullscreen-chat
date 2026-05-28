@@ -54,7 +54,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 | Double-click the video/chat divider | Resets chat width to the default 340px. |
 | Click the layout-mode toggle | The chat floats semi-transparently over the full-width video instead of shrinking it. |
 | Click the info toggle | Hides / shows the top-left streamer-info overlay. |
-| Click the settings gear | Opens settings for overlay opacity, chat-width presets, hide delay, chat dock side (left/right), userscript control auto-hide, overlay-chat idle auto-hide, opening chat directly as overlay, auto-opening chat whenever you enter fullscreen, and resetting to defaults. Preferences persist via `localStorage`. |
+| Click the settings gear | Opens settings for overlay opacity, stream-info backdrop opacity, chat-width presets, hide delay, chat dock side (left/right), userscript control auto-hide, overlay-chat idle auto-hide, opening chat directly as overlay, auto-opening chat whenever you enter fullscreen, and resetting to defaults. Preferences persist via `localStorage`. |
 | Click Kick's native **Hide chat** inside the chat panel | A `MutationObserver` on `data-chat` (and a click listener for the chat-slot button) tears the split layout down. |
 | Stop moving the mouse for the hide delay (2–8s, default 4s) | The control cluster and stream-info overlay fade out in sync with Kick's controls/timeline. Any mouse movement brings them back instantly. |
 | Change stream quality / seek / "Go to live" | Capture-phase click handlers tear the layout down before Kick's React remounts the player tree, avoiding the 404 you'd otherwise hit. The **Chat** button stays disabled until the player finishes reloading. |
