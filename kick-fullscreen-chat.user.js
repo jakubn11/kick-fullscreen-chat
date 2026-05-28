@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.11.25
+// @version      0.17.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -20,6 +20,11 @@
   const DEBUG = false;
 
   const BTN_ID = 'kfc-toggle-btn';
+  const MODE_BTN_ID = 'kfc-mode-btn';
+  const INFO_BTN_ID = 'kfc-info-btn';
+  const SETTINGS_BTN_ID = 'kfc-settings-btn';
+  const SETTINGS_PANEL_ID = 'kfc-settings-panel';
+  const RESIZE_ID = 'kfc-resize-handle';
   const WRAP_ID = 'kfc-toggle-wrap';
   const TOAST_ID = 'kfc-toast';
   const STYLE_ID = 'kfc-style';
@@ -28,10 +33,35 @@
   const VIDEO_FRAME_ATTR = 'data-kfc-video-frame';
   const VIDEO_EL_ATTR = 'data-kfc-video-el';
   const CHAT_WIDTH = '340px';
+  // Bounds for the draggable chat-width divider (px). Min keeps chat usable;
+  // max is also capped to 60vw at drag time so chat never dominates.
+  const CHAT_WIDTH_MIN = 260;
+  const CHAT_WIDTH_MAX = 640;
   const INFO_MAX_WIDTH = '720px';
   const VIEWER_COUNT_COLOR = '#53fc18';
 
+  // Per-session UI preferences. Intentionally in-memory only (the script keeps
+  // its no-localStorage rule), so these reset on page reload but persist across
+  // open/close and fullscreen toggles within a session.
+  let chatWidth = parseInt(CHAT_WIDTH, 10); // current chat-panel width in px
+  let overlayMode = false;                  // chat floats over video vs. shrinks it
+  let infoHidden = false;                   // streamer-info overlay hidden by the user
+  let overlayOpacity = 55;                  // overlay chat opacity, 25..90 (%)
+  let autoHideOverlayChat = true;           // fade overlay chat while player is idle
+  let autoHideControls = true;              // fade the top control cluster / info overlay
+  let openChatAsOverlay = false;            // default layout when the Chat button opens chat
+  let restoreChatOnFullscreen = true;       // reopen chat on next fullscreen if it was open
+  let idleDelayMs = 4000;                   // delay before our fullscreen UI fades
+  let reopenChatOnNextFullscreen = false;
+  let settingsOpen = false;
+
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
+  // Layout-mode icon: two columns (video + chat) for the side/overlay toggle.
+  const MODE_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="11" height="14" rx="2"></rect><rect x="16" y="5" width="5" height="14" rx="2"></rect></svg>`;
+  // Info "i in a circle" icon for the streamer-info overlay show/hide toggle.
+  const INFO_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>`;
+  // Gear icon for the settings popover.
+  const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58-1.92-3.32-2.39.96a7.33 7.33 0 0 0-1.63-.94L14.86 3h-3.72l-.36 3.18c-.58.23-1.13.54-1.63.94l-2.39-.96-1.92 3.32 2.03 1.58a7.6 7.6 0 0 0-.06.94c0 .31.02.63.06.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.4 1.05.71 1.63.94l.36 3.18h3.72l.36-3.18c.58-.23 1.13-.54 1.63-.94l2.39.96 1.92-3.32-2.03-1.58zM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5z"></path></svg>`;
 
   // Selectors — Kick changes its markup occasionally, so we try a few.
   const VIDEO_WRAPPER_SELECTORS = [
@@ -196,6 +226,25 @@
 
   const findChat = () => pick(CHAT_SELECTORS) || findChatByInput();
 
+  const getChatLookupDiagnostics = () => {
+    const selectorResults = CHAT_SELECTORS.map((selector) => ({
+      selector,
+      matched: !!document.querySelector(selector),
+    }));
+    const chatInputs = Array.from(
+      document.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')
+    ).map((input) => ({
+      tag: input.tagName.toLowerCase(),
+      placeholder: input.getAttribute('placeholder') || '',
+      ariaLabel: input.getAttribute('aria-label') || '',
+    }));
+    return {
+      selectorResults,
+      chatInputs,
+      path: window.location.pathname,
+    };
+  };
+
   // Kick toggles a `data-chat` attribute on a player ancestor to drive chat visibility
   // via CSS (Tailwind `group-data-[chat=false]/main:*` rules). Set it to "true" before
   // we move the chat node, otherwise the chat stays hidden inside our split layout.
@@ -217,9 +266,21 @@
         z-index: 2147483647;
         pointer-events: auto;
         opacity: 1;
+        transition: opacity 0.2s ease, right 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      /* When chat is open the panel covers the top-right corner, so push the
+         control cluster left of the chat (over the video) instead of on top
+         of the chat messages. Keyed on a class on our own wrap (not .kfc-active
+         on fsEl, which Kick's React strips on re-render). */
+      #${WRAP_ID}.kfc-chat-open {
+        right: calc(1.75rem + var(--kfc-chat-width, ${CHAT_WIDTH}));
+      }
+      #${WRAP_ID}.kfc-resizing {
         transition: opacity 0.2s ease;
       }
-      #${WRAP_ID}.kfc-hidden { display: none; }
       /* Mirrors Kick's own controls-overlay fade so the toggle button
          disappears alongside the timeline / play controls when the user is
          idle, and reappears as soon as the mouse moves. */
@@ -273,6 +334,142 @@
       }
       .kfc-active #${BTN_ID} svg { transform: scaleX(-1); }
 
+      /* Icon-only control buttons (layout-mode + info toggle), same
+         kick-emotes glass surface as the Chat button but square and compact.
+         The green icon is the single accent per the design system. */
+      .kfc-control-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.45rem;
+        color: #fff;
+        background: #101013;
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+        transition: background .08s;
+        outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .kfc-control-btn:hover,
+      .kfc-control-btn:focus-visible {
+        background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
+      }
+      .kfc-control-btn svg {
+        width: 1.15rem;
+        height: 1.15rem;
+        fill: #22c55e;
+      }
+      /* When the info overlay is hidden, dim the toggle's icon so its state
+         reads as "off" without inventing a new colour token. */
+      #${INFO_BTN_ID}.kfc-off svg { fill: rgba(255, 255, 255, .45); }
+
+      /* Visibility: the Chat button only shows when chat is closed; the
+         layout-mode toggle only when chat is open. The info toggle is always
+         available in fullscreen. All keyed on classes on our own nodes (the
+         wrap / buttons / overlay), NOT on .kfc-active on fsEl — Kick's React
+         rewrites fsEl's className on re-render and strips our class, which
+         would intermittently revert these controls. */
+      #${MODE_BTN_ID} { display: none; }
+      #${WRAP_ID}.kfc-chat-open #${MODE_BTN_ID} { display: inline-flex; }
+      #${WRAP_ID}.kfc-chat-open #${BTN_ID} { display: none; }
+      /* Pressed/active look when overlay mode is on, so the toggle's state is
+         legible without a second icon. */
+      #${MODE_BTN_ID}.kfc-on {
+        background: linear-gradient(rgba(34, 197, 94, .18), rgba(34, 197, 94, .18)), #101013;
+        border-color: rgba(34, 197, 94, .5);
+      }
+      #${SETTINGS_BTN_ID}.kfc-on {
+        background: linear-gradient(rgba(34, 197, 94, .18), rgba(34, 197, 94, .18)), #101013;
+        border-color: rgba(34, 197, 94, .5);
+      }
+      #${SETTINGS_PANEL_ID} {
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        right: 0;
+        width: 280px;
+        display: none;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0.85rem;
+        color: #fff;
+        background: #101013;
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        box-sizing: border-box;
+        font: 600 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      #${WRAP_ID}.kfc-settings-open #${SETTINGS_PANEL_ID} {
+        display: flex;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-title {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0;
+        color: rgba(255, 255, 255, .62);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-row {
+        display: grid;
+        gap: 0.4rem;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: rgba(255, 255, 255, .9);
+      }
+      #${SETTINGS_PANEL_ID} input[type="range"] {
+        width: 100%;
+        accent-color: #22c55e;
+      }
+      #${SETTINGS_PANEL_ID} input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+        accent-color: #22c55e;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.35rem;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip {
+        min-width: 0;
+        min-height: 2.15rem;
+        padding: 0.5rem 0.55rem;
+        color: #fff;
+        background: rgba(255, 255, 255, .06);
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 6px;
+        font: inherit;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip:hover,
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip:focus-visible {
+        background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
+        outline: none;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-reset {
+        width: 100%;
+      }
+      /* Hide the streamer-info overlay when the user has toggled it off. */
+      #${INFO_ID}.kfc-hidden { display: none !important; }
+
       .kfc-active { background: #000; }
       /* We mark Kick's full-coverage player layers in place rather than moving
          them into a wrapper. Wrapping fsEl's children caused React's reconciler
@@ -281,8 +478,12 @@
          Non-video layers are filtered further in JS so transient loading/blur
          overlays do not become transformed hit targets above the controls. */
       [${VIDEO_ROOT_ATTR}] {
-        width: calc(100% - ${CHAT_WIDTH}) !important;
-        max-width: calc(100% - ${CHAT_WIDTH}) !important;
+        /* --kfc-video-width is normally unset and falls back to the shrink
+           calc; overlay mode sets it to 100% on documentElement. Both vars
+           live on documentElement (which Kick never rewrites), so the layout
+           survives Kick stripping fsEl's className on re-render. */
+        width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
+        max-width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
         height: 100% !important;
         min-width: 0 !important;
         min-height: 0 !important;
@@ -330,7 +531,7 @@
         top: 0;
         right: 0;
         bottom: 0;
-        width: ${CHAT_WIDTH};
+        width: var(--kfc-chat-width, ${CHAT_WIDTH});
         background: #0e0e10;
         overflow: hidden;
         display: flex;
@@ -364,6 +565,111 @@
         width: 100% !important;
         visibility: visible !important;
       }
+
+      /* Keep Kick's full-width bottom controls out from under the floating chat
+         in overlay mode. The controls live in a full-width flex row that
+         justifies its two button groups to the edges (play/volume/time left;
+         PiP/clips/mini/fullscreen/settings right) and is also the positioned
+         ancestor of the absolute bottom-0 seekbar. Shrinking this one row by the
+         chat width moves the right-hand buttons to the chat's left edge AND sizes
+         the timeline to the same width — so we must NOT also shrink the timeline
+         itself, or it gets inset twice and leaves a chat-width gap on the right.
+         No-op in side mode (--kfc-control-inset is 0 there). */
+      [${VIDEO_ROOT_ATTR}] [class*="justify-between" i][class*="w-full" i] {
+        width: calc(100% - var(--kfc-control-inset, 0px)) !important;
+        max-width: calc(100% - var(--kfc-control-inset, 0px)) !important;
+      }
+      /* Overlay chat mode: the video keeps the full width (via --kfc-video-width
+         set to 100%; see [${VIDEO_ROOT_ATTR}] above) and the chat panel floats
+         semi-transparently over its right edge (Twitch-style overlay). The
+         transparency is keyed on a class on our own chat slot, which Kick
+         never touches. */
+      .kfc-chat-slot.kfc-overlay {
+        background: rgba(14, 14, 16, var(--kfc-overlay-opacity, 0.55));
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        transition: opacity 0.2s ease;
+        /* Readability for chat text over video, since Kick's own opaque
+           backgrounds are stripped below. Same trick as the info overlay. */
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 6px rgba(0, 0, 0, 0.5);
+      }
+      .kfc-chat-slot.kfc-overlay.kfc-overlay-idle {
+        opacity: 0;
+        pointer-events: none;
+      }
+      /* Strip Kick's opaque chat backgrounds in overlay mode so the slot's
+         frosted backdrop (and the video behind it) shows through instead of a
+         solid dark panel. Backgrounds only — text, emotes (<img>), and badges
+         are untouched. The composer is left transparent too (no separate
+         backing) so Kick's own input border outlines it cleanly without a
+         nested box-in-a-box. Buttons are excluded so controls that rely on a
+         fill (e.g. Kick's green "Chat" send button) keep their normal look. So
+         are bg-green-* accents and 1px separator lines (h-px / w-px): Kick draws
+         dividers like the "New messages" rule and the gifters-bar lines as thin
+         coloured divs (e.g. div.h-px.grow.bg-green-500), which must stay visible. */
+      .kfc-chat-slot.kfc-overlay *:not(button):not([class*="bg-green" i]):not([class*="h-px" i]):not([class*="w-px" i]) {
+        background-color: transparent !important;
+      }
+      /* Restore a dark backing on the message composer so the input stays
+         readable over video (like normal mode). Both the editable field and its
+         immediate wrapper get the same colour, so there's no box-in-a-box; the
+         wrapper's native border/rounding (not stripped above) still outlines it. */
+      .kfc-chat-slot.kfc-overlay textarea,
+      .kfc-chat-slot.kfc-overlay input:not([type="checkbox"]):not([type="radio"]),
+      .kfc-chat-slot.kfc-overlay [contenteditable="true"],
+      .kfc-chat-slot.kfc-overlay [contenteditable=""],
+      .kfc-chat-slot.kfc-overlay div:has(> textarea),
+      .kfc-chat-slot.kfc-overlay div:has(> input:not([type="checkbox"]):not([type="radio"])),
+      .kfc-chat-slot.kfc-overlay div:has(> [contenteditable="true"]),
+      .kfc-chat-slot.kfc-overlay div:has(> [contenteditable=""]) {
+        /* Near-solid dark so the input reads clearly over video, matching the
+           normal-mode composer rather than the translucent panel. */
+        background-color: rgba(12, 12, 14, 0.94) !important;
+      }
+      /* Thin separator lines (h-px / w-px) use a dark-grey fill that vanishes
+         over video. Brighten the neutral ones so the gifters-bar top/bottom
+         dividers and similar rules stay visible; green ones keep their accent. */
+      .kfc-chat-slot.kfc-overlay [class*="h-px" i]:not([class*="bg-green" i]),
+      .kfc-chat-slot.kfc-overlay [class*="w-px" i]:not([class*="bg-green" i]) {
+        background-color: rgba(255, 255, 255, 0.4) !important;
+      }
+
+      /* Draggable divider between video and chat. A thin fixed strip straddling
+         the chat's left edge; the value it tracks (--kfc-chat-width) drives both
+         the video shrink and the chat width above. */
+      #${RESIZE_ID} {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        right: var(--kfc-chat-width, ${CHAT_WIDTH});
+        width: 12px;
+        margin-right: -6px;
+        cursor: ew-resize;
+        z-index: 2147483646;
+        touch-action: none;
+        opacity: 1;
+        transition: opacity 0.2s ease;
+      }
+      #${RESIZE_ID}.kfc-overlay-idle {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #${RESIZE_ID}::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        background: rgba(255, 255, 255, .12);
+        transition: background .12s ease;
+      }
+      #${RESIZE_ID}:hover::after,
+      #${RESIZE_ID}.kfc-dragging::after {
+        background: #22c55e;
+      }
+
       [${POPOVER_CLONE_ATTR}] {
         z-index: 2147483647 !important;
         pointer-events: none !important;
@@ -480,6 +786,10 @@
         background-color: transparent !important;
         box-shadow: none !important;
         text-shadow: none !important;
+        /* Kick renders the category link in a lighter weight than the rest
+           of the overlay; bump it so "IRL" matches the streamer name / title
+           / viewer-count text instead of looking thin. */
+        font-weight: 600 !important;
       }
       /* Hide follow / subscribe / share / notification controls so the
          overlay stays compact. Use aria-label / href patterns instead of
@@ -658,8 +968,18 @@
 
   const coversFullscreen = (el) => {
     const rect = el.getBoundingClientRect();
+    // While side chat is open the player layers are shrunk to the left of the
+    // chat, so measure "covers the player" against the available video width
+    // (viewport minus chat), not the full viewport. Otherwise a wide chat can
+    // push a marked controls layer below the 70%-of-viewport threshold; the
+    // next re-mark pass then drops its marker, it loses the translateZ(0)
+    // containing block, and Kick's position:fixed timeline escapes across the
+    // chat panel. In overlay mode the video keeps full width, so the basis is
+    // the full viewport regardless.
+    const basisWidth =
+      active && !overlayMode ? Math.max(1, window.innerWidth - chatWidth) : window.innerWidth;
     return (
-      rect.width >= window.innerWidth * 0.7 &&
+      rect.width >= basisWidth * 0.7 &&
       rect.height >= window.innerHeight * 0.7
     );
   };
@@ -978,6 +1298,120 @@
   };
   document.addEventListener('click', onDocChatToggleClickCapture, true);
 
+  // ─── Chat-width resize ──────────────────────────────────────────────────
+  // The chat panel width is a CSS variable (--kfc-chat-width) referenced by
+  // both the chat slot and the video-shrink calc. A fixed-position divider
+  // handle drives it via pointer drag. Width is per-session (no localStorage).
+  const clampChatWidth = (px) =>
+    Math.max(CHAT_WIDTH_MIN, Math.min(px, CHAT_WIDTH_MAX, Math.round(window.innerWidth * 0.6)));
+
+  const applyChatWidth = () => {
+    document.documentElement.style.setProperty('--kfc-chat-width', `${chatWidth}px`);
+  };
+
+  const setChatWidth = (px) => {
+    chatWidth = clampChatWidth(px);
+    applyChatWidth();
+    scheduleLiveResizeLayout();
+  };
+
+  const resetSessionSettings = () => {
+    chatWidth = parseInt(CHAT_WIDTH, 10);
+    overlayMode = false;
+    infoHidden = false;
+    overlayOpacity = 55;
+    autoHideOverlayChat = true;
+    autoHideControls = true;
+    openChatAsOverlay = false;
+    restoreChatOnFullscreen = true;
+    idleDelayMs = 4000;
+    reopenChatOnNextFullscreen = false;
+    applyChatWidth();
+    syncControlState();
+    onFsMouseMove();
+    nudgePlayerResize();
+  };
+
+  let resizeHandle = null;
+  let resizing = false;
+  let resizeLayoutFrame = 0;
+
+  const setResizeUiState = (isResizing) => {
+    const wrap = document.getElementById(WRAP_ID);
+    if (wrap) wrap.classList.toggle('kfc-resizing', isResizing);
+  };
+
+  const scheduleLiveResizeLayout = () => {
+    if (resizeLayoutFrame) return;
+    resizeLayoutFrame = requestAnimationFrame(() => {
+      resizeLayoutFrame = 0;
+      if (active && videoRootHost) refreshVideoRoots(videoRootHost);
+      window.dispatchEvent(new Event('resize'));
+    });
+  };
+
+  const onResizePointerMove = (e) => {
+    if (!resizing) return;
+    // Chat is docked to the right edge, so its width is the distance from the
+    // pointer to the right side of the viewport.
+    setChatWidth(window.innerWidth - e.clientX);
+  };
+
+  const onResizeDoubleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setChatWidth(parseInt(CHAT_WIDTH, 10));
+    nudgePlayerResize();
+  };
+
+  const onResizePointerUp = (e) => {
+    if (!resizing) return;
+    resizing = false;
+    setResizeUiState(false);
+    if (resizeHandle) {
+      resizeHandle.classList.remove('kfc-dragging');
+      try { resizeHandle.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+    window.removeEventListener('pointermove', onResizePointerMove);
+    window.removeEventListener('pointerup', onResizePointerUp);
+    window.removeEventListener('pointercancel', onResizePointerUp);
+    nudgePlayerResize();
+  };
+
+  const onResizePointerDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizing = true;
+    setResizeUiState(true);
+    if (resizeHandle) {
+      resizeHandle.classList.add('kfc-dragging');
+      try { resizeHandle.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    window.addEventListener('pointermove', onResizePointerMove);
+    window.addEventListener('pointerup', onResizePointerUp);
+    window.addEventListener('pointercancel', onResizePointerUp);
+  };
+
+  const mountResizeHandle = (fsEl) => {
+    removeResizeHandle();
+    resizeHandle = document.createElement('div');
+    resizeHandle.id = RESIZE_ID;
+    resizeHandle.setAttribute('aria-hidden', 'true');
+    resizeHandle.addEventListener('pointerdown', onResizePointerDown);
+    resizeHandle.addEventListener('dblclick', onResizeDoubleClick);
+    fsEl.appendChild(resizeHandle);
+  };
+
+  const removeResizeHandle = () => {
+    if (resizing) onResizePointerUp({ pointerId: -1 });
+    if (resizeHandle) {
+      resizeHandle.removeEventListener('pointerdown', onResizePointerDown);
+      resizeHandle.removeEventListener('dblclick', onResizeDoubleClick);
+      resizeHandle.remove();
+      resizeHandle = null;
+    }
+  };
+
   const enableSideChat = (fsEl) => {
     if (!fsEl) {
       log('enableSideChat: no fullscreen element');
@@ -1015,11 +1449,12 @@
 
     const chat = findChat();
     if (!chat) {
-      warn('chat container not found. Tried selectors:', CHAT_SELECTORS);
-      showToast('Kick Fullscreen Chat: could not find the chat panel.');
+      warn('chat container not found. Lookup diagnostics:', getChatLookupDiagnostics());
+      showToast('Kick Fullscreen Chat: chat panel not found. Kick may have changed its layout; check the console diagnostics.');
       return;
     }
     log('enableSideChat: using chat node', chat);
+    overlayMode = openChatAsOverlay;
 
     // If Kick's React state currently says chat is HIDDEN, just writing
     // data-chat="true" is not enough: React will reconcile the attribute back
@@ -1075,8 +1510,13 @@
 
     fsEl.appendChild(chatSlot);
     fsEl.classList.add('kfc-active');
+    // Apply the current (per-session) chat width and layout mode, then mount
+    // the draggable divider between video and chat.
+    applyChatWidth();
+    mountResizeHandle(fsEl);
 
     active = true;
+    syncControlState();
     // Mark Kick's player layers in place so the CSS shrink applies without
     // moving them into a wrapper (which would break React's reconciler on
     // background refreshes and 404 the page).
@@ -1124,10 +1564,14 @@
     }
 
     fsEl.classList.remove('kfc-active');
+    removeResizeHandle();
     chatSlot.remove();
     chatSlot = null;
     savedChatParent = null;
     savedChatNextSibling = null;
+    // active is already false above; reset the control cluster + video-width
+    // override accordingly (clears kfc-chat-open, --kfc-video-width).
+    syncControlState();
 
     // If we're still in fullscreen after the teardown (i.e. this wasn't an
     // exit-fullscreen teardown), re-arm the monitor so it picks up any new
@@ -1161,8 +1605,8 @@
   };
 
   const updateBtnLabel = () => {
-    const wrap = document.getElementById(WRAP_ID);
-    if (wrap) wrap.classList.toggle('kfc-hidden', active);
+    // Per-button visibility (Chat vs. layout-mode toggle) is handled in CSS via
+    // .kfc-active scoping so the wrap stays visible to host the other controls.
     const btn = document.getElementById(BTN_ID);
     if (!btn) return;
     const label = btn.querySelector('span');
@@ -2003,6 +2447,8 @@
     fsEl.appendChild(wrapper);
     infoOverlay = wrapper;
     infoOverlaySource = source;
+    // Honour the user's show/hide preference for this session.
+    if (infoHidden) wrapper.classList.add('kfc-hidden');
 
     // Re-clone the source on subtree / text mutations. Attribute mutations
     // are deliberately not observed — Kick's UI uses transitions driven by
@@ -2055,12 +2501,203 @@
     infoViewerAttrSyncPending = false;
   };
 
+  const createSettingsRange = (labelText, valueText, input, valueClass = '') => {
+    const row = document.createElement('div');
+    row.className = 'kfc-settings-row';
+    const label = document.createElement('label');
+    label.className = 'kfc-settings-label';
+    const text = document.createElement('span');
+    text.textContent = labelText;
+    const value = document.createElement('span');
+    if (valueClass) value.className = valueClass;
+    value.textContent = valueText;
+    label.appendChild(text);
+    label.appendChild(value);
+    row.appendChild(label);
+    row.appendChild(input);
+    return { row, value };
+  };
+
+  const createSettingsCheckbox = (labelText, checked, onChange, inputClass = '') => {
+    const label = document.createElement('label');
+    label.className = 'kfc-settings-check';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    if (inputClass) input.className = inputClass;
+    input.checked = checked;
+    input.addEventListener('change', () => onChange(input.checked));
+    const text = document.createElement('span');
+    text.textContent = labelText;
+    label.appendChild(input);
+    label.appendChild(text);
+    return label;
+  };
+
+  const buildSettingsPanel = () => {
+    const panel = document.createElement('div');
+    panel.id = SETTINGS_PANEL_ID;
+    panel.addEventListener('click', (e) => e.stopPropagation());
+    panel.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    const title = document.createElement('div');
+    title.className = 'kfc-settings-title';
+    title.textContent = 'Fullscreen settings';
+    panel.appendChild(title);
+
+    const opacityInput = document.createElement('input');
+    opacityInput.type = 'range';
+    opacityInput.className = 'kfc-settings-opacity-input';
+    opacityInput.min = '25';
+    opacityInput.max = '90';
+    opacityInput.step = '5';
+    opacityInput.value = String(overlayOpacity);
+    const opacityRange = createSettingsRange(
+      'Overlay opacity',
+      `${overlayOpacity}%`,
+      opacityInput,
+      'kfc-settings-opacity-value'
+    );
+    opacityInput.addEventListener('input', () => {
+      overlayOpacity = Number(opacityInput.value);
+      opacityRange.value.textContent = `${overlayOpacity}%`;
+      syncControlState();
+    });
+    panel.appendChild(opacityRange.row);
+
+    const idleInput = document.createElement('input');
+    idleInput.type = 'range';
+    idleInput.className = 'kfc-settings-idle-input';
+    idleInput.min = '2';
+    idleInput.max = '8';
+    idleInput.step = '1';
+    idleInput.value = String(Math.round(idleDelayMs / 1000));
+    const idleRange = createSettingsRange(
+      'Hide delay',
+      `${Math.round(idleDelayMs / 1000)}s`,
+      idleInput,
+      'kfc-settings-idle-value'
+    );
+    idleInput.addEventListener('input', () => {
+      idleDelayMs = Number(idleInput.value) * 1000;
+      idleRange.value.textContent = `${Math.round(idleDelayMs / 1000)}s`;
+      onFsMouseMove();
+    });
+    panel.appendChild(idleRange.row);
+
+    const widthRow = document.createElement('div');
+    widthRow.className = 'kfc-settings-row';
+    const widthLabel = document.createElement('div');
+    widthLabel.className = 'kfc-settings-label';
+    const widthText = document.createElement('span');
+    widthText.textContent = 'Chat width';
+    const widthValue = document.createElement('span');
+    widthValue.className = 'kfc-settings-width-value';
+    widthValue.textContent = `${chatWidth}px`;
+    widthLabel.appendChild(widthText);
+    widthLabel.appendChild(widthValue);
+    widthRow.appendChild(widthLabel);
+
+    const buttons = document.createElement('div');
+    buttons.className = 'kfc-settings-buttons';
+    [
+      ['Compact', 280],
+      ['Default', parseInt(CHAT_WIDTH, 10)],
+      ['Wide', 520],
+      ['Max', CHAT_WIDTH_MAX],
+    ].forEach(([label, width]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'kfc-settings-chip';
+      button.textContent = label;
+      button.addEventListener('click', () => {
+        setChatWidth(width);
+        widthValue.textContent = `${chatWidth}px`;
+        nudgePlayerResize();
+      });
+      buttons.appendChild(button);
+    });
+    widthRow.appendChild(buttons);
+    panel.appendChild(widthRow);
+
+    panel.appendChild(
+      createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
+        autoHideOverlayChat = checked;
+        syncControlState();
+        onFsMouseMove();
+      }, 'kfc-settings-autohide-input')
+    );
+    panel.appendChild(
+      createSettingsCheckbox('Auto-hide controls', autoHideControls, (checked) => {
+        autoHideControls = checked;
+        syncControlState();
+        onFsMouseMove();
+      }, 'kfc-settings-controls-hide-input')
+    );
+    panel.appendChild(
+      createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
+        openChatAsOverlay = checked;
+        syncControlState();
+      }, 'kfc-settings-open-overlay-input')
+    );
+    panel.appendChild(
+      createSettingsCheckbox('Reopen chat on fullscreen', restoreChatOnFullscreen, (checked) => {
+        restoreChatOnFullscreen = checked;
+        if (!checked) reopenChatOnNextFullscreen = false;
+        syncControlState();
+      }, 'kfc-settings-restore-input')
+    );
+
+    const resetButton = document.createElement('button');
+    resetButton.type = 'button';
+    resetButton.className = 'kfc-settings-chip kfc-settings-reset';
+    resetButton.textContent = 'Reset settings';
+    resetButton.addEventListener('click', resetSessionSettings);
+    panel.appendChild(resetButton);
+
+    return panel;
+  };
+
   const ensureButton = (fsEl) => {
     if (!fsEl) return;
     let wrap = document.getElementById(WRAP_ID);
     if (!wrap) {
       wrap = document.createElement('div');
       wrap.id = WRAP_ID;
+
+      // Info-overlay show/hide toggle (always available in fullscreen).
+      const infoBtn = document.createElement('button');
+      infoBtn.id = INFO_BTN_ID;
+      infoBtn.type = 'button';
+      infoBtn.className = 'kfc-control-btn';
+      infoBtn.innerHTML = INFO_SVG;
+      infoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleInfoOverlay();
+      });
+
+      // Layout-mode toggle (side vs. overlay; only shown while chat is open).
+      const modeBtn = document.createElement('button');
+      modeBtn.id = MODE_BTN_ID;
+      modeBtn.type = 'button';
+      modeBtn.className = 'kfc-control-btn';
+      modeBtn.innerHTML = MODE_SVG;
+      modeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleOverlayMode();
+      });
+
+      const settingsBtn = document.createElement('button');
+      settingsBtn.id = SETTINGS_BTN_ID;
+      settingsBtn.type = 'button';
+      settingsBtn.className = 'kfc-control-btn';
+      settingsBtn.innerHTML = SETTINGS_SVG;
+      settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleSettingsPanel();
+      });
 
       const btn = document.createElement('button');
       btn.id = BTN_ID;
@@ -2081,35 +2718,285 @@
         }
       });
 
+      wrap.appendChild(infoBtn);
+      wrap.appendChild(modeBtn);
+      wrap.appendChild(settingsBtn);
       wrap.appendChild(btn);
+      wrap.appendChild(buildSettingsPanel());
     }
     fsEl.appendChild(wrap);
+    syncControlState();
     updateBtnLabel();
   };
 
+  // Reflect the current per-session preferences onto our own nodes (the wrap,
+  // chat slot, buttons, info overlay) and a documentElement CSS variable.
+  // Deliberately avoids classes on fsEl: Kick's React rewrites fsEl's className
+  // on re-render (e.g. during a resize) and would strip them, reverting the
+  // controls. Safe to call repeatedly.
+  const syncControlState = () => {
+    const overlayActive = overlayMode && active;
+    document.documentElement.style.setProperty(
+      '--kfc-overlay-opacity',
+      (overlayOpacity / 100).toFixed(2)
+    );
+    // Video keeps full width in overlay mode; otherwise fall back to the shrink
+    // calc by removing the override. --kfc-control-inset keeps Kick's full-width
+    // bottom controls (the timeline) out from under the floating chat: it equals
+    // the chat width in overlay mode (tracking live resize via --kfc-chat-width)
+    // and is 0 otherwise (side mode already shrinks the whole player layer).
+    if (overlayActive) {
+      document.documentElement.style.setProperty('--kfc-video-width', '100%');
+      document.documentElement.style.setProperty('--kfc-control-inset', 'var(--kfc-chat-width, 340px)');
+    } else {
+      document.documentElement.style.removeProperty('--kfc-video-width');
+      document.documentElement.style.removeProperty('--kfc-control-inset');
+    }
+
+    const wrap = document.getElementById(WRAP_ID);
+    if (wrap) {
+      wrap.classList.toggle('kfc-chat-open', active);
+      wrap.classList.toggle('kfc-settings-open', settingsOpen);
+    }
+
+    if (chatSlot) {
+      const overlayIdle =
+        overlayActive && autoHideOverlayChat && chatSlot.classList.contains('kfc-idle');
+      chatSlot.classList.toggle('kfc-overlay', overlayActive);
+      chatSlot.classList.toggle('kfc-overlay-idle', overlayIdle);
+      if (resizeHandle) resizeHandle.classList.toggle('kfc-overlay-idle', overlayIdle);
+    } else if (resizeHandle) {
+      resizeHandle.classList.remove('kfc-overlay-idle');
+    }
+
+    if (infoOverlay) infoOverlay.classList.toggle('kfc-hidden', infoHidden);
+
+    const modeBtn = document.getElementById(MODE_BTN_ID);
+    if (modeBtn) {
+      modeBtn.classList.toggle('kfc-on', overlayMode);
+      modeBtn.setAttribute(
+        'aria-label',
+        overlayMode ? 'Switch to side-by-side chat' : 'Switch to overlay chat'
+      );
+    }
+    const infoBtn = document.getElementById(INFO_BTN_ID);
+    if (infoBtn) {
+      infoBtn.classList.toggle('kfc-off', infoHidden);
+      infoBtn.setAttribute('aria-label', infoHidden ? 'Show stream info' : 'Hide stream info');
+    }
+    const settingsBtn = document.getElementById(SETTINGS_BTN_ID);
+    if (settingsBtn) {
+      settingsBtn.classList.toggle('kfc-on', settingsOpen);
+      settingsBtn.setAttribute('aria-label', settingsOpen ? 'Close fullscreen settings' : 'Open fullscreen settings');
+    }
+    const widthValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-width-value`);
+    if (widthValue) widthValue.textContent = `${chatWidth}px`;
+    const opacityInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-opacity-input`);
+    if (opacityInput) opacityInput.value = String(overlayOpacity);
+    const opacityValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-opacity-value`);
+    if (opacityValue) opacityValue.textContent = `${overlayOpacity}%`;
+    const idleInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-idle-input`);
+    if (idleInput) idleInput.value = String(Math.round(idleDelayMs / 1000));
+    const idleValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-idle-value`);
+    if (idleValue) idleValue.textContent = `${Math.round(idleDelayMs / 1000)}s`;
+    const autoHideInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-autohide-input`);
+    if (autoHideInput) autoHideInput.checked = autoHideOverlayChat;
+    const controlsHideInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-controls-hide-input`);
+    if (controlsHideInput) controlsHideInput.checked = autoHideControls;
+    const openOverlayInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-open-overlay-input`);
+    if (openOverlayInput) openOverlayInput.checked = openChatAsOverlay;
+    const restoreInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-restore-input`);
+    if (restoreInput) restoreInput.checked = restoreChatOnFullscreen;
+  };
+
+  const toggleSettingsPanel = () => {
+    settingsOpen = !settingsOpen;
+    syncControlState();
+    onFsMouseMove();
+  };
+
+  const closeSettingsPanel = () => {
+    if (!settingsOpen) return;
+    settingsOpen = false;
+    syncControlState();
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!settingsOpen) return;
+    const wrap = document.getElementById(WRAP_ID);
+    if (wrap?.contains(e.target)) return;
+    closeSettingsPanel();
+  });
+
+  const toggleOverlayMode = () => {
+    overlayMode = !overlayMode;
+    log('overlay mode:', overlayMode);
+    syncControlState();
+    nudgePlayerResize();
+  };
+
+  const toggleInfoOverlay = () => {
+    infoHidden = !infoHidden;
+    log('info overlay hidden:', infoHidden);
+    syncControlState();
+  };
+
   const removeButton = () => {
+    closeSettingsPanel();
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) wrap.remove();
   };
 
   // Idle auto-hide: fade the toggle button out when the user stops moving the
   // mouse, mirroring how Kick's own controls overlay disappears. Any
-  // mousemove on the fullscreen element brings it back instantly. Tuned to
+  // mousemove on the fullscreen element brings it back instantly. Defaults to
   // 4000ms because Kick's controls fade noticeably later than the standard
   // 3000ms HTML5-video-player default.
-  const IDLE_MS = 4000;
   let idleTimer = 0;
   let idleFsEl = null;
-  const setIdle = (idle) => {
-    const wrap = document.getElementById(WRAP_ID);
-    if (wrap) wrap.classList.toggle('kfc-idle', idle);
-    const info = document.getElementById(INFO_ID);
-    if (info) info.classList.toggle('kfc-idle', idle);
+  // Estimate of how long Kick keeps its own controls/timeline visible after the
+  // last pointer activity. We can't read Kick's internal timer, so when the
+  // user's configured delay exceeds this we synthesize pointer activity on the
+  // player to keep Kick's timeline alive in step with our overlay (see
+  // startKeepAlive). Slightly off from Kick's real value only shifts the joint
+  // fade by the difference — both still disappear together within ~1s.
+  const KICK_NATIVE_IDLE_MS = 4000;
+  // Re-nudge well inside the native window so Kick never times out mid-keepalive.
+  const KICK_KEEPALIVE_INTERVAL_MS = 2000;
+  let keepAliveInterval = 0;
+  let keepAliveFinalTimer = 0;
+  // Reset Kick's idle timer by dispatching an untrusted mousemove on the player.
+  // onFsMouseMove ignores untrusted events, so this keeps Kick's controls up
+  // without resetting our own idle timer.
+  const nudgeKickControls = () => {
+    if (!idleFsEl) return;
+    const target = idleFsEl.querySelector('video') || idleFsEl;
+    const rect = target.getBoundingClientRect();
+    target.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
   };
-  const onFsMouseMove = () => {
+  const stopKeepAlive = () => {
+    if (keepAliveInterval) { clearInterval(keepAliveInterval); keepAliveInterval = 0; }
+    if (keepAliveFinalTimer) { clearTimeout(keepAliveFinalTimer); keepAliveFinalTimer = 0; }
+  };
+  // Keep Kick's native timeline visible until our overlay is about to fade, so
+  // both disappear together at idleDelayMs instead of Kick fading at its shorter
+  // fixed delay. Only needed when the configured delay outlasts Kick's own.
+  const startKeepAlive = () => {
+    stopKeepAlive();
+    if (!idleFsEl || idleDelayMs <= KICK_NATIVE_IDLE_MS) return;
+    // The final nudge fires this long before idle so Kick's controls fade
+    // KICK_NATIVE_IDLE_MS later — i.e. exactly when our overlay fades.
+    const fireFinalAt = idleDelayMs - KICK_NATIVE_IDLE_MS;
+    if (fireFinalAt > KICK_KEEPALIVE_INTERVAL_MS) {
+      keepAliveInterval = setInterval(nudgeKickControls, KICK_KEEPALIVE_INTERVAL_MS);
+    }
+    keepAliveFinalTimer = setTimeout(() => {
+      stopKeepAlive();
+      nudgeKickControls();
+    }, fireFinalAt);
+  };
+  // Kick's own controls fade on a fixed internal timer (~KICK_NATIVE_IDLE_MS),
+  // so for delays shorter than that its timeline lingers after our overlay is
+  // gone. We can't shorten Kick's timer, so we hide its controls ourselves the
+  // moment we go idle. Pure opacity + pointer-events only — no height/layout
+  // changes — so the timeline never shifts off the bottom of the player.
+  let fadedKickControls = null;
+  let kickControlsObserver = null;
+  let kickControlsReapplyTimer = 0;
+  // Locate Kick's controls cluster: start at the seekbar/timeline and climb to
+  // the top of the subtree that does NOT contain the <video>, so we fade the
+  // controls overlay without ever touching the video layer.
+  const findKickControlsLayer = (fsEl) => {
+    const seek = fsEl.querySelector('[class*="seekbar" i], [role="slider"]');
+    if (!seek) return null;
+    let node = seek;
+    while (
+      node.parentElement &&
+      node.parentElement !== fsEl &&
+      !node.parentElement.querySelector('video')
+    ) {
+      node = node.parentElement;
+    }
+    return node;
+  };
+  const applyKickControlsFade = (layer) => {
+    layer.style.setProperty('opacity', '0', 'important');
+    layer.style.setProperty('pointer-events', 'none', 'important');
+  };
+  const clearKickControlsFade = (layer) => {
+    layer.style.removeProperty('opacity');
+    layer.style.removeProperty('pointer-events');
+  };
+  // Kick's React reconciler can re-mount the controls layer mid-idle, which
+  // would drop our inline fade. Re-find and re-apply when that happens. We watch
+  // childList only (not attributes) so the seekbar's per-frame style ticks don't
+  // trigger it — only genuine node add/remove (re-mounts) do.
+  const reapplyKickControlsHidden = () => {
+    if (!fadedKickControls || !idleFsEl) return;
+    const layer = findKickControlsLayer(idleFsEl);
+    if (!layer) return;
+    if (layer !== fadedKickControls) {
+      clearKickControlsFade(fadedKickControls);
+      fadedKickControls = layer;
+    }
+    applyKickControlsFade(layer);
+  };
+  const stopKickControlsWatch = () => {
+    if (kickControlsObserver) {
+      kickControlsObserver.disconnect();
+      kickControlsObserver = null;
+    }
+    if (kickControlsReapplyTimer) {
+      clearTimeout(kickControlsReapplyTimer);
+      kickControlsReapplyTimer = 0;
+    }
+  };
+  const setKickControlsHidden = (hidden) => {
+    if (hidden) {
+      if (fadedKickControls || !idleFsEl) return;
+      const layer = findKickControlsLayer(idleFsEl);
+      if (!layer) return;
+      fadedKickControls = layer;
+      applyKickControlsFade(layer);
+      kickControlsObserver = new MutationObserver(() => {
+        if (kickControlsReapplyTimer) return;
+        kickControlsReapplyTimer = setTimeout(() => {
+          kickControlsReapplyTimer = 0;
+          reapplyKickControlsHidden();
+        }, 100);
+      });
+      kickControlsObserver.observe(idleFsEl, { childList: true, subtree: true });
+    } else {
+      stopKickControlsWatch();
+      if (fadedKickControls) {
+        clearKickControlsFade(fadedKickControls);
+        fadedKickControls = null;
+      }
+    }
+  };
+  const setIdle = (idle) => {
+    const effectiveIdle = idle && !settingsOpen;
+    const controlsIdle = effectiveIdle && autoHideControls;
+    const wrap = document.getElementById(WRAP_ID);
+    if (wrap) wrap.classList.toggle('kfc-idle', controlsIdle);
+    const info = document.getElementById(INFO_ID);
+    if (info) info.classList.toggle('kfc-idle', controlsIdle);
+    if (chatSlot) chatSlot.classList.toggle('kfc-idle', effectiveIdle);
+    setKickControlsHidden(controlsIdle);
+    syncControlState();
+  };
+  const onFsMouseMove = (e) => {
+    // Ignore the synthetic events we dispatch to keep Kick's controls alive —
+    // only real pointer movement should reset our idle timer.
+    if (e && !e.isTrusted) return;
     setIdle(false);
     if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => setIdle(true), IDLE_MS);
+    idleTimer = setTimeout(() => setIdle(true), idleDelayMs);
+    startKeepAlive();
   };
   const startIdleTracking = (fsEl) => {
     stopIdleTracking();
@@ -2124,6 +3011,7 @@
       clearTimeout(idleTimer);
       idleTimer = 0;
     }
+    stopKeepAlive();
     setIdle(false);
   };
 
@@ -2180,8 +3068,16 @@
       mountInfoOverlay(fsEl);
       startVideoLoadingMonitor(fsEl);
       startIdleTracking(fsEl);
+      if (restoreChatOnFullscreen && reopenChatOnNextFullscreen) {
+        reopenChatOnNextFullscreen = false;
+        setTimeout(() => {
+          const currentFs = document.fullscreenElement || document.webkitFullscreenElement;
+          if (currentFs === fsEl && !active) enableSideChat(fsEl);
+        }, 0);
+      }
     } else {
       // Exiting fullscreen — clean up.
+      reopenChatOnNextFullscreen = restoreChatOnFullscreen && active;
       clearPendingEnable();
       stopVideoLoadingMonitor();
       stopIdleTracking();

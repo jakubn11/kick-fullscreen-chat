@@ -4,6 +4,115 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-05-28
+
+### Fixed
+- When the hide delay is set below Kick's native ~4s, Kick's timeline/controls no longer linger after our overlay fades. On idle the script now fades Kick's controls layer itself (opacity + pointer-events only — no height/layout changes, so the timeline stays anchored to the bottom) in sync with our overlay. The controls layer is located from the seekbar without ever touching the video layer, and a childList-only observer re-applies the fade if Kick re-mounts the controls mid-idle.
+
+## [0.17.1] - 2026-05-28
+
+### Fixed
+- When the hide delay is set above ~4s, Kick's native timeline/controls no longer fade before our overlay. While the idle timer is pending, the script now resets Kick's own idle timer with untrusted synthetic `mousemove`s on the player (rather than overriding Kick's styles), timing the final nudge so Kick's controls fade together with our overlay at the configured delay.
+
+## [0.17.0] - 2026-05-28
+
+### Removed
+- Removed **Auto-hide Kick controls** and all native Kick timeline/control overrides. The feature was unreliable against Kick's height-animated controls layer and could move the timeline away from the bottom of the player.
+
+## [0.16.9] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** keep-alive now preserves previously marked native-control nodes and restores their saved height before rescanning, so longer hide delays do not lose control of Kick's already-collapsed timeline row.
+
+## [0.16.8] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now keeps native controls alive with a small re-apply loop while waiting for longer hide-delay values, preventing Kick's own shorter timer from winning before the userscript timer expires.
+
+## [0.16.7] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now uses inline important styles plus a fullscreen controls MutationObserver, so Kick class/style changes during its own idle timer are re-overridden until the configured userscript hide delay expires.
+
+## [0.16.6] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now marks the full chain of likely native controls ancestors, so Kick's inner height-animated timeline row is kept visible until the configured hide delay.
+
+## [0.16.5] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now preserves the marked native control layer's measured height until the configured hide delay expires, preventing Kick's own height-collapse animation from hiding the timeline early.
+
+## [0.16.4] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now marks the actual native controls nodes at runtime instead of relying on broad CSS selector guesses, so Kick's own delayed fade is overridden by the configured userscript hide delay.
+
+## [0.16.3] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now targets Kick controls anywhere inside the fullscreen subtree, not only controls inside marked video-root layers, so the timeline and bottom controls hide on the configured userscript delay when Kick mounts them separately.
+
+## [0.16.2] - 2026-05-28
+
+### Fixed
+- **Auto-hide Kick controls** now also forces Kick's native timeline/control layer visible before the configured hide delay expires, so Kick's own shorter idle timeout does not hide it early.
+
+## [0.16.1] - 2026-05-28
+
+### Fixed
+- The opt-in **Auto-hide Kick controls** setting now also hides Kick's separate bottom seekbar container, preventing the green progress line from remaining after controls fade.
+
+## [0.16.0] - 2026-05-28
+
+### Added
+- Added an opt-in **Auto-hide Kick controls** setting that hides Kick's native fullscreen timeline / bottom control row on the same hide-delay timer as the userscript UI.
+
+## [0.15.0] - 2026-05-28
+
+### Added
+- Added settings to reset all session UI options, keep the fullscreen control cluster visible while idle, and choose whether the **Chat** button opens directly into overlay mode.
+
+## [0.14.1] - 2026-05-28
+
+### Changed
+- Removed the precise chat-width slider plus the overlay-mode and stream-info checkboxes from the fullscreen settings popover; those remain controlled by the divider and top-level buttons.
+
+## [0.14.0] - 2026-05-28
+
+### Added
+- Extended the fullscreen settings popover with a precise chat-width slider, a hide-delay slider, and checkboxes for overlay chat mode and stream-info visibility.
+
+## [0.13.1] - 2026-05-28
+
+### Fixed
+- Overlay-chat auto-hide now also fades the resize divider, so no vertical divider line remains over the video after the chat fades out.
+
+## [0.13.0] - 2026-05-28
+
+### Added
+- Added a fullscreen settings popover behind a new gear button. It controls overlay-chat opacity, chat-width presets, overlay-chat idle auto-hide, and whether an open chat should reopen on the next fullscreen entry in the same page session.
+- Double-clicking the video/chat divider now resets chat width to the default 340px.
+- Chat lookup failures now show a more actionable toast and log selector/input diagnostics to the console.
+
+## [0.12.1] - 2026-05-28
+
+### Fixed
+- Fullscreen controls now track the chat divider immediately while resizing instead of lagging behind the drag animation, and Kick's own player controls receive live resize nudges during the drag.
+
+## [0.12.0] - 2026-05-28
+
+### Added
+- **Resizable chat width.** A draggable divider sits between the video and the side chat; drag it left/right to set how wide the chat panel is. The width is clamped (260–640px, never past 60% of the screen) and remembered for the rest of the session (resets on page reload).
+- **Overlay chat mode.** A new layout-mode toggle (top-right, shown while chat is open) switches between side-by-side (video shrinks) and overlay (chat floats semi-transparently over the full-width video, Twitch-style). The button shows a pressed/green state while overlay mode is on.
+- **Show/hide stream info.** A new toggle (top-right) hides or shows the fullscreen streamer-info overlay for a cleaner picture.
+
+## [0.11.26] - 2026-05-28
+
+### Changed
+- The category link (e.g. "IRL") in the fullscreen streamer-info overlay is now rendered at a heavier font weight so it matches the streamer name, title, and viewer-count text instead of looking thin.
+
 ## [0.11.25] - 2026-05-28
 
 ### Changed

@@ -31,9 +31,11 @@ Manual testing is required in a browser with a userscript manager installed:
 6. Click Kick's native **Hide chat** inside the chat panel — split layout should tear down and the **Chat** button should reappear.
 7. Click **Chat** again — chat should reappear in the split layout (not stay empty).
 8. Change stream quality / seek / "Go to live" with side chat open — layout should tear down and the **Chat** button should stay disabled until the new stream is playing.
-9. Press **C** while fullscreen on the Kick player — toggles the side chat. Press again — collapses it. Type a `c` inside Kick's chat input — does NOT toggle (input focus should swallow the key).
-10. Exit fullscreen — DOM should be restored to its original state, chat back in its original location.
-11. Check the browser developer console for `[KickFullscreenChat]` log lines if something doesn't work.
+9. With chat open, drag the divider between the video and chat — chat width should follow the pointer, clamped between ~260px and ~640px (and never past 60% of the screen). The video area should re-fit live. Width should persist when you close and re-open chat (but reset after a page reload).
+10. With chat open, click the layout-mode toggle (top-right) — chat should switch to overlay (floating semi-transparent over full-width video) and back to side-by-side. The button should look "pressed" while overlay mode is on.
+11. Click the info toggle (top-right) — the streamer-info overlay should hide / show; the toggle's icon dims when hidden.
+12. Exit fullscreen — DOM should be restored to its original state, chat back in its original location, and no leftover divider / control nodes.
+13. Check the browser developer console for `[KickFullscreenChat]` log lines if something doesn't work.
 
 ## Userscript Metadata
 
@@ -60,10 +62,12 @@ Do not add `Co-Authored-By:` trailers to git commits.
 - Reload-resilience state — `videoReloading`, `videoReadyTimer`, `fullscreenVideoEl`, `videoSwapObserver`, `pendingVideoEl`
 - Capture-phase teardown handlers — `onDocClickCapture` (quality / seekbar / go-live), `onDocPointerDownCapture` (seekbar), `onDocChatToggleClickCapture` (Kick's chat-toggle button anywhere on the page — detected by `CHAT_TOGGLE_RE` text/aria/title match or `looksLikeChatToggleBtn` SVG-path-signature match)
 - Layout toggle — `enableSideChat()`, `disableSideChat()`
-- Button — `ensureButton()`, `removeButton()`, `updateBtnLabel()`
-- Keyboard shortcut — `onKeyDown` listener (attached at script load) toggles the side chat on `C` when fullscreen is on the Kick player. Ignored when typing in input / textarea / contenteditable, when a modifier (⌘ / Ctrl / Alt) is held, when the video is mid-reload, and when fullscreen target isn't a Kick player.
+- Buttons / controls — `ensureButton()` builds the top-right control cluster (`#kfc-toggle-wrap`, a flex row): the info-overlay toggle (`#kfc-info-btn`), the layout-mode toggle (`#kfc-mode-btn`), and the **Chat** button (`#kfc-toggle-btn`). `removeButton()`, `updateBtnLabel()` (Chat-button label + disabled state only; per-button show/hide is CSS via `.kfc-active` scoping), `syncControlState()` (reflects the per-session prefs onto fsEl classes + button aria-labels), `toggleOverlayMode()`, `toggleInfoOverlay()`
+- Per-session UI prefs (in-memory, no `localStorage`) — `chatWidth` (px), `overlayMode` (bool), `infoHidden` (bool). Reset on page reload; persist across open/close + fullscreen toggles.
+- Chat-width resize — `applyChatWidth()` (writes `--kfc-chat-width` on `documentElement`), `clampChatWidth()` (260–640px, ≤60vw), `mountResizeHandle()` / `removeResizeHandle()`, and the pointer drag handlers (`onResizePointerDown/Move/Up`) on `#kfc-resize-handle`. The width is a CSS variable referenced by both the chat-slot width and the video-shrink `calc()`.
+- Overlay chat mode — in overlay mode the video keeps full width (`--kfc-video-width: 100%` on `documentElement` overriding the shrink `calc()`) and the chat slot floats semi-transparently over it via the `.kfc-overlay` class on the slot. Toggled by `#kfc-mode-btn`; only meaningful while `active`. **State is never keyed on a class on `fsEl`** — Kick's React rewrites `fsEl`'s `className` on re-render and would strip it; all control state lives on our own nodes (`#kfc-toggle-wrap`, `.kfc-chat-slot`, the buttons, `#kfc-info-overlay`) and on `documentElement` CSS variables.
 - Info overlay — `findStreamerInfoSource()`, `findViewerCountSource()`, `mountInfoOverlay()`, `unmountInfoOverlay()`, `recloneInfoOverlay()`, `scheduleInfoReclone()`, `refindInfoSources()`, `startInfoSourceWatcher()`, `stopInfoSourceWatcher()`; clones Kick's channel-info card and viewer-count badge into fsEl while fullscreen so the user sees streamer name / title / game / viewer count overlaid on the player. State: `infoOverlay`, `infoOverlaySource`, `infoOverlayObserver`, `infoViewerSource`, `infoViewerObserver`, `infoBodyObserver`, `infoOverlayPending`, `infoBodyCheckPending`. Tied to the same `kfc-idle` class as the toggle button so it fades together with Kick's controls/timeline. A body-level observer detects when Kick re-mounts the tracked sources and re-attaches the per-source observers so the overlay stays live across React reconciler swaps.
-- Idle auto-hide — `startIdleTracking()`, `stopIdleTracking()`, `onFsMouseMove()`, `setIdle()`, `IDLE_MS` — fades both `#kfc-toggle-wrap` and `#kfc-info-overlay`
+- Idle auto-hide — `startIdleTracking()`, `stopIdleTracking()`, `onFsMouseMove()`, `setIdle()`, `IDLE_MS` — fades both `#kfc-toggle-wrap` (the whole control cluster) and `#kfc-info-overlay`
 - Video monitor — `startVideoLoadingMonitor()`, `stopVideoLoadingMonitor()`, `attachVideoListeners()`, `detachVideoListeners()`
 - Popover portal — `startPopoverPortal()`, `stopPopoverPortal()`, `adoptPopover()`, `reconcilePopoverClones()`, `removePopoverClone()`; while side chat is active, *clones* body-portaled popovers (emote-name tooltips etc.) into the fullscreen element so the Fullscreen API displays them. The original stays in `document.body` so Kick's React `createPortal` unmount path (which calls `body.removeChild(popover)`) doesn't throw a `NotFoundError` and trip Kick's 404 error boundary. A per-popover sync observer re-clones when the original's subtree changes (`childList` / `characterData`, not attributes — see below) so content React adds to the wrapper on a later commit shows up in the clone. The clone is removed when the original is removed from `document.body`. Tracked in `popoverClones` (Map: original → clone) and `popoverSyncObservers` (Map: original → sync MutationObserver)
 - Observers and listeners — `dataChatObserver` (watches for Kick toggling `data-chat="false"`), `videoSwapObserver` (watches for Kick replacing the `<video>` element), `popoverPortalObserver` (watches `document.body` childList for body-portaled popovers while side chat is active), and the `fullscreenchange` / `webkitfullscreenchange` handlers
@@ -115,12 +119,14 @@ Always test after selector or attribute changes:
 
 ## Layout Notes
 
-- Kick's player nodes are **not** moved. The script tags the full-coverage direct children of `fsEl` with `data-kfc-video-root`, CSS shrinks each marked element to `width: calc(100% - 340px) !important; max-width: same; height: 100% !important`, and the chat panel is docked as `position: fixed; top: 0; right: 0; bottom: 0; width: 340px` so it overlays the right side of the screen.
-- `looksLikeFullscreenLayer` only marks direct `fsEl` children whose `getBoundingClientRect()` covers **both** ≥70% of viewport width *and* ≥70% of viewport height (or which contain a `<video>` regardless of size). Earlier OR-based heuristics dragged tall-but-narrow popovers (quality / settings menus) into the shrink and broke their placement.
+- Kick's player nodes are **not** moved. The script tags the full-coverage direct children of `fsEl` with `data-kfc-video-root`, CSS shrinks each marked element to `width: calc(100% - var(--kfc-chat-width)) !important; max-width: same; height: 100% !important`, and the chat panel is docked as `position: fixed; top: 0; right: 0; bottom: 0; width: var(--kfc-chat-width)` so it overlays the right side of the screen.
+- **Chat width is a CSS variable.** `--kfc-chat-width` (default `340px`, written on `documentElement` by `applyChatWidth()`) drives both the shrink `calc()` and the slot width. The `#kfc-resize-handle` divider updates it live during a pointer drag, clamped to 260–640px and ≤60vw. The value lives in the in-memory `chatWidth` (no `localStorage`), so it survives open/close within a session but resets on reload.
+- **Overlay mode** (toggled by `#kfc-mode-btn`) overrides the video shrink back to `width: 100%` by setting `--kfc-video-width: 100%` on `documentElement`, and gives `.kfc-chat-slot` a translucent blurred background via the `.kfc-overlay` class on the slot, so the chat floats over the full-width video instead of shrinking it. Reset on teardown by `syncControlState()`; the `overlayMode` preference is retained for the next open. **Do not key this (or any control state) on a class on `fsEl`** — Kick's React strips `fsEl`'s `className` on re-render (the same reason `[data-kfc-video-root]` is re-applied by an observer), which previously reverted the controls mid-resize. Drive state from our own nodes + `documentElement` variables only.
+- `looksLikeFullscreenLayer` only marks direct `fsEl` children whose `getBoundingClientRect()` covers **both** ≥70% width *and* ≥70% height (or which contain a `<video>` regardless of size). Earlier OR-based heuristics dragged tall-but-narrow popovers (quality / settings menus) into the shrink and broke their placement. **The width basis is the available video width (viewport − chat) while side chat is open, not the full viewport** (`coversFullscreen`): a controls layer that only holds the timeline (no `<video>`, so it must pass the size+controls test) is shrunk to `100% − chatWidth`, and measuring it against the full viewport would drop it below 70% once the chat is dragged wide — un-marking it, losing the `translateZ(0)` containing block, and letting Kick's `position: fixed` timeline escape across the chat. In overlay mode the basis is the full viewport (video isn't shrunk).
 - Marker selectors (`[data-kfc-video-root]`, `.kfc-chat-slot`) are intentionally **not** scoped under `.kfc-active`. Kick's React periodically re-renders `fsEl` and writes its own `className`, stripping `.kfc-active`. The `data-kfc-video-root` attribute is set on Kick's own nodes, so a `MutationObserver` (`videoRootObserver`) re-applies it whenever Kick swaps a layer. `.kfc-chat-slot` is on a node we created and Kick never touches.
 - `[data-kfc-video-root]` sets `transform: translateZ(0)` so each marked layer acts as a containing block for Kick's `position: fixed/absolute` descendants — without this, the timeline / controls anchor to the viewport and overflow across the chat panel.
 - The video element inside a marked layer is forced to `width/height: 100%` with `object-fit: contain` so it fills the shrunken area without leaving black side bars.
-- The toggle button wrapper (`#kfc-toggle-wrap`) fades via the `.kfc-idle` class (`opacity: 0; pointer-events: none`) after `IDLE_MS` of no `mousemove` on the fullscreen element. Kick's own controls overlay does the same; the timing is independent (no DOM coupling) but visually synchronised.
+- The toggle button wrapper (`#kfc-toggle-wrap`) fades via the `.kfc-idle` class (`opacity: 0; pointer-events: none`) after `idleDelayMs` of no real `mousemove` on the fullscreen element. Kick's own controls overlay fades on its own fixed internal timer (~`KICK_NATIVE_IDLE_MS`), which the user can't change. When the configured delay exceeds that, `startKeepAlive()` dispatches **untrusted** synthetic `mousemove`s on the player to reset Kick's timer, with the final nudge scheduled `idleDelayMs - KICK_NATIVE_IDLE_MS` in so Kick's timeline fades together with our overlay instead of sooner. `onFsMouseMove` ignores untrusted events so these nudges don't reset our own idle timer. When the configured delay is **shorter** than Kick's native timer, `setKickControlsHidden()` fades Kick's controls layer to `opacity: 0` + `pointer-events: none` (inline `!important`, **no** height/layout changes) the moment we go idle, so the timeline hides in step with our overlay. `findKickControlsLayer()` locates the cluster from the seekbar and climbs only as far as the subtree that does not contain the `<video>`, so the video layer is never faded; a childList-only observer (`kickControlsObserver`) re-applies the fade across React re-mounts during idle. This is a deliberately minimal re-take on the height-based control overrides removed in 0.17.0 — opacity-only, so the timeline never shifts off the bottom.
 - The streamer info overlay (`#kfc-info-overlay`) is anchored top-left of the fullscreen element and fades through the same `kfc-idle` class as the toggle button, so it appears with Kick's timeline/controls and disappears with them. It is `pointer-events: none` so clicks pass through to the player. Follow / subscribe / share / notification controls inside the cloned card are hidden via CSS so the overlay stays compact.
 
 ## Reload-Resilience Notes
@@ -168,18 +174,20 @@ All script-injected UI must follow this design language consistently. Do not dev
 
 ### Palette
 
-Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. The one element the script paints itself — the **Chat** toggle button — follows the **kick-emotes design language** (the sibling userscript), so the two scripts feel like one family. These are the shared tokens; keep them in sync with `kick-emotes`' `## UI Design System` section.
+Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. The elements the script paints itself — the **Chat** button and the icon control buttons — follow the **kick-emotes design language** (the sibling userscript), so the two scripts feel like one family. These are the shared tokens; keep them in sync with `kick-emotes`' `## UI Design System` section.
 
 | Token | Value | Usage |
 |---|---|---|
-| Surface | `#101013` | Toggle button background |
-| Green accent | `#22c55e` | Single accent per component — the toggle button's icon (`fill`) |
-| Neutral border | `rgba(255,255,255,.1)` | Toggle button border |
+| Surface | `#101013` | Button background (Chat + `.kfc-control-btn`) |
+| Green accent | `#22c55e` | Single accent per component — button icons (`fill`), resize divider on hover/drag |
+| Neutral border | `rgba(255,255,255,.1)` | Button borders, idle resize divider |
 | Hover tint | `rgba(34,197,94,.1)` | Composited over the surface on hover/focus, never as a standalone (transparent) fill |
-| Box shadow | `0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)` | Toggle button depth |
-| Backdrop | `blur(10px)` | Toggle button glass effect |
-| Border radius | `8px` | Toggle button corners |
-| `BTN_SVG` | Kick's "Show chat" icon | Toggle button icon path data (recoloured green via CSS) |
+| Pressed tint | `rgba(34,197,94,.18)` | `#kfc-mode-btn` while overlay mode is active (composited over the surface) |
+| Box shadow | `0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)` | Button depth |
+| Backdrop | `blur(10px)` | Button glass effect |
+| Border radius | `8px` | Button corners |
+| `BTN_SVG` / `MODE_SVG` / `INFO_SVG` | hardcoded icons | Button icon path data (recoloured green via CSS) |
+| `--kfc-chat-width` | default `340px` | Chat-panel width; drives both the slot width and the video-shrink `calc()` |
 | `top: 1.75rem; right: 1.75rem` | Kick's `top-7 right-7` placement | `#kfc-toggle-wrap` positioning |
 | `rgba(0,0,0,.88)` + `rgba(255,255,255,.1)` border | Neutral toast palette | `#kfc-toast` (errors only) |
 
@@ -189,18 +197,22 @@ Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) 
 - **One green accent per component.** The toggle button's single `#22c55e` accent is the icon (`#${BTN_ID} svg { fill: #22c55e }`). Never paint the surface green or add a second green element.
 - **Hover is the green tint composited over the surface.** `#${BTN_ID}:hover` uses `linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013` so the tint sits on an opaque surface and text contrast holds — never set the transparent tint as a standalone background (the video would show through).
 - **Disabled state is painted by the script.** Because the button dropped Kick's `disabled:*` classes, `#${BTN_ID}:disabled { opacity: .3; pointer-events: none }` provides it. Set `btn.disabled = true`/`false`; the CSS does the rest.
-- **Hide the toggle when split layout is active** — Kick's native **Hide chat** button inside the chat panel takes over. The wrapper toggles `display: none` via the `.kfc-hidden` class.
+- **Icon control buttons share the button's surface.** The layout-mode toggle (`#kfc-mode-btn`) and info toggle (`#kfc-info-btn`) use the `.kfc-control-btn` class — the same `#101013` glass surface / border / blur / shadow as the Chat button, but square and icon-only, with the single green accent on the icon. Their on/off state is shown by recolouring (`#kfc-info-btn.kfc-off` dims the icon) or a pressed green tint (`#kfc-mode-btn.kfc-on`), never by inventing a new token.
+- **Per-button visibility is CSS, not a wrapper toggle.** `#kfc-toggle-wrap` stays visible (it's a flex row hosting all controls); individual buttons show/hide via `.kfc-active` scoping (Chat button only when chat is closed, mode toggle only when open). Do not hide the whole wrapper.
+- **The resize divider is a thin neutral line.** `#kfc-resize-handle` is a near-invisible 2px line (`rgba(255,255,255,.12)`) that turns green (`#22c55e`) on hover/drag — the one accent for that component. No label, no fill, no shadow.
 - **Toasts are neutral, not themed.** `#kfc-toast` uses a black-on-translucent palette for surfacing internal errors (e.g. "chat panel not found"). It is intentionally distinct from both Kick and the kick-emotes design language.
 - **The info overlay reuses Kick's own card markup.** `#kfc-info-overlay` is a *clone* of Kick's existing channel-info card; the script does not paint streamer name / title / viewer count on its own. The overlay container adds only positioning + a subtle gradient backdrop for readability — it must not introduce custom typography, badges, or colour tokens.
-- **No new tooltips, menus, or popovers painted by the script.** The script's UI surface is intentionally limited to: one toggle button, one chat slot, one toast, one info overlay (clone of Kick's card), and a per-popover clone wrapper. Do not paint new UI from scratch — clone Kick's existing nodes instead.
+- **No new tooltips, menus, or popovers painted by the script.** The script's self-painted UI surface is intentionally limited to: the control cluster (Chat button + mode toggle + info toggle), one chat slot, one resize divider, one toast, one info overlay (clone of Kick's card), and a per-popover clone wrapper. Do not paint new UI from scratch — clone Kick's existing nodes instead.
 
 ### Reference implementations
 
 - `#${BTN_ID}` rules in `injectStyles()` — the toggle button, styled in the kick-emotes design language (dark surface, neutral border, blur, green icon accent)
-- `BTN_SVG` constant — the toggle button's icon path data (Kick's "Show chat" glyph, recoloured green via CSS)
-- `#kfc-toggle-wrap` — the positioned wrapper for the toggle button
-- `.kfc-chat-slot` — fixed-position chat dock (dark background; no Kick tokens needed because Kick's own chat renders inside)
-- `[data-kfc-video-root]` — in-place marker on Kick's full-coverage player layers; CSS-only shrink to the left of the chat slot
+- `.kfc-control-btn` rules — the square icon-only control buttons (mode + info toggles); same surface as the Chat button
+- `BTN_SVG` / `MODE_SVG` / `INFO_SVG` constants — hardcoded icon path data for the three controls (recoloured green via CSS)
+- `#kfc-toggle-wrap` — the positioned flex-row wrapper hosting the control cluster
+- `#kfc-resize-handle` — the draggable video/chat divider (neutral line, green on hover/drag)
+- `.kfc-chat-slot` — fixed-position chat dock; width is `var(--kfc-chat-width)`; gains a translucent backdrop via its own `.kfc-overlay` class in overlay mode
+- `[data-kfc-video-root]` — in-place marker on Kick's full-coverage player layers; CSS-only shrink to the left of the chat slot (full width when `--kfc-video-width` is set to `100%` in overlay mode)
 - `#kfc-info-overlay` — top-left clone of Kick's channel-info card; positioning + readability gradient only, all visible content (avatar / name / title / game / viewers) comes from Kick's own DOM
 - `#kfc-toast` — neutral error toast
 

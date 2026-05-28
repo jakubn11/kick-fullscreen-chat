@@ -27,8 +27,12 @@
 
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
 - Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
-- Click the button to shrink the video and dock the chat panel on the right (340px wide)
-- A clean dark glass **Chat** button with a green icon accent, matching the sibling [kick-emotes](https://github.com/jakubn11/kick-emotes) userscript's design language
+- Click the button to shrink the video and dock the chat panel on the right (340px wide by default)
+- **Resizable chat:** drag the divider between the video and chat to set the panel width (per session)
+- **Overlay mode:** a layout toggle switches between side-by-side (video shrinks) and chat floating semi-transparently over the full-width video, Twitch-style
+- **Show/hide stream info:** a toggle hides or shows the streamer-info overlay for a cleaner picture
+- **Fullscreen settings:** a gear button opens per-session controls for overlay opacity, width presets, hide delay, userscript control auto-hide, overlay auto-hide, default overlay opening, reopening chat on the next fullscreen entry, and resetting session options
+- A clean dark glass control set with green icon accents, matching the sibling [kick-emotes](https://github.com/jakubn11/kick-emotes) userscript's design language
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
 - Auto-teardown: clicking Kick's native **Hide chat** restores fullscreen video and re-shows the **Chat** button so chat can be re-opened
@@ -68,6 +72,11 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Action | Result |
 |--------|--------|
 | Click **Chat** | Video shrinks to the left, chat panel docks on the right (340px) |
+| Drag the divider between video and chat | Resizes the chat panel (260–640px, capped at 60% of the screen); width is kept for the session |
+| Double-click the divider | Resets chat width to 340px |
+| Click the layout-mode toggle (top-right, while chat is open) | Switches between side-by-side and overlay (chat floats over the video) |
+| Click the info toggle (top-right) | Hides or shows the streamer-info overlay |
+| Click the settings gear (top-right) | Opens fullscreen settings for overlay opacity, width presets, hide delay, userscript control auto-hide, overlay auto-hide, default overlay opening, chat reopen behaviour, and resetting session options |
 | Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
 | Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
