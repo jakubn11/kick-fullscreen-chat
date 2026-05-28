@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.2
+// @version      0.18.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -491,9 +491,15 @@
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check {
         display: flex;
+        /* Text on the left, toggle switch on the right. row-reverse keeps the
+           input first in the DOM (label/state wiring unchanged) while showing
+           it on the trailing edge. */
+        flex-direction: row-reverse;
+        justify-content: space-between;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.75rem;
         color: rgba(255, 255, 255, .9);
+        cursor: pointer;
       }
       #${SETTINGS_PANEL_ID} input[type="range"] {
         width: 100%;
@@ -548,10 +554,45 @@
         border: 2px solid #22c55e;
         box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
       }
-      #${SETTINGS_PANEL_ID} input[type="checkbox"] {
-        width: 1rem;
-        height: 1rem;
-        accent-color: #22c55e;
+      /* Settings toggles are styled as switches (the underlying control stays a
+         native checkbox for state + accessibility). */
+      #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"] {
+        -webkit-appearance: none;
+        appearance: none;
+        position: relative;
+        flex: 0 0 auto;
+        width: 2.2rem;
+        height: 1.25rem;
+        margin: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .18);
+        border: 1px solid rgba(255, 255, 255, .15);
+        cursor: pointer;
+        transition: background .15s ease, border-color .15s ease;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 2px;
+        width: calc(1.25rem - 6px);
+        height: calc(1.25rem - 6px);
+        transform: translateY(-50%);
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+        transition: left .15s ease;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:checked {
+        background: #22c55e;
+        border-color: rgba(34, 197, 94, .7);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:checked::before {
+        left: calc(2.2rem - (1.25rem - 6px) - 2px);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:focus-visible {
+        outline: 2px solid rgba(34, 197, 94, .6);
+        outline-offset: 2px;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-buttons {
         display: grid;

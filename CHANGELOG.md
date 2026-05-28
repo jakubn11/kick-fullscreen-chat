@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - 2026-05-28
+
+### Changed
+- The settings panel's on/off options (dock left, auto-hide overlay chat, auto-hide controls, open chats as overlay, reopen chat on fullscreen) are now toggle switches instead of checkboxes, with the label on the left and the switch on the right. The underlying control stays a native checkbox for state and accessibility.
+
 ## [0.18.2] - 2026-05-28
 
 ### Added
