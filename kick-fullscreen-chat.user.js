@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.1
+// @version      0.18.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -576,6 +576,12 @@
       #${SETTINGS_PANEL_ID} .kfc-settings-chip:focus-visible {
         background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
         outline: none;
+      }
+      /* The width preset matching the current chat width (persisted across
+         reloads) is shown selected with a stronger green tint + border. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected {
+        background: linear-gradient(rgba(34, 197, 94, .2), rgba(34, 197, 94, .2)), #101013;
+        border-color: rgba(34, 197, 94, .65);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-reset {
         width: 100%;
@@ -1444,10 +1450,22 @@
     document.documentElement.style.setProperty('--kfc-chat-width', `${chatWidth}px`);
   };
 
+  // Highlight the width preset chip (if any) that matches the current width, so
+  // the selection is visible — including after a reload, since chatWidth is
+  // restored from storage before the panel is built.
+  const updateWidthChips = () => {
+    document
+      .querySelectorAll(`#${SETTINGS_PANEL_ID} .kfc-settings-chip[data-kfc-width]`)
+      .forEach((chip) => {
+        chip.classList.toggle('kfc-selected', Number(chip.dataset.kfcWidth) === chatWidth);
+      });
+  };
+
   const setChatWidth = (px) => {
     chatWidth = clampChatWidth(px);
     applyChatWidth();
     scheduleLiveResizeLayout();
+    updateWidthChips();
     persistSettings();
   };
 
@@ -1464,6 +1482,7 @@
     idleDelayMs = 4000;
     reopenChatOnNextFullscreen = false;
     applyChatWidth();
+    updateWidthChips();
     syncControlState();
     onFsMouseMove();
     nudgePlayerResize();
@@ -2748,6 +2767,10 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'kfc-settings-chip';
+      button.dataset.kfcWidth = String(width);
+      // Reflect the current (persisted) width on the matching preset right away,
+      // since the panel isn't in the DOM yet for a document-scoped query.
+      if (width === chatWidth) button.classList.add('kfc-selected');
       button.textContent = label;
       button.addEventListener('click', () => {
         setChatWidth(width);

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-05-28
+
+### Added
+- The chat-width preset buttons (Compact / Default / Wide / Max) now show which one is selected when it matches the current width, and the selection is restored after a page reload (the width is persisted). Resizing via the divider clears the highlight when the width no longer matches a preset.
+
 ## [0.18.1] - 2026-05-28
 
 ### Changed
