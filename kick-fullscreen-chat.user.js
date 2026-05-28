@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.0
+// @version      0.18.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -498,6 +498,55 @@
       #${SETTINGS_PANEL_ID} input[type="range"] {
         width: 100%;
         accent-color: #22c55e;
+      }
+      /* Overlay-opacity slider: a custom track that previews the effect — a
+         checkerboard (transparency) on the left fading into the near-opaque
+         dark panel colour on the right, so the difference between low and high
+         opacity is visible at a glance. The two other sliders keep the plain
+         green native track above. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 16px;
+        background: transparent;
+        cursor: pointer;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-webkit-slider-runnable-track {
+        height: 14px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 255, 255, .15);
+        background:
+          linear-gradient(90deg, rgba(14, 14, 16, .18), rgba(14, 14, 16, .96)),
+          conic-gradient(#8a8a8a 0 25%, #cfcfcf 0 50%, #8a8a8a 0 75%, #cfcfcf 0);
+        background-size: 100% 100%, 12px 12px;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-moz-range-track {
+        height: 14px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 255, 255, .15);
+        background:
+          linear-gradient(90deg, rgba(14, 14, 16, .18), rgba(14, 14, 16, .96)),
+          conic-gradient(#8a8a8a 0 25%, #cfcfcf 0 50%, #8a8a8a 0 75%, #cfcfcf 0);
+        background-size: 100% 100%, 12px 12px;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -2px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #22c55e;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #22c55e;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
       }
       #${SETTINGS_PANEL_ID} input[type="checkbox"] {
         width: 1rem;
