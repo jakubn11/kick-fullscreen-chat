@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.3
+// @version      0.18.4
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -51,9 +51,8 @@
   let autoHideOverlayChat = true;           // fade overlay chat while player is idle
   let autoHideControls = true;              // fade the top control cluster / info overlay
   let openChatAsOverlay = false;            // default layout when the Chat button opens chat
-  let restoreChatOnFullscreen = true;       // reopen chat on next fullscreen if it was open
+  let restoreChatOnFullscreen = true;       // auto-open side chat whenever entering fullscreen
   let idleDelayMs = 4000;                   // delay before our fullscreen UI fades
-  let reopenChatOnNextFullscreen = false;
   let settingsOpen = false;
 
   // ─── Persistence ────────────────────────────────────────────────────────
@@ -1521,7 +1520,6 @@
     openChatAsOverlay = false;
     restoreChatOnFullscreen = true;
     idleDelayMs = 4000;
-    reopenChatOnNextFullscreen = false;
     applyChatWidth();
     updateWidthChips();
     syncControlState();
@@ -2855,9 +2853,8 @@
       }, 'kfc-settings-open-overlay-input')
     );
     panel.appendChild(
-      createSettingsCheckbox('Reopen chat on fullscreen', restoreChatOnFullscreen, (checked) => {
+      createSettingsCheckbox('Open chat on fullscreen', restoreChatOnFullscreen, (checked) => {
         restoreChatOnFullscreen = checked;
-        if (!checked) reopenChatOnNextFullscreen = false;
         syncControlState();
         persistSettings();
       }, 'kfc-settings-restore-input')
@@ -3314,8 +3311,10 @@
       mountInfoOverlay(fsEl);
       startVideoLoadingMonitor(fsEl);
       startIdleTracking(fsEl);
-      if (restoreChatOnFullscreen && reopenChatOnNextFullscreen) {
-        reopenChatOnNextFullscreen = false;
+      // Auto-open the side chat on fullscreen entry when the setting is on.
+      // Deferred a tick so Kick's player tree finishes mounting; enableSideChat
+      // itself waits for the video to be ready before touching the DOM.
+      if (restoreChatOnFullscreen) {
         setTimeout(() => {
           const currentFs = document.fullscreenElement || document.webkitFullscreenElement;
           if (currentFs === fsEl && !active) enableSideChat(fsEl);
@@ -3323,7 +3322,6 @@
       }
     } else {
       // Exiting fullscreen — clean up.
-      reopenChatOnNextFullscreen = restoreChatOnFullscreen && active;
       clearPendingEnable();
       stopVideoLoadingMonitor();
       stopIdleTracking();

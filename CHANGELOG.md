@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.4] - 2026-05-28
+
+### Fixed
+- **Open chat on fullscreen** (renamed from "Reopen chat on fullscreen") now works: when enabled, the side chat opens automatically every time you enter fullscreen. Previously it only reopened chat if it had been open when you last *exited* fullscreen in the same page session, so it never triggered after a page reload or on a first fullscreen entry. The behaviour no longer depends on an in-memory flag, so it honours the persisted setting.
+
 ## [0.18.3] - 2026-05-28
 
 ### Changed

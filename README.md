@@ -32,7 +32,7 @@
 - **Dock left or right:** a setting moves the chat panel (and divider) to either edge; the video, controls, and stream-info overlay shift to clear it
 - **Overlay mode:** a layout toggle switches between side-by-side (video shrinks) and chat floating semi-transparently over the full-width video, Twitch-style
 - **Show/hide stream info:** a toggle hides or shows the streamer-info overlay for a cleaner picture
-- **Fullscreen settings:** a gear button opens controls for overlay opacity, width presets, hide delay, chat dock side, userscript control auto-hide, overlay auto-hide, default overlay opening, reopening chat on the next fullscreen entry, and resetting to defaults
+- **Fullscreen settings:** a gear button opens controls for overlay opacity, width presets, hide delay, chat dock side, userscript control auto-hide, overlay auto-hide, default overlay opening, auto-opening chat on fullscreen entry, and resetting to defaults
 - **Settings persist:** preferences are saved to `localStorage` and restored on the next page load (no network, no `GM_*` grants)
 - A clean dark glass control set with green icon accents, matching the sibling [kick-emotes](https://github.com/jakubn11/kick-emotes) userscript's design language
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
@@ -78,7 +78,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Double-click the divider | Resets chat width to 340px |
 | Click the layout-mode toggle (top-right, while chat is open) | Switches between side-by-side and overlay (chat floats over the video) |
 | Click the info toggle (top-right) | Hides or shows the streamer-info overlay |
-| Click the settings gear (top-right) | Opens fullscreen settings for overlay opacity, width presets, hide delay, chat dock side (left/right), userscript control auto-hide, overlay auto-hide, default overlay opening, chat reopen behaviour, and resetting to defaults |
+| Click the settings gear (top-right) | Opens fullscreen settings for overlay opacity, width presets, hide delay, chat dock side (left/right), userscript control auto-hide, overlay auto-hide, default overlay opening, auto-open chat on fullscreen, and resetting to defaults |
 | Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
 | Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
