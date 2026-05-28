@@ -28,10 +28,12 @@
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
 - Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
 - Click the button to shrink the video and dock the chat panel on the right (340px wide by default)
-- **Resizable chat:** drag the divider between the video and chat to set the panel width (per session)
+- **Resizable chat:** drag the divider between the video and chat to set the panel width
+- **Dock left or right:** a setting moves the chat panel (and divider) to either edge; the video, controls, and stream-info overlay shift to clear it
 - **Overlay mode:** a layout toggle switches between side-by-side (video shrinks) and chat floating semi-transparently over the full-width video, Twitch-style
 - **Show/hide stream info:** a toggle hides or shows the streamer-info overlay for a cleaner picture
-- **Fullscreen settings:** a gear button opens per-session controls for overlay opacity, width presets, hide delay, userscript control auto-hide, overlay auto-hide, default overlay opening, reopening chat on the next fullscreen entry, and resetting session options
+- **Fullscreen settings:** a gear button opens controls for overlay opacity, width presets, hide delay, chat dock side, userscript control auto-hide, overlay auto-hide, default overlay opening, reopening chat on the next fullscreen entry, and resetting to defaults
+- **Settings persist:** preferences are saved to `localStorage` and restored on the next page load (no network, no `GM_*` grants)
 - A clean dark glass control set with green icon accents, matching the sibling [kick-emotes](https://github.com/jakubn11/kick-emotes) userscript's design language
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after 4 seconds of mouse inactivity, mirroring Kick's own controls overlay; reappears instantly on mouse movement
@@ -40,7 +42,7 @@
 - Leaves Kick's player nodes parented to the fullscreen element and shrinks them with a CSS marker, so background React refreshes (e.g. while the stream plays on a background macOS Space) can reconcile without 404-ing the page
 - Forces a containing block on the marked player layers so Kick's `position: fixed` video and timeline / controls stay inside the shrunken video area instead of overlapping the chat
 - Restores the original DOM on exit — chat returns to its original location, no leftover wrappers
-- No network requests, no `localStorage`, no GM_* permissions
+- No network requests and no `GM_*` permissions — the only persistence is a single `localStorage` key (`kfc-settings`) holding your UI preferences
 
 ## Requirements
 

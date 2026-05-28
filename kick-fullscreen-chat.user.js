@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.17.2
+// @version      0.18.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -40,10 +40,11 @@
   const INFO_MAX_WIDTH = '720px';
   const VIEWER_COUNT_COLOR = '#53fc18';
 
-  // Per-session UI preferences. Intentionally in-memory only (the script keeps
-  // its no-localStorage rule), so these reset on page reload but persist across
-  // open/close and fullscreen toggles within a session.
+  // UI preferences. Persisted to localStorage (see loadSettings/saveSettings)
+  // so they survive a page reload, and kept in memory across open/close and
+  // fullscreen toggles within a session.
   let chatWidth = parseInt(CHAT_WIDTH, 10); // current chat-panel width in px
+  let chatSide = 'right';                   // which edge the chat docks to: 'right' | 'left'
   let overlayMode = false;                  // chat floats over video vs. shrinks it
   let infoHidden = false;                   // streamer-info overlay hidden by the user
   let overlayOpacity = 55;                  // overlay chat opacity, 25..90 (%)
@@ -54,6 +55,64 @@
   let idleDelayMs = 4000;                   // delay before our fullscreen UI fades
   let reopenChatOnNextFullscreen = false;
   let settingsOpen = false;
+
+  // ─── Persistence ────────────────────────────────────────────────────────
+  // Settings are saved to localStorage under one key. Writes are debounced so
+  // the per-frame width updates during a divider drag don't hammer storage.
+  // All access is wrapped in try/catch (private-mode / disabled storage).
+  const SETTINGS_KEY = 'kfc-settings';
+  let saveTimer = 0;
+  const saveSettings = () => {
+    try {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({
+          chatWidth,
+          chatSide,
+          overlayOpacity,
+          autoHideOverlayChat,
+          autoHideControls,
+          openChatAsOverlay,
+          restoreChatOnFullscreen,
+          idleDelayMs,
+          infoHidden,
+        })
+      );
+    } catch (_) {}
+  };
+  const persistSettings = () => {
+    if (saveTimer) return;
+    saveTimer = setTimeout(() => {
+      saveTimer = 0;
+      saveSettings();
+    }, 300);
+  };
+  const loadSettings = () => {
+    let s;
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return;
+      s = JSON.parse(raw);
+    } catch (_) {
+      return;
+    }
+    if (!s || typeof s !== 'object') return;
+    if (typeof s.chatWidth === 'number') chatWidth = clampChatWidth(s.chatWidth);
+    if (s.chatSide === 'left' || s.chatSide === 'right') chatSide = s.chatSide;
+    if (typeof s.overlayOpacity === 'number') {
+      overlayOpacity = Math.max(25, Math.min(90, s.overlayOpacity));
+    }
+    if (typeof s.autoHideOverlayChat === 'boolean') autoHideOverlayChat = s.autoHideOverlayChat;
+    if (typeof s.autoHideControls === 'boolean') autoHideControls = s.autoHideControls;
+    if (typeof s.openChatAsOverlay === 'boolean') openChatAsOverlay = s.openChatAsOverlay;
+    if (typeof s.restoreChatOnFullscreen === 'boolean') {
+      restoreChatOnFullscreen = s.restoreChatOnFullscreen;
+    }
+    if (typeof s.idleDelayMs === 'number') {
+      idleDelayMs = Math.max(2000, Math.min(8000, s.idleDelayMs));
+    }
+    if (typeof s.infoHidden === 'boolean') infoHidden = s.infoHidden;
+  };
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
   // Layout-mode icon: two columns (video + chat) for the side/overlay toggle.
@@ -278,6 +337,11 @@
       #${WRAP_ID}.kfc-chat-open {
         right: calc(1.75rem + var(--kfc-chat-width, ${CHAT_WIDTH}));
       }
+      /* Chat docked left frees the right corner, so keep the control cluster
+         flush to the right edge instead of insetting it by the chat width. */
+      html.kfc-chat-left #${WRAP_ID}.kfc-chat-open {
+        right: 1.75rem;
+      }
       #${WRAP_ID}.kfc-resizing {
         transition: opacity 0.2s ease;
       }
@@ -491,8 +555,9 @@
         box-sizing: border-box !important;
         /* Containing block for any position:fixed/absolute descendants so the
            controls/timeline grid anchors to the shrunken area instead of the
-           viewport. */
-        transform: translateZ(0);
+           viewport. --kfc-video-shift pushes the shrunken player to the right
+           by the chat width when chat is docked on the left (0 otherwise). */
+        transform: translateX(var(--kfc-video-shift, 0px)) translateZ(0);
       }
       /* Kick can keep the actual <video> inside one or more inner wrappers that
          are sized from the viewport rather than from the marked player layer.
@@ -532,6 +597,13 @@
         right: 0;
         bottom: 0;
         width: var(--kfc-chat-width, ${CHAT_WIDTH});
+        /* Dock on the left edge instead of the right when chat side is left. */
+      }
+      html.kfc-chat-left .kfc-chat-slot {
+        right: auto;
+        left: 0;
+      }
+      .kfc-chat-slot {
         background: #0e0e10;
         overflow: hidden;
         display: flex;
@@ -578,6 +650,9 @@
       [${VIDEO_ROOT_ATTR}] [class*="justify-between" i][class*="w-full" i] {
         width: calc(100% - var(--kfc-control-inset, 0px)) !important;
         max-width: calc(100% - var(--kfc-control-inset, 0px)) !important;
+        /* In overlay mode with chat docked left, push the controls row right by
+           the chat width so it clears the floating chat (0 otherwise). */
+        margin-left: var(--kfc-control-shift, 0px) !important;
       }
       /* Overlay chat mode: the video keeps the full width (via --kfc-video-width
          set to 100%; see [${VIDEO_ROOT_ATTR}] above) and the chat panel floats
@@ -650,6 +725,13 @@
         opacity: 1;
         transition: opacity 0.2s ease;
       }
+      /* When docked left, the divider straddles the chat's right edge. */
+      html.kfc-chat-left #${RESIZE_ID} {
+        right: auto;
+        left: var(--kfc-chat-width, ${CHAT_WIDTH});
+        margin-right: 0;
+        margin-left: -6px;
+      }
       #${RESIZE_ID}.kfc-overlay-idle {
         opacity: 0;
         pointer-events: none;
@@ -691,9 +773,13 @@
       #${INFO_ID} {
         position: absolute;
         top: 1.75rem;
-        left: 1.75rem;
+        /* Offset right of the chat panel when chat is docked left (0 otherwise),
+           so the info overlay isn't hidden behind the chat. */
+        left: calc(var(--kfc-info-offset, 0px) + 1.75rem);
         z-index: 2147483646;
-        max-width: min(60%, ${INFO_MAX_WIDTH});
+        /* Cap width to what's left between the offset (chat width when docked
+           left) and the right edge, so it never overflows the viewport. */
+        max-width: min(60%, calc(100% - var(--kfc-info-offset, 0px) - 3.5rem), ${INFO_MAX_WIDTH});
         pointer-events: none;
         opacity: 1;
         transition: opacity 0.2s ease;
@@ -1301,7 +1387,7 @@
   // ─── Chat-width resize ──────────────────────────────────────────────────
   // The chat panel width is a CSS variable (--kfc-chat-width) referenced by
   // both the chat slot and the video-shrink calc. A fixed-position divider
-  // handle drives it via pointer drag. Width is per-session (no localStorage).
+  // handle drives it via pointer drag. Width is persisted (see saveSettings).
   const clampChatWidth = (px) =>
     Math.max(CHAT_WIDTH_MIN, Math.min(px, CHAT_WIDTH_MAX, Math.round(window.innerWidth * 0.6)));
 
@@ -1313,10 +1399,12 @@
     chatWidth = clampChatWidth(px);
     applyChatWidth();
     scheduleLiveResizeLayout();
+    persistSettings();
   };
 
   const resetSessionSettings = () => {
     chatWidth = parseInt(CHAT_WIDTH, 10);
+    chatSide = 'right';
     overlayMode = false;
     infoHidden = false;
     overlayOpacity = 55;
@@ -1330,6 +1418,7 @@
     syncControlState();
     onFsMouseMove();
     nudgePlayerResize();
+    saveSettings();
   };
 
   let resizeHandle = null;
@@ -1352,9 +1441,9 @@
 
   const onResizePointerMove = (e) => {
     if (!resizing) return;
-    // Chat is docked to the right edge, so its width is the distance from the
-    // pointer to the right side of the viewport.
-    setChatWidth(window.innerWidth - e.clientX);
+    // Width is the pointer's distance from the docked edge: from the right edge
+    // of the viewport when docked right, from the left edge when docked left.
+    setChatWidth(chatSide === 'left' ? e.clientX : window.innerWidth - e.clientX);
   };
 
   const onResizeDoubleClick = (e) => {
@@ -2561,6 +2650,7 @@
       overlayOpacity = Number(opacityInput.value);
       opacityRange.value.textContent = `${overlayOpacity}%`;
       syncControlState();
+      persistSettings();
     });
     panel.appendChild(opacityRange.row);
 
@@ -2581,6 +2671,7 @@
       idleDelayMs = Number(idleInput.value) * 1000;
       idleRange.value.textContent = `${Math.round(idleDelayMs / 1000)}s`;
       onFsMouseMove();
+      persistSettings();
     });
     panel.appendChild(idleRange.row);
 
@@ -2620,10 +2711,19 @@
     panel.appendChild(widthRow);
 
     panel.appendChild(
+      createSettingsCheckbox('Dock chat on left', chatSide === 'left', (checked) => {
+        chatSide = checked ? 'left' : 'right';
+        syncControlState();
+        nudgePlayerResize();
+        persistSettings();
+      }, 'kfc-settings-dock-left-input')
+    );
+    panel.appendChild(
       createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
         autoHideOverlayChat = checked;
         syncControlState();
         onFsMouseMove();
+        persistSettings();
       }, 'kfc-settings-autohide-input')
     );
     panel.appendChild(
@@ -2631,12 +2731,14 @@
         autoHideControls = checked;
         syncControlState();
         onFsMouseMove();
+        persistSettings();
       }, 'kfc-settings-controls-hide-input')
     );
     panel.appendChild(
       createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
         openChatAsOverlay = checked;
         syncControlState();
+        persistSettings();
       }, 'kfc-settings-open-overlay-input')
     );
     panel.appendChild(
@@ -2644,6 +2746,7 @@
         restoreChatOnFullscreen = checked;
         if (!checked) reopenChatOnNextFullscreen = false;
         syncControlState();
+        persistSettings();
       }, 'kfc-settings-restore-input')
     );
 
@@ -2753,6 +2856,33 @@
       document.documentElement.style.removeProperty('--kfc-control-inset');
     }
 
+    // Chat-side docking. The .kfc-chat-left class flips the chat slot / divider
+    // to the left edge (CSS); the variables below shift the player layers so
+    // they don't overlap the left-docked chat. All offsets reference
+    // --kfc-chat-width so they track live resize.
+    const dockLeft = chatSide === 'left' && active;
+    const chatWidthVar = 'var(--kfc-chat-width, 340px)';
+    document.documentElement.classList.toggle('kfc-chat-left', chatSide === 'left');
+    // Side mode shrinks the player, so push it right by the chat width.
+    if (dockLeft && !overlayActive) {
+      document.documentElement.style.setProperty('--kfc-video-shift', chatWidthVar);
+    } else {
+      document.documentElement.style.removeProperty('--kfc-video-shift');
+    }
+    // Overlay mode keeps the player full-width, so instead nudge the full-width
+    // bottom controls row right so it clears the floating chat.
+    if (dockLeft && overlayActive) {
+      document.documentElement.style.setProperty('--kfc-control-shift', chatWidthVar);
+    } else {
+      document.documentElement.style.removeProperty('--kfc-control-shift');
+    }
+    // Keep the top-left info overlay clear of the chat in either mode.
+    if (dockLeft) {
+      document.documentElement.style.setProperty('--kfc-info-offset', chatWidthVar);
+    } else {
+      document.documentElement.style.removeProperty('--kfc-info-offset');
+    }
+
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) {
       wrap.classList.toggle('kfc-chat-open', active);
@@ -2807,6 +2937,8 @@
     if (openOverlayInput) openOverlayInput.checked = openChatAsOverlay;
     const restoreInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-restore-input`);
     if (restoreInput) restoreInput.checked = restoreChatOnFullscreen;
+    const dockLeftInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-dock-left-input`);
+    if (dockLeftInput) dockLeftInput.checked = chatSide === 'left';
   };
 
   const toggleSettingsPanel = () => {
@@ -2839,6 +2971,7 @@
     infoHidden = !infoHidden;
     log('info overlay hidden:', infoHidden);
     syncControlState();
+    persistSettings();
   };
 
   const removeButton = () => {
@@ -3090,6 +3223,11 @@
       removeButton();
     }
   };
+
+  // Restore persisted preferences before any fullscreen interaction, then push
+  // the saved chat width onto the CSS variable so the first open uses it.
+  loadSettings();
+  applyChatWidth();
 
   document.addEventListener('fullscreenchange', onFullscreenChange);
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);

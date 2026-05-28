@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-05-28
+
+### Added
+- **Settings now persist across reloads.** Chat width, dock side, overlay opacity, hide delay, and all the auto-hide / open-as-overlay / reopen / stream-info toggles are saved to `localStorage` and restored on the next page load. **Reset settings** clears them back to defaults.
+- **Dock chat on the left.** A new setting moves the chat panel (and its resize divider) to the left edge; the video, bottom controls, and stream-info overlay shift to clear it. Works in both side-by-side and overlay modes.
+
+### Changed
+- Dropped the "no `localStorage`" guarantee — the script now writes a single `kfc-settings` key to remember preferences (still no network requests and no `GM_*` grants).
+
 ## [0.17.2] - 2026-05-28
 
 ### Fixed

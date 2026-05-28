@@ -50,11 +50,11 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 |---------|-----------|
 | Enter fullscreen on a Kick channel | Script injects a top-right control cluster — a **Chat** toggle plus icon buttons for layout mode, showing/hiding the stream-info overlay, and opening fullscreen settings — styled to match the sibling kick-emotes userscript. |
 | Click **Chat** | Marks Kick's full-coverage player layers in place with `data-kfc-video-root` so they shrink to `calc(100% - var(--kfc-chat-width))`, and docks the chat panel in a fixed `.kfc-chat-slot` on the right (340px by default). Kick's player nodes stay parented to the fullscreen element so background React refreshes can reconcile without 404-ing the page. |
-| Drag the video/chat divider | `#kfc-resize-handle` updates the `--kfc-chat-width` CSS variable live (clamped 260–640px, ≤60vw), resizing both the chat panel and the video area. Per-session only — no `localStorage`. |
+| Drag the video/chat divider | `#kfc-resize-handle` updates the `--kfc-chat-width` CSS variable live (clamped 260–640px, ≤60vw), resizing both the chat panel and the video area. The width is persisted to `localStorage` and restored on reload. |
 | Double-click the video/chat divider | Resets chat width to the default 340px. |
 | Click the layout-mode toggle | The chat floats semi-transparently over the full-width video instead of shrinking it. |
 | Click the info toggle | Hides / shows the top-left streamer-info overlay. |
-| Click the settings gear | Opens per-session settings for overlay opacity, chat-width presets, hide delay, userscript control auto-hide, overlay-chat idle auto-hide, opening chat directly as overlay, reopening chat on the next fullscreen entry, and resetting session options. |
+| Click the settings gear | Opens settings for overlay opacity, chat-width presets, hide delay, chat dock side (left/right), userscript control auto-hide, overlay-chat idle auto-hide, opening chat directly as overlay, reopening chat on the next fullscreen entry, and resetting to defaults. Preferences persist via `localStorage`. |
 | Click Kick's native **Hide chat** inside the chat panel | A `MutationObserver` on `data-chat` (and a click listener for the chat-slot button) tears the split layout down. |
 | Stop moving the mouse for 4 seconds | The **Chat** button fades out alongside Kick's controls overlay. Any mouse movement brings it back instantly. |
 | Change stream quality / seek / "Go to live" | Capture-phase click handlers tear the layout down before Kick's React remounts the player tree, avoiding the 404 you'd otherwise hit. The **Chat** button stays disabled until the player finishes reloading. |
