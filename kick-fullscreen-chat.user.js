@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.5
+// @version      0.18.6
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -630,6 +630,15 @@
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-reset {
         width: 100%;
+      }
+      /* Reset is destructive, so it goes red on hover/focus (same chip shape,
+         red tint + border + text) instead of the default green hover. Declared
+         after the generic chip:hover rule so it wins on source order. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-reset:hover,
+      #${SETTINGS_PANEL_ID} .kfc-settings-reset:focus-visible {
+        background: linear-gradient(rgba(239, 68, 68, .15), rgba(239, 68, 68, .15)), #101013;
+        border-color: rgba(239, 68, 68, .6);
+        color: #fca5a5;
       }
       /* Hide the streamer-info overlay when the user has toggled it off. */
       #${INFO_ID}.kfc-hidden { display: none !important; }
