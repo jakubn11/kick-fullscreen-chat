@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.18.6
+// @version      0.19.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen.
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -37,6 +37,11 @@
   // max is also capped to 60vw at drag time so chat never dominates.
   const CHAT_WIDTH_MIN = 260;
   const CHAT_WIDTH_MAX = 640;
+  // While dragging the resize divider, if the raw (unclamped) pointer width
+  // drops below this many px past the minimum, releasing closes the side
+  // chat instead of clamping. The slot dims mid-drag so the user sees the
+  // close arming before committing.
+  const CHAT_WIDTH_CLOSE_THRESHOLD = 180;
   const INFO_MAX_WIDTH = '720px';
   const VIEWER_COUNT_COLOR = '#53fc18';
 
@@ -746,6 +751,68 @@
         width: 100% !important;
         visibility: visible !important;
       }
+      /* At narrow chat widths (down to 260px), Kick's inner message rows
+         can overflow horizontally — flex children default to
+         min-width: auto so they can't shrink below their content size,
+         and the message scroll container has overflow-y: auto which the
+         spec coerces overflow-x: visible into overflow-x: auto, surfacing
+         a horizontal scrollbar at the bottom of the chat. Letting flex
+         descendants shrink to fit + clipping any leftover horizontal
+         overflow on Kick's chat root removes the scrollbar without
+         breaking vertical message scroll. */
+      .kfc-chat-slot * {
+        min-width: 0 !important;
+      }
+      .kfc-chat-slot > * {
+        overflow-x: hidden !important;
+      }
+      /* Prevent horizontal overflow at its source so no scroll container
+         deeper in Kick's chat tree surfaces a horizontal scrollbar: wrap
+         long words / URLs (overflow-wrap: anywhere also lets flex items
+         shrink to fit) and keep emotes / images within the panel width.
+         Done at the source rather than forcing overflow-x: hidden on every
+         element, which would coerce overflow-y and could clip legit content. */
+      .kfc-chat-slot,
+      .kfc-chat-slot * {
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+      }
+      .kfc-chat-slot img,
+      .kfc-chat-slot video,
+      .kfc-chat-slot canvas {
+        max-width: 100% !important;
+      }
+      /* Kick's chat input action bar — channel-points, gift-shop, settings,
+         and the green "Chat" send button (#send-message-button) — is laid out
+         as a single flex row sized for a wide chat: its left group takes
+         lg:w-full at fullscreen viewport widths, which pushes the send button
+         off the row at the minimum panel width, where it was clipped by the
+         slot's overflow-x: hidden above. Keep the bar on ONE row at narrow
+         widths instead: drop the forced full width on the left group (so it
+         only takes the space it needs and can shrink) and tighten the
+         buttons' padding/gaps so channel-points, gift-shop, settings and the
+         send button all fit. Targeted via the stable #send-message-button id
+         and Kick's data-testids so it survives class-name churn. */
+      .kfc-chat-slot :has(> div > #send-message-button) {
+        flex-wrap: nowrap !important;
+        gap: 0.25rem !important;
+      }
+      .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
+      .kfc-chat-slot :has(> [data-testid="gift-shop-button"]) {
+        width: auto !important;
+        flex: 0 1 auto !important;
+        gap: 0.25rem !important;
+      }
+      .kfc-chat-slot [data-testid="channel-points-button"],
+      .kfc-chat-slot [data-testid="gift-shop-button"] {
+        padding-left: 0.375rem !important;
+        padding-right: 0.375rem !important;
+        gap: 0.25rem !important;
+      }
+      .kfc-chat-slot #send-message-button {
+        padding-left: 0.625rem !important;
+        padding-right: 0.625rem !important;
+      }
 
       /* Keep Kick's full-width bottom controls out from under the floating chat
          in overlay mode. The controls live in a full-width flex row that
@@ -859,6 +926,14 @@
       #${RESIZE_ID}:hover::after,
       #${RESIZE_ID}.kfc-dragging::after {
         background: #22c55e;
+      }
+      /* Release-to-close cue: while the user drags the divider past the
+         close threshold, the slot dims so it's obvious that letting go
+         will close the side chat. Cleared on pointerup regardless of
+         which way the cue goes (commit or revert). */
+      .kfc-chat-slot.kfc-pending-close {
+        opacity: 0.35;
+        transition: opacity .12s ease;
       }
 
       [${POPOVER_CLONE_ATTR}] {
@@ -1103,6 +1178,13 @@
   let onVideoBuffering = null;
   let onVideoStateChange = null;
   let videoSwapObserver = null;
+  // Watches the chat slot for Kick's chat error boundary fallback ("We are
+  // sorry, but something went wrong"). When it latches, Kick won't reset it
+  // on its own; we tear down the side layout so the user can re-dock without
+  // a full page reload. See [[chat-error-recovery]].
+  let chatErrorObserver = null;
+  let chatErrorCheckScheduled = 0;
+  let chatErrorRecovering = false;
   // Set true synchronously by triggers we know cause Kick to reload the player
   // (quality change, seekbar, go-to-live). The old <video> element can briefly
   // still report readyState=4 in the gap between our teardown and Kick wiping
@@ -1501,8 +1583,12 @@
   // The chat panel width is a CSS variable (--kfc-chat-width) referenced by
   // both the chat slot and the video-shrink calc. A fixed-position divider
   // handle drives it via pointer drag. Width is persisted (see saveSettings).
-  const clampChatWidth = (px) =>
-    Math.max(CHAT_WIDTH_MIN, Math.min(px, CHAT_WIDTH_MAX, Math.round(window.innerWidth * 0.6)));
+  // viewportWidth is a parameter (not always read live) so the per-frame divider
+  // drag can pass a value cached at pointerdown: reading window.innerWidth during
+  // a move forces a synchronous reflow of Kick's chat subtree that the move just
+  // dirtied, which is what makes the chat stutter while dragging.
+  const clampChatWidth = (px, viewportWidth = window.innerWidth) =>
+    Math.max(CHAT_WIDTH_MIN, Math.min(px, CHAT_WIDTH_MAX, Math.round(viewportWidth * 0.6)));
 
   const applyChatWidth = () => {
     document.documentElement.style.setProperty('--kfc-chat-width', `${chatWidth}px`);
@@ -1519,8 +1605,8 @@
       });
   };
 
-  const setChatWidth = (px) => {
-    chatWidth = clampChatWidth(px);
+  const setChatWidth = (px, viewportWidth) => {
+    chatWidth = clampChatWidth(px, viewportWidth);
     applyChatWidth();
     scheduleLiveResizeLayout();
     updateWidthChips();
@@ -1550,6 +1636,15 @@
   let resizeHandle = null;
   let resizing = false;
   let resizeLayoutFrame = 0;
+  let resizePendingClose = false;
+  // Divider-drag state. Pointer moves are coalesced to one width update per
+  // animation frame (resizeMoveFrame) so a high-polling mouse / high-refresh
+  // display can't trigger several full chat relayouts per frame, and the
+  // viewport width is snapshotted at pointerdown (resizeViewportWidth) so the
+  // per-frame clamp never reads layout mid-drag.
+  let resizeMoveFrame = 0;
+  let resizePointerX = 0;
+  let resizeViewportWidth = 0;
 
   const setResizeUiState = (isResizing) => {
     const wrap = document.getElementById(WRAP_ID);
@@ -1557,6 +1652,16 @@
   };
 
   const scheduleLiveResizeLayout = () => {
+    // While the divider is actively dragged the chat width is driven entirely by
+    // the --kfc-chat-width CSS variable (rewritten every frame in setChatWidth),
+    // which resizes the video box live via CSS (width: calc(100% - chat width),
+    // object-fit: contain) with no JS. Re-running the heavy player relayout on
+    // every pointermove — refreshVideoRoots plus a synthetic window 'resize'
+    // that makes Kick's React player re-measure — is what makes the drag feel
+    // laggy, so defer it to pointerup, where nudgePlayerResize() fires the final
+    // reflow. Discrete width changes (preset chips, reset) aren't dragging, so
+    // they still relayout immediately.
+    if (resizing) return;
     if (resizeLayoutFrame) return;
     resizeLayoutFrame = requestAnimationFrame(() => {
       resizeLayoutFrame = 0;
@@ -1565,11 +1670,35 @@
     });
   };
 
-  const onResizePointerMove = (e) => {
+  // Apply the latest pointer position to the chat width. Runs at most once per
+  // animation frame (scheduled from onResizePointerMove) so the chat subtree
+  // reflows once per frame instead of once per raw pointermove.
+  const applyResizeFromPointer = () => {
+    resizeMoveFrame = 0;
     if (!resizing) return;
     // Width is the pointer's distance from the docked edge: from the right edge
     // of the viewport when docked right, from the left edge when docked left.
-    setChatWidth(chatSide === 'left' ? e.clientX : window.innerWidth - e.clientX);
+    // Use the viewport width snapshotted at pointerdown so this never reads
+    // layout (which would force a synchronous reflow of the just-dirtied chat).
+    const rawWidth =
+      chatSide === 'left' ? resizePointerX : resizeViewportWidth - resizePointerX;
+    setChatWidth(rawWidth, resizeViewportWidth);
+    // Arm a release-to-close: when the *raw* (pre-clamp) width is pulled well
+    // past the minimum, releasing the pointer will tear the side chat down
+    // instead of just clamping at min. The slot dims mid-drag so the gesture
+    // is visible before commit.
+    const armed = rawWidth < CHAT_WIDTH_CLOSE_THRESHOLD;
+    if (armed !== resizePendingClose) {
+      resizePendingClose = armed;
+      if (chatSlot) chatSlot.classList.toggle('kfc-pending-close', armed);
+    }
+  };
+
+  const onResizePointerMove = (e) => {
+    if (!resizing) return;
+    resizePointerX = e.clientX;
+    if (resizeMoveFrame) return;
+    resizeMoveFrame = requestAnimationFrame(applyResizeFromPointer);
   };
 
   const onResizeDoubleClick = (e) => {
@@ -1582,14 +1711,31 @@
   const onResizePointerUp = (e) => {
     if (!resizing) return;
     resizing = false;
+    if (resizeMoveFrame) {
+      cancelAnimationFrame(resizeMoveFrame);
+      resizeMoveFrame = 0;
+    }
     setResizeUiState(false);
     if (resizeHandle) {
       resizeHandle.classList.remove('kfc-dragging');
       try { resizeHandle.releasePointerCapture(e.pointerId); } catch (_) {}
     }
+    if (chatSlot) chatSlot.classList.remove('kfc-pending-close');
     window.removeEventListener('pointermove', onResizePointerMove);
     window.removeEventListener('pointerup', onResizePointerUp);
     window.removeEventListener('pointercancel', onResizePointerUp);
+    // pointercancel (e.g. browser stealing the pointer) shouldn't trigger a
+    // close — only an actual pointerup release means the user committed.
+    const shouldClose = resizePendingClose && e.type !== 'pointercancel';
+    resizePendingClose = false;
+    if (shouldClose) {
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fsEl && active) {
+        log('resize divider released past close threshold; closing side chat');
+        disableSideChat(fsEl);
+        return;
+      }
+    }
     nudgePlayerResize();
   };
 
@@ -1597,6 +1743,10 @@
     e.preventDefault();
     e.stopPropagation();
     resizing = true;
+    // Snapshot the viewport width once; it can't change during a fullscreen
+    // drag, and reading it per-move would force a synchronous chat reflow.
+    resizeViewportWidth = window.innerWidth;
+    resizePointerX = e.clientX;
     setResizeUiState(true);
     if (resizeHandle) {
       resizeHandle.classList.add('kfc-dragging');
@@ -1624,6 +1774,55 @@
       resizeHandle.removeEventListener('dblclick', onResizeDoubleClick);
       resizeHandle.remove();
       resizeHandle = null;
+    }
+  };
+
+  // Kick's chat subtree sometimes throws during a later render (websocket
+  // reconnect, mod action, pinned-message update) and Kick's own error
+  // boundary inside the chat shows "We are sorry, but something went wrong.
+  // Please try again later." The boundary doesn't reset on its own, so
+  // without intervention the user has to reload the whole page. Once we
+  // detect the fallback inside our chat slot we tear the side layout down,
+  // which puts the chat node back where Kick expects it and gives the user
+  // a Chat button to retry with. We don't try to reset Kick's React state —
+  // re-opening side chat may or may not recover depending on whether Kick
+  // remounted the subtree, but the user is no longer stuck.
+  const CHAT_ERROR_RE = /we are sorry,?\s*but something went wrong/i;
+
+  const startChatErrorWatcher = (fsEl) => {
+    if (!chatSlot || chatErrorObserver) return;
+    chatErrorObserver = new MutationObserver(() => {
+      // Coalesce a burst of message mutations into one textContent read per
+      // frame; on a busy stream we'd otherwise re-scan the slot once per
+      // arriving message for no benefit.
+      if (chatErrorCheckScheduled || chatErrorRecovering) return;
+      chatErrorCheckScheduled = requestAnimationFrame(() => {
+        chatErrorCheckScheduled = 0;
+        if (chatErrorRecovering || !chatSlot) return;
+        if (!CHAT_ERROR_RE.test(chatSlot.textContent || '')) return;
+        chatErrorRecovering = true;
+        log('Kick chat error boundary detected; tearing down side chat');
+        showToast('Kick chat errored. Click Chat to reopen.');
+        stopChatErrorWatcher();
+        disableSideChat(fsEl);
+        chatErrorRecovering = false;
+      });
+    });
+    chatErrorObserver.observe(chatSlot, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  };
+
+  const stopChatErrorWatcher = () => {
+    if (chatErrorObserver) {
+      chatErrorObserver.disconnect();
+      chatErrorObserver = null;
+    }
+    if (chatErrorCheckScheduled) {
+      cancelAnimationFrame(chatErrorCheckScheduled);
+      chatErrorCheckScheduled = 0;
     }
   };
 
@@ -1739,6 +1938,9 @@
     // Adopt Kick's body-portaled popovers (emote-name tooltips, etc.) into
     // fsEl so they remain visible while in fullscreen.
     startPopoverPortal(fsEl);
+    // Watch for Kick's chat error boundary fallback so the user isn't stuck
+    // having to reload the page when Kick's chat subtree throws.
+    startChatErrorWatcher(fsEl);
 
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) fsEl.appendChild(wrap);
@@ -1759,6 +1961,7 @@
     // Mark inactive immediately so re-entrant teardown attempts (e.g. popstate firing
     // while we're already cleaning up) short-circuit out.
     active = false;
+    stopChatErrorWatcher();
     stopVideoRootObserver();
     stopPopoverPortal();
     if (videoEl) {

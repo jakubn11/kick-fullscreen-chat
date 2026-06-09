@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.3] - 2026-06-09
+
+### Fixed
+- Dragging the divider to resize the side chat felt laggy. Every pointer move re-ran a full player relayout (a synthetic window `resize` that makes Kick's React player re-measure) and re-read the viewport width *after* the move had already dirtied the chat's layout — forcing repeated synchronous reflows of Kick's tall chat subtree, several per frame on high-polling-rate mice / high-refresh displays. The divider drag now coalesces width updates to one per animation frame, snapshots the viewport width at pointer-down so it never reads layout mid-drag, and defers the heavy player relayout to release, so resizing stays smooth.
+
+## [0.19.2] - 2026-06-09
+
+### Fixed
+- The green **Chat** send button (and the rest of Kick's chat input action bar — channel points, gift shop, settings) was clipped at the right edge when the side chat was docked at its narrowest width. That action bar is sized for a wide chat (its left group spans the full width), so at the minimum panel width the send button was pushed off the row and clipped. The left group is now allowed to shrink and the buttons' padding/gaps are tightened at narrow widths, so the whole bar — including the send button — stays on one row and fully visible.
+
+## [0.19.1] - 2026-06-09
+
+### Fixed
+- A horizontal scrollbar appeared at the bottom of the chat panel / message list when chat was resized to its minimum width. Kick's flex message rows weren't allowed to shrink below their content (badges + long username + emote cluster), and long words / URLs or oversized emotes overflowed the message scroll container, surfacing an unwanted horizontal scrollbar. The chat slot now lets descendants shrink, wraps long words / URLs, and constrains emotes and images to the panel width, so horizontal overflow is prevented at its source without affecting vertical message scroll.
+
+## [0.19.0] - 2026-06-09
+
+### Added
+- **Drag-to-close on the resize divider.** Dragging the chat-width divider well past the minimum width (180px from the docked edge) now arms a release-to-close gesture: the chat slot dims while the gesture is armed, and letting go tears the side chat down. Pulling back above the threshold disarms it. Gives a quick mouse-only way to hide chat without aiming for Kick's Hide-chat button.
+
+## [0.18.7] - 2026-06-09
+
+### Fixed
+- Side chat occasionally got stuck on Kick's "We are sorry, but something went wrong. Please try again later." error fallback after the stream had been running for a while, forcing a full page reload to recover. The script now watches for the chat error boundary while side chat is mounted, automatically tears the side layout down when it appears, and surfaces a "Kick chat errored. Click Chat to reopen." toast so the user can re-dock without reloading.
+
 ## [0.18.6] - 2026-05-28
 
 ### Changed

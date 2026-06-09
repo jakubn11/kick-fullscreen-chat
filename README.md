@@ -28,7 +28,7 @@
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
 - Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
 - Click the button to shrink the video and dock the chat panel on the right (340px wide by default)
-- **Resizable chat:** drag the divider between the video and chat to set the panel width
+- **Resizable chat:** drag the divider between the video and chat to set the panel width — drag well past the minimum and release to close the side chat in one gesture (the slot dims while the close is armed)
 - **Dock left or right:** a setting moves the chat panel (and divider) to either edge; the video, controls, and stream-info overlay shift to clear it
 - **Overlay mode:** a layout toggle switches between side-by-side (video shrinks) and chat floating semi-transparently over the full-width video, Twitch-style
 - **Show/hide stream info:** a toggle hides or shows the streamer-info overlay for a cleaner picture
@@ -77,6 +77,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 |--------|--------|
 | Click **Chat** | Video shrinks to the left, chat panel docks on the right (340px) |
 | Drag the divider between video and chat | Resizes the chat panel (260–640px, capped at 60% of the screen); width is saved and restored on the next visit |
+| Drag the divider past the minimum width and release | Closes the side chat (slot dims while the close is armed; pull back above the threshold to cancel) |
 | Double-click the divider | Resets chat width to 340px |
 | Click the layout-mode toggle (top-right, while chat is open) | Switches between side-by-side and overlay (chat floats over the video) |
 | Click the info toggle (top-right) | Hides or shows the streamer-info overlay |
@@ -101,6 +102,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
 | Clicking **Chat** right after a quality change / seek still 404s | Update to **0.8.3+** — the **Chat** button is now disabled while the player is reloading and stays disabled for a short grace period after the video reports ready. |
 | Kick 404s after the side chat sits open in fullscreen for a while (background tab / virtual screen) | Update to **0.9.2+** — the script no longer wraps Kick's player nodes in its own slot, so background React refreshes can reconcile without throwing into Kick's error boundary. |
+| Side chat shows "We are sorry, but something went wrong. Please try again later." and stays stuck until a page reload | Update to **0.18.7+** — the script now detects Kick's chat error boundary fallback, tears the side layout down automatically, and shows a toast so you can click **Chat** to re-dock without reloading. |
 | Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |
 
 ## License
