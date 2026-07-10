@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-07-10
+
+### Changed
+- **The fullscreen settings panel has been redesigned** to match the sibling kick-quality-saver panel. It now opens on a 14px-radius card with a titled header (icon mark, "Fullscreen Chat", and a ✕ close button styled like the Reset settings chip — a red glyph on the neutral chip surface, red tint on hover), and its rows are collected into three inset groups — **Chat** (width presets, dock side, overlay/fullscreen open behaviour), **Overlay** (opacity, stream-info backdrop, auto-hide overlay chat) and **Controls** (hide delay, auto-hide controls) — instead of one flat list. Reset settings stays at the bottom.
+- **The panel's controls got a visual pass.** Chips have a green ring when selected and a press animation, switches animate their thumb, each row's live value (`340px`, `55%`, `4s`) reads as a green tag, and the panel rises into place when opened (respecting `prefers-reduced-motion`).
+- The hide-delay and stream-info-backdrop sliders now use the same custom track and thumb as the overlay-opacity slider, so no native-looking control is left sitting among the styled ones. The opacity slider keeps its checkerboard track, which previews the transparency it controls.
+- **The panel no longer applies `backdrop-filter: blur(10px)` to itself**, and no blurred backdrop was introduced behind it. Its surface is opaque, so the blur only cost a compositing layer over the video.
+
 ## [0.19.4] - 2026-07-07
 
 ### Changed

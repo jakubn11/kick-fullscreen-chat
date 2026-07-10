@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.19.4
+// @version      0.20.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -460,43 +460,145 @@
         background: linear-gradient(rgba(34, 197, 94, .18), rgba(34, 197, 94, .18)), #101013;
         border-color: rgba(34, 197, 94, .5);
       }
+      /* The settings panel shares kick-quality-saver's panel design: a
+         14px-radius card, a titled header with a red-on-hover close button,
+         inset groups per topic, chips with a green ring when selected, and
+         switches with an animated thumb. It is anchored under the control wrap
+         (no modal backdrop), and it carries NO backdrop-filter: the surface is
+         opaque, so blurring what sits behind it only costs a compositing
+         layer over the video. */
       #${SETTINGS_PANEL_ID} {
         position: absolute;
         top: calc(100% + 0.5rem);
         right: 0;
-        width: 280px;
+        width: 300px;
         display: none;
         flex-direction: column;
-        gap: 0.75rem;
-        padding: 0.85rem;
+        gap: 0.7rem;
+        padding: 1rem;
         color: #fff;
         background: #101013;
         border: 1px solid rgba(255, 255, 255, .1);
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
-        -webkit-backdrop-filter: blur(10px);
-        backdrop-filter: blur(10px);
+        border-radius: 14px;
+        box-shadow:
+          0 24px 64px -16px rgba(0, 0, 0, .8),
+          0 2px 10px rgba(0, 0, 0, .45),
+          inset 0 1px 0 rgba(255, 255, 255, .06);
         box-sizing: border-box;
-        font: 600 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 500 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       #${WRAP_ID}.kfc-settings-open #${SETTINGS_PANEL_ID} {
         display: flex;
+        animation: kfc-settings-rise .2s cubic-bezier(.16, 1, .3, 1);
+      }
+      @keyframes kfc-settings-rise {
+        from { opacity: 0; transform: translateY(-8px) scale(.97); }
+      }
+      #${SETTINGS_PANEL_ID} :focus-visible {
+        outline: 2px solid rgba(34, 197, 94, .65);
+        outline-offset: 2px;
+      }
+
+      /* Header: icon mark, name, close. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-mark {
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: rgba(34, 197, 94, .1);
+        border: 1px solid rgba(34, 197, 94, .22);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-mark svg {
+        width: 16px;
+        height: 16px;
+        fill: #22c55e;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-titles {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-name {
+        font: 600 13.5px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: -.01em;
+        color: #fff;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-close {
+        margin-left: auto;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, .05);
+        border: 1px solid rgba(255, 255, 255, .09);
+        color: #fca5a5;
+        font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+      }
+      /* Same treatment as the Reset chip below: a red glyph at rest on the
+         neutral chip surface, red tint on hover. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-close:hover,
+      #${SETTINGS_PANEL_ID} .kfc-settings-close:focus-visible {
+        background: rgba(239, 68, 68, .14);
+        border-color: rgba(248, 113, 113, .5);
+        color: #fca5a5;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-close:active { transform: scale(.97); }
+
+      /* One inset group per topic. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 0.7rem;
+        border-radius: 11px;
+        background: rgba(255, 255, 255, .026);
+        border: 1px solid rgba(255, 255, 255, .06);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-title {
-        font-size: 0.78rem;
+        font: 600 10px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: .09em;
         text-transform: uppercase;
-        letter-spacing: 0;
-        color: rgba(255, 255, 255, .62);
+        color: rgba(255, 255, 255, .4);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-row {
         display: grid;
-        gap: 0.4rem;
+        gap: 0.45rem;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-label {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.75rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, .88);
+      }
+      /* The live value of each row (width in px, opacity %, delay in s) reads
+         as a green tag, like the quality-saver panel's channel tag. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-label > span:last-child {
+        flex: none;
+        padding: 3px 5px;
+        border-radius: 5px;
+        font: 600 10px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #4ade80;
+        background: rgba(34, 197, 94, .1);
+        border: 1px solid rgba(34, 197, 94, .2);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check {
         display: flex;
@@ -507,12 +609,63 @@
         justify-content: space-between;
         align-items: center;
         gap: 0.75rem;
-        color: rgba(255, 255, 255, .9);
+        padding: 7px 0;
+        font-weight: 600;
+        color: rgba(255, 255, 255, .88);
         cursor: pointer;
+      }
+      /* Hairline between adjacent switches, as in the quality-saver panel. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-check + .kfc-settings-check {
+        border-top: 1px solid rgba(255, 255, 255, .05);
       }
       #${SETTINGS_PANEL_ID} input[type="range"] {
         width: 100%;
         accent-color: #22c55e;
+      }
+      /* Plain sliders (hide delay, stream-info backdrop) get the same custom
+         track/thumb as the opacity slider below, minus its checkerboard
+         preview, so no native control is left sitting among the styled ones. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input,
+      #${SETTINGS_PANEL_ID} .kfc-settings-idle-input {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 16px;
+        background: transparent;
+        cursor: pointer;
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-webkit-slider-runnable-track,
+      #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-webkit-slider-runnable-track {
+        height: 6px;
+        margin: 5px 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .12);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-moz-range-track,
+      #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-moz-range-track {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .12);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-webkit-slider-thumb,
+      #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -5px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #22c55e;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-moz-range-thumb,
+      #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #22c55e;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
       }
       /* Overlay-opacity slider: a custom track that previews the effect — a
          checkerboard (transparency) on the left fading into the near-opaque
@@ -570,80 +723,103 @@
         appearance: none;
         position: relative;
         flex: 0 0 auto;
-        width: 2.2rem;
-        height: 1.25rem;
+        width: 34px;
+        height: 19px;
         margin: 0;
         border-radius: 999px;
-        background: rgba(255, 255, 255, .18);
-        border: 1px solid rgba(255, 255, 255, .15);
+        background: rgba(255, 255, 255, .14);
+        border: 1px solid rgba(255, 255, 255, .12);
         cursor: pointer;
-        transition: background .15s ease, border-color .15s ease;
+        transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]::before {
         content: '';
         position: absolute;
         top: 50%;
         left: 2px;
-        width: calc(1.25rem - 6px);
-        height: calc(1.25rem - 6px);
+        width: 13px;
+        height: 13px;
         transform: translateY(-50%);
         border-radius: 50%;
         background: #fff;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, .45);
-        transition: left .15s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+        transition: transform .18s cubic-bezier(.2, .8, .2, 1);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:checked {
         background: #22c55e;
-        border-color: rgba(34, 197, 94, .7);
+        border-color: rgba(34, 197, 94, .75);
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, .1);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:checked::before {
-        left: calc(2.2rem - (1.25rem - 6px) - 2px);
+        transform: translate(15px, -50%);
       }
-      #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:focus-visible {
-        outline: 2px solid rgba(34, 197, 94, .6);
-        outline-offset: 2px;
-      }
+      /* Two columns, not four: these presets are words ("Compact"), not the
+         short quality codes the sibling panel's chips carry, and they overflow
+         a quarter-width chip. */
       #${SETTINGS_PANEL_ID} .kfc-settings-buttons {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.35rem;
+        gap: 6px;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-chip {
+        box-sizing: border-box;
         min-width: 0;
-        min-height: 2.15rem;
-        padding: 0.5rem 0.55rem;
-        color: #fff;
-        background: rgba(255, 255, 255, .06);
-        border: 1px solid rgba(255, 255, 255, .1);
-        border-radius: 6px;
-        font: inherit;
-        line-height: 1;
+        min-height: 32px;
+        padding: 0 .4rem;
+        color: rgba(255, 255, 255, .85);
+        background: rgba(255, 255, 255, .05);
+        border: 1px solid rgba(255, 255, 255, .09);
+        border-radius: 8px;
+        font: 600 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
         text-align: center;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
       }
-      #${SETTINGS_PANEL_ID} .kfc-settings-chip:hover,
-      #${SETTINGS_PANEL_ID} .kfc-settings-chip:focus-visible {
-        background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
-        outline: none;
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip:hover {
+        background: rgba(255, 255, 255, .09);
+        border-color: rgba(255, 255, 255, .16);
+        color: #fff;
       }
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip:active { transform: scale(.97); }
       /* The width preset matching the current chat width (persisted across
-         reloads) is shown selected with a stronger green tint + border. */
+         reloads) is shown selected with a green tint, border and ring. */
       #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected {
-        background: linear-gradient(rgba(34, 197, 94, .2), rgba(34, 197, 94, .2)), #101013;
-        border-color: rgba(34, 197, 94, .65);
+        background: rgba(34, 197, 94, .14);
+        border-color: rgba(34, 197, 94, .5);
+        color: #4ade80;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, .07);
+      }
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected:hover {
+        background: rgba(34, 197, 94, .18);
+        border-color: rgba(34, 197, 94, .6);
+        color: #4ade80;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-reset {
         width: 100%;
+        color: #fca5a5;
       }
       /* Reset is destructive, so it goes red on hover/focus (same chip shape,
-         red tint + border + text) instead of the default green hover. Declared
-         after the generic chip:hover rule so it wins on source order. */
+         red tint + border + text) instead of the default hover. Declared after
+         the generic chip:hover rule so it wins on source order. */
       #${SETTINGS_PANEL_ID} .kfc-settings-reset:hover,
       #${SETTINGS_PANEL_ID} .kfc-settings-reset:focus-visible {
-        background: linear-gradient(rgba(239, 68, 68, .15), rgba(239, 68, 68, .15)), #101013;
-        border-color: rgba(239, 68, 68, .6);
+        background: rgba(239, 68, 68, .14);
+        border-color: rgba(248, 113, 113, .5);
         color: #fca5a5;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #${WRAP_ID}.kfc-settings-open #${SETTINGS_PANEL_ID} { animation: none; }
+        #${SETTINGS_PANEL_ID} .kfc-settings-chip,
+        #${SETTINGS_PANEL_ID} .kfc-settings-close,
+        #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"],
+        #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]::before {
+          transition: none;
+        }
       }
       /* Hide the streamer-info overlay when the user has toggled it off. */
       #${INFO_ID}.kfc-hidden { display: none !important; }
@@ -2951,16 +3127,56 @@
     return label;
   };
 
+  // One inset group per topic: a small uppercase label followed by its rows.
+  const createSettingsGroup = (titleText, ...children) => {
+    const group = document.createElement('div');
+    group.className = 'kfc-settings-group';
+    const title = document.createElement('div');
+    title.className = 'kfc-settings-title';
+    title.textContent = titleText;
+    group.appendChild(title);
+    children.forEach((child) => group.appendChild(child));
+    return group;
+  };
+
+  // Icon mark, name and a close button — the same header the quality-saver
+  // panel uses.
+  const createSettingsHeader = () => {
+    const head = document.createElement('div');
+    head.className = 'kfc-settings-head';
+
+    const mark = document.createElement('div');
+    mark.className = 'kfc-settings-mark';
+    mark.innerHTML = BTN_SVG; // constant markup, same as the control buttons
+
+    const titles = document.createElement('div');
+    titles.className = 'kfc-settings-titles';
+    const name = document.createElement('div');
+    name.className = 'kfc-settings-name';
+    name.textContent = 'Fullscreen Chat';
+    titles.appendChild(name);
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'kfc-settings-close';
+    close.textContent = '✕';
+    close.title = 'Close';
+    close.setAttribute('aria-label', 'Close fullscreen settings');
+    close.addEventListener('click', () => closeSettingsPanel());
+
+    head.appendChild(mark);
+    head.appendChild(titles);
+    head.appendChild(close);
+    return head;
+  };
+
   const buildSettingsPanel = () => {
     const panel = document.createElement('div');
     panel.id = SETTINGS_PANEL_ID;
     panel.addEventListener('click', (e) => e.stopPropagation());
     panel.addEventListener('pointerdown', (e) => e.stopPropagation());
 
-    const title = document.createElement('div');
-    title.className = 'kfc-settings-title';
-    title.textContent = 'Fullscreen settings';
-    panel.appendChild(title);
+    panel.appendChild(createSettingsHeader());
 
     const opacityInput = document.createElement('input');
     opacityInput.type = 'range';
@@ -2981,7 +3197,6 @@
       syncControlState();
       persistSettings();
     });
-    panel.appendChild(opacityRange.row);
 
     const infoOpacityInput = document.createElement('input');
     infoOpacityInput.type = 'range';
@@ -3002,7 +3217,6 @@
       syncControlState();
       persistSettings();
     });
-    panel.appendChild(infoOpacityRange.row);
 
     const idleInput = document.createElement('input');
     idleInput.type = 'range';
@@ -3023,7 +3237,6 @@
       onFsMouseMove();
       persistSettings();
     });
-    panel.appendChild(idleRange.row);
 
     const widthRow = document.createElement('div');
     widthRow.className = 'kfc-settings-row';
@@ -3062,46 +3275,50 @@
       buttons.appendChild(button);
     });
     widthRow.appendChild(buttons);
-    panel.appendChild(widthRow);
 
-    panel.appendChild(
+    panel.appendChild(createSettingsGroup(
+      'Chat',
+      widthRow,
       createSettingsCheckbox('Dock chat on left', chatSide === 'left', (checked) => {
         chatSide = checked ? 'left' : 'right';
         syncControlState();
         nudgePlayerResize();
         persistSettings();
-      }, 'kfc-settings-dock-left-input')
-    );
-    panel.appendChild(
+      }, 'kfc-settings-dock-left-input'),
+      createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
+        openChatAsOverlay = checked;
+        syncControlState();
+        persistSettings();
+      }, 'kfc-settings-open-overlay-input'),
+      createSettingsCheckbox('Open chat on fullscreen', restoreChatOnFullscreen, (checked) => {
+        restoreChatOnFullscreen = checked;
+        syncControlState();
+        persistSettings();
+      }, 'kfc-settings-restore-input'),
+    ));
+
+    panel.appendChild(createSettingsGroup(
+      'Overlay',
+      opacityRange.row,
+      infoOpacityRange.row,
       createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
         autoHideOverlayChat = checked;
         syncControlState();
         onFsMouseMove();
         persistSettings();
-      }, 'kfc-settings-autohide-input')
-    );
-    panel.appendChild(
+      }, 'kfc-settings-autohide-input'),
+    ));
+
+    panel.appendChild(createSettingsGroup(
+      'Controls',
+      idleRange.row,
       createSettingsCheckbox('Auto-hide controls', autoHideControls, (checked) => {
         autoHideControls = checked;
         syncControlState();
         onFsMouseMove();
         persistSettings();
-      }, 'kfc-settings-controls-hide-input')
-    );
-    panel.appendChild(
-      createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
-        openChatAsOverlay = checked;
-        syncControlState();
-        persistSettings();
-      }, 'kfc-settings-open-overlay-input')
-    );
-    panel.appendChild(
-      createSettingsCheckbox('Open chat on fullscreen', restoreChatOnFullscreen, (checked) => {
-        restoreChatOnFullscreen = checked;
-        syncControlState();
-        persistSettings();
-      }, 'kfc-settings-restore-input')
-    );
+      }, 'kfc-settings-controls-hide-input'),
+    ));
 
     const resetButton = document.createElement('button');
     resetButton.type = 'button';

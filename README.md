@@ -81,7 +81,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Double-click the divider | Resets chat width to 340px |
 | Click the layout-mode toggle (top-right, while chat is open) | Switches between side-by-side and overlay (chat floats over the video) |
 | Click the info toggle (top-right) | Hides or shows the streamer-info overlay |
-| Click the settings gear (top-right) | Opens fullscreen settings for overlay opacity, stream-info backdrop opacity, width presets, hide delay, chat dock side (left/right), userscript control auto-hide, overlay auto-hide, default overlay opening, auto-open chat on fullscreen, and resetting to defaults |
+| Click the settings gear (top-right) | Opens fullscreen settings, grouped into **Chat** (width presets, dock side left/right, default overlay opening, auto-open chat on fullscreen), **Overlay** (opacity, stream-info backdrop opacity, overlay auto-hide) and **Controls** (hide delay, userscript control auto-hide), plus resetting to defaults. Close it with the ✕, the gear, or a click outside |
 | Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
 | Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
