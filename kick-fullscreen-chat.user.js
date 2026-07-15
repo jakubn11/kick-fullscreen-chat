@@ -361,7 +361,7 @@
         opacity: 0;
         pointer-events: none;
       }
-      /* Chat toggle button — styled in the kick-emotes design language
+      /* Chat toggle button — styled in the kick-* family design language
          (dark #101013 surface, neutral translucent border, blur backdrop,
          layered shadow) rather than reusing Kick's native button classes.
          The single green (#22c55e) accent is the icon; the surface stays
@@ -408,7 +408,7 @@
       .kfc-active #${BTN_ID} svg { transform: scaleX(-1); }
 
       /* Icon-only control buttons (layout-mode + info toggle), same
-         kick-emotes glass surface as the Chat button but square and compact.
+         kick-* family glass surface as the Chat button but square and compact.
          The green icon is the single accent per the design system. */
       .kfc-control-btn {
         display: inline-flex;
@@ -920,7 +920,7 @@
            context, and the slot is appended after Kick's player layers so it
            renders on top by DOM order. Avoid a high z-index — it stacked over
            sibling overlays appended by other Kick userscripts (e.g. the
-           kick-emotes autocomplete popup and tooltip, which the Fullscreen API
+           kick-third-party-emotes autocomplete popup and tooltip, which the Fullscreen API
            forces those scripts to re-parent into fsEl, and which previously
            landed below our slot's background). */
       }
