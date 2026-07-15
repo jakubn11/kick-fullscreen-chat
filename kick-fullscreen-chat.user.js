@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.20.0
+// @version      0.20.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -611,10 +611,28 @@
         gap: 0.75rem;
         padding: 7px 0;
         font-weight: 600;
+        line-height: 1;
         color: rgba(255, 255, 255, .88);
         cursor: pointer;
       }
-      /* Hairline between adjacent switches, as in the quality-saver panel. */
+      /* Toggle rows live in a gap-less container (like the quality-saver
+         panel's .kqs-switches), so their own 7px top/bottom padding is the
+         only vertical spacing — each row gets equal padding above and below,
+         with the hairline separator centered between adjacent rows. Putting
+         them straight in the group instead would add the group's 0.6rem gap
+         under every row, so the text rode high with a big gap beneath it. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-switches {
+        display: flex;
+        flex-direction: column;
+      }
+      /* When the toggle block ends a group, its last row's 7px bottom padding
+         would sit on top of the group's own 0.7rem padding, leaving the group
+         roomier at the bottom than the title-topped top. Pull it back by 7px so
+         the last toggle sits the same distance from the group edge as the title
+         does at the top. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-group > .kfc-settings-switches:last-child {
+        margin-bottom: -7px;
+      }
       #${SETTINGS_PANEL_ID} .kfc-settings-check + .kfc-settings-check {
         border-top: 1px solid rgba(255, 255, 255, .05);
       }
@@ -3127,6 +3145,15 @@
     return label;
   };
 
+  // Pack toggle rows into a gap-less column so their own padding is the only
+  // vertical spacing (matches the quality-saver panel's .kqs-switches).
+  const createSettingsSwitches = (...checks) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'kfc-settings-switches';
+    checks.forEach((check) => wrap.appendChild(check));
+    return wrap;
+  };
+
   // One inset group per topic: a small uppercase label followed by its rows.
   const createSettingsGroup = (titleText, ...children) => {
     const group = document.createElement('div');
@@ -3279,45 +3306,51 @@
     panel.appendChild(createSettingsGroup(
       'Chat',
       widthRow,
-      createSettingsCheckbox('Dock chat on left', chatSide === 'left', (checked) => {
-        chatSide = checked ? 'left' : 'right';
-        syncControlState();
-        nudgePlayerResize();
-        persistSettings();
-      }, 'kfc-settings-dock-left-input'),
-      createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
-        openChatAsOverlay = checked;
-        syncControlState();
-        persistSettings();
-      }, 'kfc-settings-open-overlay-input'),
-      createSettingsCheckbox('Open chat on fullscreen', restoreChatOnFullscreen, (checked) => {
-        restoreChatOnFullscreen = checked;
-        syncControlState();
-        persistSettings();
-      }, 'kfc-settings-restore-input'),
+      createSettingsSwitches(
+        createSettingsCheckbox('Dock chat on left', chatSide === 'left', (checked) => {
+          chatSide = checked ? 'left' : 'right';
+          syncControlState();
+          nudgePlayerResize();
+          persistSettings();
+        }, 'kfc-settings-dock-left-input'),
+        createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
+          openChatAsOverlay = checked;
+          syncControlState();
+          persistSettings();
+        }, 'kfc-settings-open-overlay-input'),
+        createSettingsCheckbox('Open chat on fullscreen', restoreChatOnFullscreen, (checked) => {
+          restoreChatOnFullscreen = checked;
+          syncControlState();
+          persistSettings();
+        }, 'kfc-settings-restore-input'),
+      ),
     ));
 
     panel.appendChild(createSettingsGroup(
       'Overlay',
       opacityRange.row,
       infoOpacityRange.row,
-      createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
-        autoHideOverlayChat = checked;
-        syncControlState();
-        onFsMouseMove();
-        persistSettings();
-      }, 'kfc-settings-autohide-input'),
+      createSettingsSwitches(
+        createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
+          autoHideOverlayChat = checked;
+          syncControlState();
+          onFsMouseMove();
+          persistSettings();
+        }, 'kfc-settings-autohide-input'),
+      ),
     ));
 
     panel.appendChild(createSettingsGroup(
       'Controls',
       idleRange.row,
-      createSettingsCheckbox('Auto-hide controls', autoHideControls, (checked) => {
-        autoHideControls = checked;
-        syncControlState();
-        onFsMouseMove();
-        persistSettings();
-      }, 'kfc-settings-controls-hide-input'),
+      createSettingsSwitches(
+        createSettingsCheckbox('Auto-hide controls', autoHideControls, (checked) => {
+          autoHideControls = checked;
+          syncControlState();
+          onFsMouseMove();
+          persistSettings();
+        }, 'kfc-settings-controls-hide-input'),
+      ),
     ));
 
     const resetButton = document.createElement('button');
@@ -3346,6 +3379,12 @@
       infoBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        // Drop keyboard focus after a mouse click so a later Space/Enter (e.g.
+        // pausing the video after switching back to the window) goes to the
+        // player, not this button — otherwise the button re-fires and the
+        // control toggles "randomly". Keyboard activations (detail === 0) keep
+        // focus so Tab users can operate the controls normally.
+        if (e.detail) infoBtn.blur();
         toggleInfoOverlay();
       });
 
@@ -3358,6 +3397,7 @@
       modeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        if (e.detail) modeBtn.blur();
         toggleOverlayMode();
       });
 
@@ -3369,6 +3409,7 @@
       settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        if (e.detail) settingsBtn.blur();
         toggleSettingsPanel();
       });
 
@@ -3380,6 +3421,7 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        if (e.detail) btn.blur();
         const target = document.fullscreenElement || document.webkitFullscreenElement;
         log('button clicked, fullscreen target:', target, 'active:', active);
         if (!target) return;

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-07-15
+
+### Fixed
+- The fullscreen settings panel would sometimes open "randomly" after switching windows (notably on macOS). The control buttons (gear/mode/info/Chat) are native `<button>`s that keep keyboard focus after a mouse click, so after you clicked the gear the browser would restore focus to it when the window regained focus — and the next Space/Enter (e.g. pressing Space to pause the video) activated the still-focused gear and re-opened the panel. Control buttons now drop focus after a mouse click, so a later keypress goes to the player instead. Keyboard (Tab) users keep their focus.
+- Settings panel toggle rows had uneven vertical spacing — the label/toggle rode high in each row with a large gap beneath it. The inset group added a `0.6rem` gap between every row on top of each toggle's own `7px` padding, so the spacing stacked up only below each row. Toggle rows are now grouped in a gap-less container (matching the sibling kick-quality-saver panel's switch list), so each row's `7px` top and bottom padding is the only spacing and the hairline separator sits centered between rows with equal padding above and below. When the toggle block ends a group its last row's bottom padding is pulled back so the group has equal padding at its top and bottom edges.
+
 ## [0.20.0] - 2026-07-10
 
 ### Changed
