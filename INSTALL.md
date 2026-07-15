@@ -48,7 +48,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 
 | Trigger | Behaviour |
 |---------|-----------|
-| Enter fullscreen on a Kick channel | Script injects a top-right control cluster — a **Chat** toggle plus icon buttons for layout mode, showing/hiding the stream-info overlay, and opening fullscreen settings — styled to match the sibling kick-emotes userscript. |
+| Enter fullscreen on a Kick channel | Script injects a top-right control cluster — a **Chat** toggle plus icon buttons for layout mode, showing/hiding the stream-info overlay, and opening fullscreen settings — styled to match the sibling kick-third-party-emotes userscript. |
 | Click **Chat** | Marks Kick's full-coverage player layers in place with `data-kfc-video-root` so they shrink to `calc(100% - var(--kfc-chat-width))`, and docks the chat panel in a fixed `.kfc-chat-slot` on the right (340px by default). Kick's player nodes stay parented to the fullscreen element so background React refreshes can reconcile without 404-ing the page. |
 | Drag the video/chat divider | `#kfc-resize-handle` updates the `--kfc-chat-width` CSS variable live (clamped 260–640px, ≤60vw), resizing both the chat panel and the video area. The width is persisted to `localStorage` and restored on reload. |
 | Double-click the video/chat divider | Resets chat width to the default 340px. |
