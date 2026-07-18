@@ -178,7 +178,7 @@ All script-injected UI must follow this design language consistently. Do not dev
 
 ### Palette
 
-Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. The elements the script paints itself — the **Chat** button and the icon control buttons — follow the **kick-\* family design language** (shared with the sibling `kick-third-party-emotes`, `kick-quality-saver`, and `kick-chat-utils` userscripts), so they all feel like one family. These are the shared tokens; keep them in sync with the sibling scripts' `## UI Design System` sections.
+Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. The elements the script paints itself — the **Chat** button and the icon control buttons — follow the **kick-\* family design language** (shared with the sibling `kick-third-party-emotes`, `kick-quality-saver`, `kick-chat-utils`, and `kick-vod-resume` userscripts), so they all feel like one family. These are the shared tokens; keep them in sync with the sibling scripts' design sections (`## UI Design System` in kick-third-party-emotes and kick-chat-utils; `### Design tokens (kick-* family)` in kick-quality-saver and kick-vod-resume).
 
 | Token | Value | Usage |
 |---|---|---|
