@@ -193,7 +193,7 @@ Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) 
 | `BTN_SVG` / `MODE_SVG` / `INFO_SVG` | hardcoded icons | Button icon path data (recoloured green via CSS) |
 | `--kfc-chat-width` | default `340px` | Chat-panel width; drives both the slot width and the video-shrink `calc()` |
 | `top: 1.75rem; right: 1.75rem` | Kick's `top-7 right-7` placement | `#kfc-toggle-wrap` positioning |
-| `rgba(0,0,0,.88)` + `rgba(255,255,255,.1)` border | Neutral toast palette | `#kfc-toast` (errors only) |
+| `rgba(16,16,19,.88)` + `rgba(255,255,255,.1)` border | Toast surface — the family `#101013` at 88% | `#kfc-toast` (errors only) |
 
 ### Rules
 

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.2] - 2026-07-19
+
+### Changed
+- **The error toast now uses the kick-\* family surface.** Its background was pure black (`rgba(0,0,0,.88)`), the only surface in the family that wasn't `#101013` or a transparency of it — noticeably cooler than the sibling scripts' toasts sitting on the same page. It is now `rgba(16,16,19,.88)`: the same colour, same opacity, so it reads as the same material as kick-quality-saver's apply pill, kick-chat-utils' notices, and kick-vod-resume's resume toast. Border, radius and type are unchanged.
+
 ## [0.20.1] - 2026-07-15
 
 ### Fixed

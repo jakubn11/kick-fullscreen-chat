@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.20.1
+// @version      0.20.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -1321,7 +1321,7 @@
         top: 24px;
         right: 24px;
         z-index: 2147483647;
-        background: rgba(0,0,0,.88);
+        background: rgba(16,16,19,.88);
         color: #fff;
         padding: 10px 14px;
         border-radius: 8px;
