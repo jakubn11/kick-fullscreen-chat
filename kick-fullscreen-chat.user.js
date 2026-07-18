@@ -334,10 +334,10 @@
         z-index: 2147483647;
         pointer-events: auto;
         opacity: 1;
-        transition: opacity 0.2s ease, right 0.15s ease;
+        transition: opacity .2s ease, right .15s ease;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: .5rem;
       }
       /* When chat is open the panel covers the top-right corner, so push the
          control cluster left of the chat (over the video) instead of on top
@@ -352,7 +352,7 @@
         right: 1.75rem;
       }
       #${WRAP_ID}.kfc-resizing {
-        transition: opacity 0.2s ease;
+        transition: opacity .2s ease;
       }
       /* Mirrors Kick's own controls-overlay fade so the toggle button
          disappears alongside the timeline / play controls when the user is
@@ -370,17 +370,17 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.85rem;
+        gap: .5rem;
+        padding: .5rem .85rem;
         font-family: sans-serif;
         font-weight: 700;
         font-size: 1rem;
         line-height: 1;
         color: #fff;
         background: #101013;
-        border: 1px solid rgba(255, 255, 255, .1);
+        border: 1px solid rgba(255,255,255,.1);
         border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+        box-shadow: 0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
         -webkit-backdrop-filter: blur(10px);
         backdrop-filter: blur(10px);
         cursor: pointer;
@@ -393,7 +393,7 @@
          composited over the opaque #101013 surface so text contrast holds. */
       #${BTN_ID}:hover,
       #${BTN_ID}:focus-visible {
-        background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
+        background: linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013;
       }
       #${BTN_ID}:disabled {
         opacity: .3;
@@ -403,7 +403,7 @@
         width: 1.25em;
         height: 1.25em;
         fill: #22c55e;
-        transition: transform 0.15s ease;
+        transition: transform .15s ease;
       }
       .kfc-active #${BTN_ID} svg { transform: scaleX(-1); }
 
@@ -414,12 +414,12 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0.45rem;
+        padding: .45rem;
         color: #fff;
         background: #101013;
-        border: 1px solid rgba(255, 255, 255, .1);
+        border: 1px solid rgba(255,255,255,.1);
         border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+        box-shadow: 0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
         -webkit-backdrop-filter: blur(10px);
         backdrop-filter: blur(10px);
         cursor: pointer;
@@ -430,7 +430,7 @@
       }
       .kfc-control-btn:hover,
       .kfc-control-btn:focus-visible {
-        background: linear-gradient(rgba(34, 197, 94, .1), rgba(34, 197, 94, .1)), #101013;
+        background: linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013;
       }
       .kfc-control-btn svg {
         width: 1.15rem;
@@ -439,7 +439,7 @@
       }
       /* When the info overlay is hidden, dim the toggle's icon so its state
          reads as "off" without inventing a new colour token. */
-      #${INFO_BTN_ID}.kfc-off svg { fill: rgba(255, 255, 255, .45); }
+      #${INFO_BTN_ID}.kfc-off svg { fill: rgba(255,255,255,.45); }
 
       /* Visibility: the Chat button only shows when chat is closed; the
          layout-mode toggle only when chat is open. The info toggle is always
@@ -453,12 +453,12 @@
       /* Pressed/active look when overlay mode is on, so the toggle's state is
          legible without a second icon. */
       #${MODE_BTN_ID}.kfc-on {
-        background: linear-gradient(rgba(34, 197, 94, .18), rgba(34, 197, 94, .18)), #101013;
-        border-color: rgba(34, 197, 94, .5);
+        background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
+        border-color: rgba(34,197,94,.5);
       }
       #${SETTINGS_BTN_ID}.kfc-on {
-        background: linear-gradient(rgba(34, 197, 94, .18), rgba(34, 197, 94, .18)), #101013;
-        border-color: rgba(34, 197, 94, .5);
+        background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
+        border-color: rgba(34,197,94,.5);
       }
       /* The settings panel shares kick-quality-saver's panel design: a
          14px-radius card, a titled header with a red-on-hover close button,
@@ -469,21 +469,21 @@
          layer over the video. */
       #${SETTINGS_PANEL_ID} {
         position: absolute;
-        top: calc(100% + 0.5rem);
+        top: calc(100% + .5rem);
         right: 0;
         width: 300px;
         display: none;
         flex-direction: column;
-        gap: 0.7rem;
+        gap: .7rem;
         padding: 1rem;
         color: #fff;
         background: #101013;
-        border: 1px solid rgba(255, 255, 255, .1);
+        border: 1px solid rgba(255,255,255,.1);
         border-radius: 14px;
         box-shadow:
-          0 24px 64px -16px rgba(0, 0, 0, .8),
-          0 2px 10px rgba(0, 0, 0, .45),
-          inset 0 1px 0 rgba(255, 255, 255, .06);
+          0 24px 64px -16px rgba(0,0,0,.8),
+          0 2px 10px rgba(0,0,0,.45),
+          inset 0 1px 0 rgba(255,255,255,.06);
         box-sizing: border-box;
         font: 500 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
@@ -495,7 +495,7 @@
         from { opacity: 0; transform: translateY(-8px) scale(.97); }
       }
       #${SETTINGS_PANEL_ID} :focus-visible {
-        outline: 2px solid rgba(34, 197, 94, .65);
+        outline: 2px solid rgba(34,197,94,.65);
         outline-offset: 2px;
       }
 
@@ -513,8 +513,8 @@
         width: 30px;
         height: 30px;
         border-radius: 9px;
-        background: rgba(34, 197, 94, .1);
-        border: 1px solid rgba(34, 197, 94, .22);
+        background: rgba(34,197,94,.1);
+        border: 1px solid rgba(34,197,94,.22);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-mark svg {
         width: 16px;
@@ -542,8 +542,8 @@
         height: 28px;
         padding: 0;
         border-radius: 8px;
-        background: rgba(255, 255, 255, .05);
-        border: 1px solid rgba(255, 255, 255, .09);
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.09);
         color: #fca5a5;
         font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
         cursor: pointer;
@@ -555,8 +555,8 @@
          neutral chip surface, red tint on hover. */
       #${SETTINGS_PANEL_ID} .kfc-settings-close:hover,
       #${SETTINGS_PANEL_ID} .kfc-settings-close:focus-visible {
-        background: rgba(239, 68, 68, .14);
-        border-color: rgba(248, 113, 113, .5);
+        background: rgba(239,68,68,.14);
+        border-color: rgba(248,113,113,.5);
         color: #fca5a5;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-close:active { transform: scale(.97); }
@@ -565,29 +565,29 @@
       #${SETTINGS_PANEL_ID} .kfc-settings-group {
         display: flex;
         flex-direction: column;
-        gap: 0.6rem;
-        padding: 0.7rem;
+        gap: .6rem;
+        padding: .7rem;
         border-radius: 11px;
-        background: rgba(255, 255, 255, .026);
-        border: 1px solid rgba(255, 255, 255, .06);
+        background: rgba(255,255,255,.026);
+        border: 1px solid rgba(255,255,255,.06);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-title {
         font: 600 10px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: .09em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, .4);
+        color: rgba(255,255,255,.4);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-row {
         display: grid;
-        gap: 0.45rem;
+        gap: .45rem;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-label {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 0.75rem;
+        gap: .75rem;
         font-weight: 600;
-        color: rgba(255, 255, 255, .88);
+        color: rgba(255,255,255,.88);
       }
       /* The live value of each row (width in px, opacity %, delay in s) reads
          as a green tag, like the quality-saver panel's channel tag. */
@@ -597,8 +597,8 @@
         border-radius: 5px;
         font: 600 10px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
         color: #4ade80;
-        background: rgba(34, 197, 94, .1);
-        border: 1px solid rgba(34, 197, 94, .2);
+        background: rgba(34,197,94,.1);
+        border: 1px solid rgba(34,197,94,.2);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check {
         display: flex;
@@ -608,25 +608,25 @@
         flex-direction: row-reverse;
         justify-content: space-between;
         align-items: center;
-        gap: 0.75rem;
+        gap: .75rem;
         padding: 7px 0;
         font-weight: 600;
         line-height: 1;
-        color: rgba(255, 255, 255, .88);
+        color: rgba(255,255,255,.88);
         cursor: pointer;
       }
       /* Toggle rows live in a gap-less container (like the quality-saver
          panel's .kqs-switches), so their own 7px top/bottom padding is the
          only vertical spacing — each row gets equal padding above and below,
          with the hairline separator centered between adjacent rows. Putting
-         them straight in the group instead would add the group's 0.6rem gap
+         them straight in the group instead would add the group's .6rem gap
          under every row, so the text rode high with a big gap beneath it. */
       #${SETTINGS_PANEL_ID} .kfc-settings-switches {
         display: flex;
         flex-direction: column;
       }
       /* When the toggle block ends a group, its last row's 7px bottom padding
-         would sit on top of the group's own 0.7rem padding, leaving the group
+         would sit on top of the group's own .7rem padding, leaving the group
          roomier at the bottom than the title-topped top. Pull it back by 7px so
          the last toggle sits the same distance from the group edge as the title
          does at the top. */
@@ -634,7 +634,7 @@
         margin-bottom: -7px;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check + .kfc-settings-check {
-        border-top: 1px solid rgba(255, 255, 255, .05);
+        border-top: 1px solid rgba(255,255,255,.05);
       }
       #${SETTINGS_PANEL_ID} input[type="range"] {
         width: 100%;
@@ -656,13 +656,13 @@
         height: 6px;
         margin: 5px 0;
         border-radius: 999px;
-        background: rgba(255, 255, 255, .12);
+        background: rgba(255,255,255,.12);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-moz-range-track,
       #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-moz-range-track {
         height: 6px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, .12);
+        background: rgba(255,255,255,.12);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-webkit-slider-thumb,
       #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-webkit-slider-thumb {
@@ -674,7 +674,7 @@
         border-radius: 50%;
         background: #fff;
         border: 2px solid #22c55e;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+        box-shadow: 0 1px 3px rgba(0,0,0,.5);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-info-opacity-input::-moz-range-thumb,
       #${SETTINGS_PANEL_ID} .kfc-settings-idle-input::-moz-range-thumb {
@@ -683,7 +683,7 @@
         border-radius: 50%;
         background: #fff;
         border: 2px solid #22c55e;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+        box-shadow: 0 1px 3px rgba(0,0,0,.5);
       }
       /* Overlay-opacity slider: a custom track that previews the effect — a
          checkerboard (transparency) on the left fading into the near-opaque
@@ -700,18 +700,18 @@
       #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-webkit-slider-runnable-track {
         height: 14px;
         border-radius: 7px;
-        border: 1px solid rgba(255, 255, 255, .15);
+        border: 1px solid rgba(255,255,255,.15);
         background:
-          linear-gradient(90deg, rgba(14, 14, 16, .18), rgba(14, 14, 16, .96)),
+          linear-gradient(90deg, rgba(14,14,16,.18), rgba(14,14,16,.96)),
           conic-gradient(#8a8a8a 0 25%, #cfcfcf 0 50%, #8a8a8a 0 75%, #cfcfcf 0);
         background-size: 100% 100%, 12px 12px;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-moz-range-track {
         height: 14px;
         border-radius: 7px;
-        border: 1px solid rgba(255, 255, 255, .15);
+        border: 1px solid rgba(255,255,255,.15);
         background:
-          linear-gradient(90deg, rgba(14, 14, 16, .18), rgba(14, 14, 16, .96)),
+          linear-gradient(90deg, rgba(14,14,16,.18), rgba(14,14,16,.96)),
           conic-gradient(#8a8a8a 0 25%, #cfcfcf 0 50%, #8a8a8a 0 75%, #cfcfcf 0);
         background-size: 100% 100%, 12px 12px;
       }
@@ -724,7 +724,7 @@
         border-radius: 50%;
         background: #fff;
         border: 2px solid #22c55e;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+        box-shadow: 0 1px 3px rgba(0,0,0,.5);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-opacity-input::-moz-range-thumb {
         width: 16px;
@@ -732,7 +732,7 @@
         border-radius: 50%;
         background: #fff;
         border: 2px solid #22c55e;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+        box-shadow: 0 1px 3px rgba(0,0,0,.5);
       }
       /* Settings toggles are styled as switches (the underlying control stays a
          native checkbox for state + accessibility). */
@@ -745,8 +745,8 @@
         height: 19px;
         margin: 0;
         border-radius: 999px;
-        background: rgba(255, 255, 255, .14);
-        border: 1px solid rgba(255, 255, 255, .12);
+        background: rgba(255,255,255,.14);
+        border: 1px solid rgba(255,255,255,.12);
         cursor: pointer;
         transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
       }
@@ -760,13 +760,13 @@
         transform: translateY(-50%);
         border-radius: 50%;
         background: #fff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+        box-shadow: 0 1px 3px rgba(0,0,0,.5);
         transition: transform .18s cubic-bezier(.2, .8, .2, 1);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:checked {
         background: #22c55e;
-        border-color: rgba(34, 197, 94, .75);
-        box-shadow: 0 0 0 3px rgba(34, 197, 94, .1);
+        border-color: rgba(34,197,94,.75);
+        box-shadow: 0 0 0 3px rgba(34,197,94,.1);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-check input[type="checkbox"]:checked::before {
         transform: translate(15px, -50%);
@@ -784,9 +784,9 @@
         min-width: 0;
         min-height: 32px;
         padding: 0 .4rem;
-        color: rgba(255, 255, 255, .85);
-        background: rgba(255, 255, 255, .05);
-        border: 1px solid rgba(255, 255, 255, .09);
+        color: rgba(255,255,255,.85);
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.09);
         border-radius: 8px;
         font: 600 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
         text-align: center;
@@ -799,22 +799,22 @@
         transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-chip:hover {
-        background: rgba(255, 255, 255, .09);
-        border-color: rgba(255, 255, 255, .16);
+        background: rgba(255,255,255,.09);
+        border-color: rgba(255,255,255,.16);
         color: #fff;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-chip:active { transform: scale(.97); }
       /* The width preset matching the current chat width (persisted across
          reloads) is shown selected with a green tint, border and ring. */
       #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected {
-        background: rgba(34, 197, 94, .14);
-        border-color: rgba(34, 197, 94, .5);
+        background: rgba(34,197,94,.14);
+        border-color: rgba(34,197,94,.5);
         color: #4ade80;
-        box-shadow: 0 0 0 3px rgba(34, 197, 94, .07);
+        box-shadow: 0 0 0 3px rgba(34,197,94,.07);
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected:hover {
-        background: rgba(34, 197, 94, .18);
-        border-color: rgba(34, 197, 94, .6);
+        background: rgba(34,197,94,.18);
+        border-color: rgba(34,197,94,.6);
         color: #4ade80;
       }
       #${SETTINGS_PANEL_ID} .kfc-settings-reset {
@@ -826,8 +826,8 @@
          the generic chip:hover rule so it wins on source order. */
       #${SETTINGS_PANEL_ID} .kfc-settings-reset:hover,
       #${SETTINGS_PANEL_ID} .kfc-settings-reset:focus-visible {
-        background: rgba(239, 68, 68, .14);
-        border-color: rgba(248, 113, 113, .5);
+        background: rgba(239,68,68,.14);
+        border-color: rgba(248,113,113,.5);
         color: #fca5a5;
       }
       @media (prefers-reduced-motion: reduce) {
@@ -989,23 +989,23 @@
          and Kick's data-testids so it survives class-name churn. */
       .kfc-chat-slot :has(> div > #send-message-button) {
         flex-wrap: nowrap !important;
-        gap: 0.25rem !important;
+        gap: .25rem !important;
       }
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
       .kfc-chat-slot :has(> [data-testid="gift-shop-button"]) {
         width: auto !important;
         flex: 0 1 auto !important;
-        gap: 0.25rem !important;
+        gap: .25rem !important;
       }
       .kfc-chat-slot [data-testid="channel-points-button"],
       .kfc-chat-slot [data-testid="gift-shop-button"] {
-        padding-left: 0.375rem !important;
-        padding-right: 0.375rem !important;
-        gap: 0.25rem !important;
+        padding-left: .375rem !important;
+        padding-right: .375rem !important;
+        gap: .25rem !important;
       }
       .kfc-chat-slot #send-message-button {
-        padding-left: 0.625rem !important;
-        padding-right: 0.625rem !important;
+        padding-left: .625rem !important;
+        padding-right: .625rem !important;
       }
 
       /* Keep Kick's full-width bottom controls out from under the floating chat
@@ -1030,13 +1030,13 @@
          transparency is keyed on a class on our own chat slot, which Kick
          never touches. */
       .kfc-chat-slot.kfc-overlay {
-        background: rgba(14, 14, 16, var(--kfc-overlay-opacity, 0.55));
+        background: rgba(14,14,16,var(--kfc-overlay-opacity,.55));
         -webkit-backdrop-filter: blur(8px);
         backdrop-filter: blur(8px);
-        transition: opacity 0.2s ease;
+        transition: opacity .2s ease;
         /* Readability for chat text over video, since Kick's own opaque
            backgrounds are stripped below. Same trick as the info overlay. */
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 6px rgba(0, 0, 0, 0.5);
+        text-shadow: 0 1px 3px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.5);
       }
       .kfc-chat-slot.kfc-overlay.kfc-overlay-idle {
         opacity: 0;
@@ -1069,14 +1069,14 @@
       .kfc-chat-slot.kfc-overlay div:has(> [contenteditable=""]) {
         /* Near-solid dark so the input reads clearly over video, matching the
            normal-mode composer rather than the translucent panel. */
-        background-color: rgba(12, 12, 14, 0.94) !important;
+        background-color: rgba(12,12,14,.94) !important;
       }
       /* Thin separator lines (h-px / w-px) use a dark-grey fill that vanishes
          over video. Brighten the neutral ones so the gifters-bar top/bottom
          dividers and similar rules stay visible; green ones keep their accent. */
       .kfc-chat-slot.kfc-overlay [class*="h-px" i]:not([class*="bg-green" i]),
       .kfc-chat-slot.kfc-overlay [class*="w-px" i]:not([class*="bg-green" i]) {
-        background-color: rgba(255, 255, 255, 0.4) !important;
+        background-color: rgba(255,255,255,.4) !important;
       }
 
       /* Draggable divider between video and chat. A thin fixed strip straddling
@@ -1093,7 +1093,7 @@
         z-index: 2147483646;
         touch-action: none;
         opacity: 1;
-        transition: opacity 0.2s ease;
+        transition: opacity .2s ease;
       }
       /* When docked left, the divider straddles the chat's right edge. */
       html.kfc-chat-left #${RESIZE_ID} {
@@ -1114,7 +1114,7 @@
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
-        background: rgba(255, 255, 255, .12);
+        background: rgba(255,255,255,.12);
         transition: background .12s ease;
       }
       #${RESIZE_ID}:hover::after,
@@ -1160,21 +1160,21 @@
         max-width: min(60%, calc(100% - var(--kfc-info-offset, 0px) - 3.5rem), ${INFO_MAX_WIDTH});
         pointer-events: none;
         opacity: 1;
-        transition: opacity 0.2s ease;
+        transition: opacity .2s ease;
         color: #fff;
         /* Subtle dark gradient backdrop so the cloned card text stays readable
            over bright video, while still feeling like an overlay (no hard box).
            Alpha is driven by --kfc-info-bg-opacity (default 0.6); the second
            stop keeps the original ~0.58 ratio for the same soft gradient. */
         background: linear-gradient(135deg,
-          rgba(0, 0, 0, var(--kfc-info-bg-opacity, 0.6)),
-          rgba(0, 0, 0, calc(var(--kfc-info-bg-opacity, 0.6) * 0.58)));
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
+          rgba(0,0,0,var(--kfc-info-bg-opacity,.6)),
+          rgba(0,0,0,calc(var(--kfc-info-bg-opacity,.6) * 0.58)));
+        padding: .75rem 1rem;
+        border-radius: .5rem;
         box-sizing: border-box;
         user-select: text;
         -webkit-user-select: text;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.5);
+        text-shadow: 0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.5);
       }
       #${INFO_ID} *,
       #${INFO_ID} *::before,
@@ -1210,9 +1210,9 @@
          as a CSS circle so it doesn't depend on font glyph rendering. */
       #${INFO_ID} .kfc-info-separator {
         display: inline-block !important;
-        width: 0.38em !important;
-        height: 0.38em !important;
-        margin: 0 0.4rem !important;
+        width: .38em !important;
+        height: .38em !important;
+        margin: 0 .4rem !important;
         border-radius: 9999px !important;
         background: #fff !important;
         background-color: #fff !important;
@@ -1223,7 +1223,7 @@
       #${INFO_ID} .kfc-info-viewer-inline {
         display: inline-flex !important;
         align-items: center !important;
-        gap: 0.25rem !important;
+        gap: .25rem !important;
         margin: 0 !important;
         vertical-align: middle !important;
         background: transparent !important;
@@ -1321,15 +1321,15 @@
         top: 24px;
         right: 24px;
         z-index: 2147483647;
-        background: rgba(0, 0, 0, 0.88);
+        background: rgba(0,0,0,.88);
         color: #fff;
         padding: 10px 14px;
         border-radius: 8px;
         font: 600 13px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255,255,255,.1);
         opacity: 0;
         transform: translateY(-8px);
-        transition: opacity 0.2s ease, transform 0.2s ease;
+        transition: opacity .2s ease, transform .2s ease;
         pointer-events: none;
         max-width: 360px;
       }
