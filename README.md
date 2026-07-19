@@ -42,7 +42,8 @@
 - Leaves Kick's player nodes parented to the fullscreen element and shrinks them with a CSS marker, so background React refreshes (e.g. while the stream plays on a background macOS Space) can reconcile without 404-ing the page
 - Forces a containing block on the marked player layers so Kick's `position: fixed` video and timeline / controls stay inside the shrunken video area instead of overlapping the chat
 - Restores the original DOM on exit — chat returns to its original location, no leftover wrappers
-- No network requests and no `GM_*` permissions — the only persistence is a single `localStorage` key (`kfc-settings`) holding your UI preferences
+- **Console hook** — a persisted `KickFullscreenChat.debug()` switch, and the running version as `KickFullscreenChat.version`
+- No network requests and no `GM_*` permissions — the only persistence is a single `localStorage` key (`kfc-settings`) holding your UI preferences and that switch
 
 ## Requirements
 
@@ -85,6 +86,13 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
 | Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
+
+A couple of things are available from the browser console:
+
+```js
+KickFullscreenChat.debug(true);     // persisted verbose logging (no argument toggles it)
+KickFullscreenChat.version;         // the running version
+```
 
 ## Troubleshooting
 

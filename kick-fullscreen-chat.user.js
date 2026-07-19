@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.20.3
+// @version      0.21.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -16,8 +16,13 @@
 (function () {
   'use strict';
 
-  // Flip to true to enable verbose console logging.
-  const DEBUG = false;
+  // Bumped on every release, exposed as KickFullscreenChat.version so the
+  // actually-running build is easy to confirm from the console.
+  const VERSION = '0.21.0';
+
+  // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
+  // — the choice is persisted with the rest of the settings.
+  let debugOn = false;
 
   const BTN_ID = 'kfc-toggle-btn';
   const MODE_BTN_ID = 'kfc-mode-btn';
@@ -82,6 +87,7 @@
           idleDelayMs,
           infoHidden,
           infoBgOpacity,
+          debug: debugOn,
         })
       );
     } catch (_) {}
@@ -121,6 +127,7 @@
     if (typeof s.infoBgOpacity === 'number') {
       infoBgOpacity = Math.max(0, Math.min(90, s.infoBgOpacity));
     }
+    if (typeof s.debug === 'boolean') debugOn = s.debug;
   };
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
@@ -183,7 +190,7 @@
     /\b\d[\d, . ]*\s*(?:viewers?|sledujících|diváků|spectateurs|zuschauer|widzów|зрителей|просмотров|espectadores|spettatori|視聴者|시청자|مشاهد)(?!\p{L})/iu;
 
   const log = (...args) => {
-    if (DEBUG) console.log('[KickFullscreenChat]', ...args);
+    if (debugOn) console.log('[KickFullscreenChat]', ...args);
   };
   const warn = (...args) => console.warn('[KickFullscreenChat]', ...args);
 
@@ -3854,6 +3861,18 @@
   // the saved chat width onto the CSS variable so the first open uses it.
   loadSettings();
   applyChatWidth();
+
+  // Console API. Mirrors the debug toggle the other kick-* scripts expose, so
+  // verbose logging can be flipped without editing and re-installing the file.
+  window.KickFullscreenChat = {
+    version: VERSION,
+    debug: (on) => {
+      debugOn = on === undefined ? !debugOn : !!on;
+      saveSettings();
+      console.log('[KickFullscreenChat] debug logging', debugOn ? 'on' : 'off');
+      return debugOn;
+    },
+  };
 
   document.addEventListener('fullscreenchange', onFullscreenChange);
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);

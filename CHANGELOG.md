@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-07-19
+
+### Added
+- **Console API.** `KickFullscreenChat.debug()` toggles verbose logging at runtime and `KickFullscreenChat.version` reports the running build, matching the hooks the sibling kick-* scripts already expose. Debug logging previously required editing `const DEBUG` in the script and re-installing it.
+
+### Changed
+- The debug flag is persisted in the existing `kfc-settings` localStorage entry alongside your other preferences. Settings blobs saved by earlier versions have no `debug` key and load unchanged, defaulting to off.
+
 ## [0.20.3] - 2026-07-19
 
 ### Fixed
