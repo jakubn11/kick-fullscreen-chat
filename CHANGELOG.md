@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.3] - 2026-07-19
+
+### Fixed
+- **The viewer-count content fallback silently failed for five of its thirteen languages.** `VIEWER_COUNT_RE` — the pattern `findViewerCountSource()` falls back to when none of the `VIEWER_COUNT_SELECTORS` match — ended in `\b`. Outside the `/u` flag JavaScript's `\w` is ASCII-only, so a word boundary after a token ending in a non-ASCII letter can never match at the end of the string, which made the Russian (`зрителей`, `просмотров`), Czech (`diváků`) and Arabic (`مشاهد`) alternatives dead on arrival. Two more were corrupted script hybrids that matched no real text: `视聴者` mixed simplified-Chinese 视 with Japanese 聴 (Japanese is `視聴者`), and `시청者` mixed Korean 시청 with Chinese 者 while the correct `시청자` was already the next alternative. The guard is now `(?!\p{L})` with the `/u` flag and the two CJK tokens are corrected, so all thirteen locales match; as a bonus the lookahead also rejects `"770 viewership"`, which the old `\b` accepted. This was only reachable once Kick's direct viewer-count selectors stop matching, so in practice the badge would have gone missing from the fullscreen info overlay for those locales rather than misbehaving visibly.
+
 ## [0.20.2] - 2026-07-19
 
 ### Changed

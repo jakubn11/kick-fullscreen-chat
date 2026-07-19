@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.20.2
+// @version      0.20.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -174,8 +174,13 @@
   // Used by the content-based fallback to locate the viewer-count badge
   // when no direct selector matches. Common languages covered; add more
   // tokens if Kick localises into a script not listed here.
+  // The trailing guard is `(?!\p{L})` (with the /u flag), NOT `\b`: outside
+  // /u, JS `\w` is ASCII-only, so a `\b` after a token ending in a non-ASCII
+  // letter (зрителей, diváků, مشاهد) can never match at end-of-string and the
+  // alternative is dead. The negative lookahead also beats `\b` on the ASCII
+  // tokens — it rejects "770 viewership", which `\b` would have accepted.
   const VIEWER_COUNT_RE =
-    /\b\d[\d, . ]*\s*(?:viewers?|sledujících|diváků|spectateurs|zuschauer|widzów|зрителей|просмотров|espectadores|spettatori|视聴者|시청者|시청자|مشاهد)\b/i;
+    /\b\d[\d, . ]*\s*(?:viewers?|sledujících|diváků|spectateurs|zuschauer|widzów|зрителей|просмотров|espectadores|spettatori|視聴者|시청자|مشاهد)(?!\p{L})/iu;
 
   const log = (...args) => {
     if (DEBUG) console.log('[KickFullscreenChat]', ...args);
@@ -2223,7 +2228,7 @@
     if (!btn) return;
     const label = btn.querySelector('span');
     if (label) label.textContent = 'Chat';
-    
+
     // Check video loading state to set correct disabled state and aria-label
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
     if (fs) {
