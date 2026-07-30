@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.0
+// @version      0.21.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -372,6 +372,26 @@
       #${WRAP_ID}.kfc-idle {
         opacity: 0;
         pointer-events: none;
+      }
+      /* pointer-events is a discrete property — it flips the instant
+         .kfc-idle is dropped, while opacity still has the .2s fade ahead of
+         it, and an opacity:0 element is hit-tested normally. So without this
+         the whole cluster is fully clickable while it is still invisible, and
+         a click that arrives in that window lands on whichever control sits
+         under the cursor instead of on the video. The common way to hit it is
+         the click that re-activates the browser window on macOS: moving the
+         pointer over the window un-idles the controls, and if the cursor was
+         parked near the top-right corner the activating click opens the
+         settings panel "randomly". Stay click-through until the fade has
+         actually finished (see CONTROLS_FADE_MS, which must match the
+         transition duration above). Scoped so the buttons fall through to the
+         player but panel children — ours and the one kick-quality-saver mounts
+         into this wrap — keep working. */
+      #${WRAP_ID}.kfc-unarmed {
+        pointer-events: none;
+      }
+      #${WRAP_ID}.kfc-unarmed > *:not(button) {
+        pointer-events: auto;
       }
       /* Chat toggle button — styled in the kick-* family design language
          (dark #101013 surface, neutral translucent border, blur backdrop,
@@ -3125,7 +3145,24 @@
     infoViewerAttrSyncPending = false;
   };
 
+  // Drop keyboard focus after a *pointer* interaction with a settings control.
+  // Same reasoning as the control buttons in ensureButton(): the panel floats
+  // over the player, so a control that keeps focus swallows the keys the user
+  // means for the video — Space/Enter (play/pause) re-fires the last chip or
+  // switch, and the arrow keys (seek) drag a slider instead. The browser also
+  // restores that focus when the window is re-activated, which is what made the
+  // panel appear to change settings on its own after an app switch. Keyboard
+  // activations (detail === 0) keep focus so Tab users can still operate the
+  // panel. Bound on the label for switches, so clicking the row's text — which
+  // reaches the checkbox as a synthetic detail-0 click — still blurs.
+  const blurOnPointerActivate = (el, focusTarget = el) => {
+    el.addEventListener('click', (e) => {
+      if (e.detail) focusTarget.blur();
+    });
+  };
+
   const createSettingsRange = (labelText, valueText, input, valueClass = '') => {
+    blurOnPointerActivate(input);
     const row = document.createElement('div');
     row.className = 'kfc-settings-row';
     const label = document.createElement('label');
@@ -3150,6 +3187,7 @@
     if (inputClass) input.className = inputClass;
     input.checked = checked;
     input.addEventListener('change', () => onChange(input.checked));
+    blurOnPointerActivate(label, input);
     const text = document.createElement('span');
     text.textContent = labelText;
     label.appendChild(input);
@@ -3201,6 +3239,9 @@
     close.textContent = '✕';
     close.title = 'Close';
     close.setAttribute('aria-label', 'Close fullscreen settings');
+    // Hiding the panel already forces focus back to the body, so this is
+    // belt-and-braces — but it keeps every panel control on the same rule.
+    blurOnPointerActivate(close);
     close.addEventListener('click', () => closeSettingsPanel());
 
     head.appendChild(mark);
@@ -3306,6 +3347,7 @@
       // since the panel isn't in the DOM yet for a document-scoped query.
       if (width === chatWidth) button.classList.add('kfc-selected');
       button.textContent = label;
+      blurOnPointerActivate(button);
       button.addEventListener('click', () => {
         setChatWidth(width);
         widthValue.textContent = `${chatWidth}px`;
@@ -3369,6 +3411,7 @@
     resetButton.type = 'button';
     resetButton.className = 'kfc-settings-chip kfc-settings-reset';
     resetButton.textContent = 'Reset settings';
+    blurOnPointerActivate(resetButton);
     resetButton.addEventListener('click', resetSessionSettings);
     panel.appendChild(resetButton);
 
@@ -3743,11 +3786,41 @@
       }
     }
   };
+  // How long the control cluster stays click-through after it starts fading
+  // back in. Must match the opacity transition on #kfc-toggle-wrap: while the
+  // cluster is invisible or half-faded, a click aimed at the player would
+  // otherwise be swallowed by whichever button sits under the cursor (see the
+  // .kfc-unarmed comment in injectStyles).
+  const CONTROLS_FADE_MS = 200;
+  let controlsArmTimer = 0;
+  const cancelControlsArm = () => {
+    if (controlsArmTimer) {
+      clearTimeout(controlsArmTimer);
+      controlsArmTimer = 0;
+    }
+  };
   const setIdle = (idle) => {
     const effectiveIdle = idle && !settingsOpen;
     const controlsIdle = effectiveIdle && autoHideControls;
     const wrap = document.getElementById(WRAP_ID);
-    if (wrap) wrap.classList.toggle('kfc-idle', controlsIdle);
+    if (wrap) {
+      // Only the idle -> visible transition arms; a plain mousemove while the
+      // cluster is already up must not re-disarm it, or continuous pointer
+      // movement would keep the buttons permanently unclickable.
+      const wasIdle = wrap.classList.contains('kfc-idle');
+      wrap.classList.toggle('kfc-idle', controlsIdle);
+      if (controlsIdle) {
+        cancelControlsArm();
+        wrap.classList.remove('kfc-unarmed');
+      } else if (wasIdle) {
+        cancelControlsArm();
+        wrap.classList.add('kfc-unarmed');
+        controlsArmTimer = setTimeout(() => {
+          controlsArmTimer = 0;
+          document.getElementById(WRAP_ID)?.classList.remove('kfc-unarmed');
+        }, CONTROLS_FADE_MS);
+      }
+    }
     const info = document.getElementById(INFO_ID);
     if (info) info.classList.toggle('kfc-idle', controlsIdle);
     if (chatSlot) chatSlot.classList.toggle('kfc-idle', effectiveIdle);
@@ -3778,6 +3851,8 @@
     }
     stopKeepAlive();
     setIdle(false);
+    // Leaving fullscreen tears the wrap down; don't leave an arm timer behind.
+    cancelControlsArm();
   };
 
   // When Kick's own hide-chat button toggles data-chat="false", tear down our layout
