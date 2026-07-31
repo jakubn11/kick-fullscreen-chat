@@ -47,7 +47,7 @@ The userscript header controls permissions and host access. Keep it valid across
 - `@match` should remain scoped to `https://kick.com/*` unless the target changes.
 - `@grant none` — this userscript does not need any GM_* APIs. Do not add grants unless a feature actually requires one.
 - `@updateURL` / `@downloadURL` point at the `main` branch on GitHub. If the repo or branch moves, update both.
-- Bump `@version` when changing user-facing behavior or DOM logic.
+- Bump `@version` when changing user-facing behavior or DOM logic. The `VERSION` constant near the top of the IIFE must be bumped to the **same** string in the same commit — it is what `KickFullscreenChat.version` reports, so a stale constant makes the console API name a build the user isn't running.
 
 Do not add `Co-Authored-By:` trailers to git commits.
 
@@ -241,6 +241,12 @@ Before committing any change, always:
    | New user-facing feature — new toggle, new layout, new keyboard shortcut | **minor** `x.+1.0` | `0.5.x → 0.6.0` |
    | Bug fix, selector tweak, refactor, internal change | **patch** `x.x.+1` | `0.5.x → 0.5.x+1` |
    | Breaking change or full rewrite | **major** `+1.0.0` | `0.x.x → 1.0.0` |
+
+   Bump the `VERSION` constant inside the IIFE to the same value — it backs `KickFullscreenChat.version`. Verify both with:
+
+   ```bash
+   grep -n "@version\|const VERSION" kick-fullscreen-chat.user.js
+   ```
 
 2. **Update `CHANGELOG.md`** — add an entry under the new version with a short summary of what changed.
 3. **Update `README.md`** if the change is user-facing: new or removed features, changed behaviour, new keyboard shortcuts, or updated troubleshooting steps. Internal refactors and bug fixes that don't change user-facing behaviour do not require a README update.

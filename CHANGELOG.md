@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.2] - 2026-07-31
+
+### Fixed
+- **`KickFullscreenChat.version` reported the wrong build.** The version lives in two places — the `@version` line in the metadata header (what your script manager shows) and a `VERSION` constant inside the script (what the console API returns) — and 0.21.1 bumped only the header. So a correctly updated 0.21.1 install answered `"0.21.0"` in the console, which is precisely the question the console API was added in 0.21.0 to answer. The constant now matches the header, and the agent notes carry a check for both so they can't drift apart again.
+
 ## [0.21.1] - 2026-07-30
 
 ### Fixed
