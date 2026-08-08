@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.4] - 2026-08-08
+
+### Fixed
+- **The channel-points icon was rendered at half size in the docked chat, and the points value spilled out of its button.** This — not spacing — was the real reason the fullscreen action bar didn't match the windowed one. Measured on the live page, the icon came out at 8.5px against 16px windowed, and the value sat about 10px past its own button's right edge; 0.21.3's spacing work was correct but was fixing the wrong thing. Kick nests a second `w-full` wrapper between the channel-points button and the gift-shop button, and it asks for 100% of its parent. Windowed, the points button shrugs that off because flex items floor at `min-width: auto`; inside the chat slot the script forces `min-width: 0` on every descendant — which the chat message rows genuinely need in order to shrink — and that removes the floor, so the wrapper crushes the button. 0.21.3 released the forced width on the outer group and on the gift-shop's own span but never on that middle wrapper. It now does, and every measurement matches windowed exactly: 16px icons, 24px from the points value to the Kicks icon, 8px between the buttons, and the value back inside its button.
+
 ## [0.21.3] - 2026-08-08
 
 ### Fixed

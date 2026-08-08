@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.3
+// @version      0.21.4
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.3';
+  const VERSION = '0.21.4';
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -1082,8 +1082,23 @@
         flex-wrap: nowrap !important;
         gap: 0 !important;
       }
+      /* Every wrapper between the row and the two buttons has to be released,
+         not just the outer group. Kick nests a second w-full div between the
+         channel-points button and the gift-shop's span, and it demands 100% of
+         its parent. Natively the points button survives that because flex items
+         floor at min-width: auto — but the min-width: 0 above (which the chat
+         message rows need in order to shrink) strips that floor, so the wrapper
+         crushed the button instead: its 16px icon rendered at 8.5px and the
+         points value overflowed ~10px past the button's own right edge. Missing
+         this one selector was the whole of the "fullscreen doesn't match
+         windowed" difference; the gaps were already correct. Matched a level at
+         a time via > * > rather than naming the span, so a wrapper swap in
+         Kick's markup doesn't silently reopen it. Flooring the icons with
+         flex: none instead looks like a fix and is not one — it un-squashes the
+         icon while making the value's overflow worse. */
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
-      .kfc-chat-slot :has(> [data-testid="gift-shop-button"]) {
+      .kfc-chat-slot :has(> [data-testid="gift-shop-button"]),
+      .kfc-chat-slot :has(> * > [data-testid="gift-shop-button"]) {
         width: auto !important;
         flex: 0 1 auto !important;
       }
