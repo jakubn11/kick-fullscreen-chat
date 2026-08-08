@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.2
+// @version      0.21.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.2';
+  const VERSION = '0.21.3';
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -501,12 +501,26 @@
          switches with an animated thumb. It is anchored under the control wrap
          (no modal backdrop), and it carries NO backdrop-filter: the surface is
          opaque, so blurring what sits behind it only costs a compositing
-         layer over the video. */
+         layer over the video.
+
+         max-height + overflow-y match kick-quality-saver's .kqs-card verbatim,
+         including the 76vh: without them the panel simply ran off the bottom of
+         the screen with no way to reach the last rows. At ~660px of content it
+         already needs ~735px from the top of the fullscreen element, so a 720p
+         display — or any browser zoom past ~110% — clipped "Reset settings"
+         off-screen, and every settings row added since made that worse. 76vh
+         clears the panel's own ~76px top offset on every display size (~7vh at
+         1080p, ~10.5vh at 720p), so the anchored panel needs no tighter bound
+         than the centered card kqs uses. The children never shrink into the
+         cap — flex items keep their content-based min-height: auto — so the
+         overflow scrolls instead. */
       #${SETTINGS_PANEL_ID} {
         position: absolute;
         top: calc(100% + .5rem);
         right: 0;
         width: 300px;
+        max-height: 76vh;
+        overflow-y: auto;
         display: none;
         flex-direction: column;
         gap: .7rem;
@@ -532,6 +546,22 @@
       #${SETTINGS_PANEL_ID} :focus-visible {
         outline: 2px solid rgba(34,197,94,.65);
         outline-offset: 2px;
+      }
+      /* The family scrollbar (kqs .kqs-card): thin, translucent, inset by a
+         transparent border so the thumb doesn't touch the panel's rounded edge.
+         Without this the panel would get the platform default, which is far
+         heavier than the one the sibling panel shows on the same screen. */
+      #${SETTINGS_PANEL_ID}::-webkit-scrollbar {
+        width: 8px;
+      }
+      #${SETTINGS_PANEL_ID}::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      #${SETTINGS_PANEL_ID}::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,.13);
+        border: 2px solid transparent;
+        background-clip: padding-box;
+        border-radius: 999px;
       }
 
       /* Header: icon mark, name, close. */
@@ -1016,31 +1046,46 @@
          as a single flex row sized for a wide chat: its left group takes
          lg:w-full at fullscreen viewport widths, which pushes the send button
          off the row at the minimum panel width, where it was clipped by the
-         slot's overflow-x: hidden above. Keep the bar on ONE row at narrow
-         widths instead: drop the forced full width on the left group (so it
-         only takes the space it needs and can shrink) and tighten the
-         buttons' padding/gaps so channel-points, gift-shop, settings and the
-         send button all fit. Targeted via the stable #send-message-button id
-         and Kick's data-testids so it survives class-name churn. */
+         slot's overflow-x: hidden above. Dropping that forced full width is
+         the entire fix: the left group then takes only the space it needs and
+         can still shrink, while the right group's own ml-auto keeps the send
+         button flush against the right edge.
+
+         Everything here is layout only, deliberately. This block used to also
+         tighten both buttons' horizontal padding to .375rem and every gap in
+         the row to .25rem, which is what made the fullscreen bar look cramped
+         next to the windowed one — the channel-points value sat almost against
+         the Kicks icon. Measured against Kick's real markup at the 260px
+         minimum width, that squeeze was buying 29px of slack the row never
+         needed; with Kick's own padding and gaps left alone there is still
+         ~9px spare and the send button keeps its natural width. So the bar now
+         reads identically docked and windowed: measured against Kick's markup,
+         the value-to-icon gap (24px), the button-to-button gap (8px) and the
+         gear-to-send gap (8px) are the same docked as windowed, at every chat
+         width and points value.
+
+         Not even the row gap is ours — an earlier pass set .5rem here as a
+         floor so the two button groups could never touch, but the right group's
+         ml-auto already keeps them apart, and the gap was charged unconditionally:
+         at the 260px minimum with a five-digit points value it was the 3px that
+         pushed the send button below its natural width. Kick's own value at this
+         breakpoint is lg:gap-0, so that is what this is.
+
+         The one gap that legitimately differs from windowed is the elastic one
+         between the Kicks button and the gear. That is pure leftover space, so
+         it tracks the chat width — ~30px at the 260px minimum against ~89px for
+         a windowed sidebar — and it is not something to "fix".
+
+         Targeted via the stable #send-message-button id and Kick's
+         data-testids so it survives class-name churn. */
       .kfc-chat-slot :has(> div > #send-message-button) {
         flex-wrap: nowrap !important;
-        gap: .25rem !important;
+        gap: 0 !important;
       }
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
       .kfc-chat-slot :has(> [data-testid="gift-shop-button"]) {
         width: auto !important;
         flex: 0 1 auto !important;
-        gap: .25rem !important;
-      }
-      .kfc-chat-slot [data-testid="channel-points-button"],
-      .kfc-chat-slot [data-testid="gift-shop-button"] {
-        padding-left: .375rem !important;
-        padding-right: .375rem !important;
-        gap: .25rem !important;
-      }
-      .kfc-chat-slot #send-message-button {
-        padding-left: .625rem !important;
-        padding-right: .625rem !important;
       }
 
       /* Keep Kick's full-width bottom controls out from under the floating chat
@@ -3258,6 +3303,18 @@
     panel.id = SETTINGS_PANEL_ID;
     panel.addEventListener('click', (e) => e.stopPropagation());
     panel.addEventListener('pointerdown', (e) => e.stopPropagation());
+    // The control buttons' refocus guard (see wireControlButton), one level
+    // down: with the panel open and the cursor parked over a switch or slider,
+    // the click that re-activates the window would flip that setting by itself.
+    // Capture phase so the control never sees the event, and pointerdown as
+    // well as click because a slider's thumb jumps on the press, not the click.
+    for (const type of ['pointerdown', 'click']) {
+      panel.addEventListener(type, (e) => {
+        if (controlsAcceptActivation()) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+    }
 
     panel.appendChild(createSettingsHeader());
 
@@ -3421,6 +3478,57 @@
     return panel;
   };
 
+  // The click that re-activates a backgrounded window or tab is delivered
+  // straight into whatever sits under the parked cursor, and when that is one
+  // of our controls the settings panel "randomly opens" on return. .kfc-unarmed
+  // only covers the half of this where the cluster had faded away and is fading
+  // back in; a switch shorter than idleDelayMs — or auto-hide turned off —
+  // leaves the cluster fully shown and armed, so the fade guard has nothing to
+  // gate. Swallow activations for a beat after focus is regained instead: the
+  // refocus click arrives within a frame, while a deliberate click takes far
+  // longer to aim. Same guard catches the reflexive Space/Enter (pause the
+  // stream) on return, which fires on whichever button the browser restored
+  // focus to. Mirrors kick-quality-saver's LAUNCHER_FOCUS_GUARD_MS.
+  const CONTROLS_FOCUS_GUARD_MS = 350;
+  let focusRegainedAt = 0;
+  const onWindowFocusRegained = () => {
+    if (document.visibilityState === 'hidden') return; // the leaving half of the pair
+    focusRegainedAt = Date.now();
+  };
+  // Both fire depending on whether it was a window or a tab switch, and both
+  // land just before the refocus click.
+  window.addEventListener('focus', onWindowFocusRegained);
+  document.addEventListener('visibilitychange', onWindowFocusRegained);
+  const controlsAcceptActivation = () =>
+    Date.now() - focusRegainedAt >= CONTROLS_FOCUS_GUARD_MS;
+
+  // Wire one button of the fullscreen control cluster: swallow the click from
+  // the player underneath, drop keyboard focus after pointer presses, apply the
+  // focus guard, then run the action.
+  const wireControlButton = (btn, onActivate) => {
+    // Unconditional, and deferred a task because the focus is applied by
+    // mousedown's default action, which runs after this handler. Blurring only
+    // from `click` missed presses whose click never reached the button (hover
+    // or pointer retargeting), leaving it focused and armed for the next
+    // Space/Enter — the player would keep playing and the control would fire.
+    btn.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      setTimeout(() => btn.blur(), 0);
+    });
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      // Keyboard activations (detail === 0) keep focus so Tab users can still
+      // operate the controls normally.
+      if (e.detail) btn.blur();
+      if (!controlsAcceptActivation()) {
+        log('activation ignored, window just regained focus:', btn.id);
+        return;
+      }
+      onActivate(e);
+    });
+  };
+
   const ensureButton = (fsEl) => {
     if (!fsEl) return;
     let wrap = document.getElementById(WRAP_ID);
@@ -3434,17 +3542,7 @@
       infoBtn.type = 'button';
       infoBtn.className = 'kfc-control-btn';
       infoBtn.innerHTML = INFO_SVG;
-      infoBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        // Drop keyboard focus after a mouse click so a later Space/Enter (e.g.
-        // pausing the video after switching back to the window) goes to the
-        // player, not this button — otherwise the button re-fires and the
-        // control toggles "randomly". Keyboard activations (detail === 0) keep
-        // focus so Tab users can operate the controls normally.
-        if (e.detail) infoBtn.blur();
-        toggleInfoOverlay();
-      });
+      wireControlButton(infoBtn, toggleInfoOverlay);
 
       // Layout-mode toggle (side vs. overlay; only shown while chat is open).
       const modeBtn = document.createElement('button');
@@ -3452,34 +3550,21 @@
       modeBtn.type = 'button';
       modeBtn.className = 'kfc-control-btn';
       modeBtn.innerHTML = MODE_SVG;
-      modeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (e.detail) modeBtn.blur();
-        toggleOverlayMode();
-      });
+      wireControlButton(modeBtn, toggleOverlayMode);
 
       const settingsBtn = document.createElement('button');
       settingsBtn.id = SETTINGS_BTN_ID;
       settingsBtn.type = 'button';
       settingsBtn.className = 'kfc-control-btn';
       settingsBtn.innerHTML = SETTINGS_SVG;
-      settingsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (e.detail) settingsBtn.blur();
-        toggleSettingsPanel();
-      });
+      wireControlButton(settingsBtn, toggleSettingsPanel);
 
       const btn = document.createElement('button');
       btn.id = BTN_ID;
       btn.type = 'button';
       btn.setAttribute('dir', 'ltr');
       btn.innerHTML = `${BTN_SVG}<span>Chat</span>`;
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (e.detail) btn.blur();
+      wireControlButton(btn, () => {
         const target = document.fullscreenElement || document.webkitFullscreenElement;
         log('button clicked, fullscreen target:', target, 'active:', active);
         if (!target) return;
