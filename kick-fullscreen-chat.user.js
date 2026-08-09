@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.4
+// @version      0.21.5
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.4';
+  const VERSION = '0.21.5';
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -3504,18 +3504,56 @@
   // longer to aim. Same guard catches the reflexive Space/Enter (pause the
   // stream) on return, which fires on whichever button the browser restored
   // focus to. Mirrors kick-quality-saver's LAUNCHER_FOCUS_GUARD_MS.
+  //
+  // The latch is set on the way OUT, and this is the whole point: 0.21.3 armed
+  // the guard from the `focus` / `visibilitychange` handlers, i.e. only once the
+  // return event had actually been delivered, on the assumption that it always
+  // lands just before the reactivating click. It usually does, but the focus
+  // change and the mouse event reach the page through different paths, so the
+  // order is not guaranteed — and on the frames where the click wins the race
+  // the guard is still unarmed and the panel opens exactly as before. Hence
+  // `reactivationPending`, set while the window/tab is being left, which is
+  // unambiguously before any of it: from then on no activation is honoured
+  // until the guard has been seen to expire, whenever the focus event turns up.
   const CONTROLS_FOCUS_GUARD_MS = 350;
+  let reactivationPending = false;
   let focusRegainedAt = 0;
-  const onWindowFocusRegained = () => {
-    if (document.visibilityState === 'hidden') return; // the leaving half of the pair
-    focusRegainedAt = Date.now();
+  const onWindowLeft = () => {
+    reactivationPending = true;
+    focusRegainedAt = 0;
+    // Don't leave one of our controls focused while the window is in the
+    // background: the browser restores that focus on return, and a restored
+    // button is armed for the reflexive Space/Enter meant to un-pause the
+    // stream. Keyboard activations deliberately keep focus (see
+    // wireControlButton), so leaving is the only safe point to drop it.
+    const wrap = document.getElementById(WRAP_ID);
+    const focused = document.activeElement;
+    if (wrap && focused instanceof HTMLElement && wrap.contains(focused)) focused.blur();
   };
-  // Both fire depending on whether it was a window or a tab switch, and both
-  // land just before the refocus click.
-  window.addEventListener('focus', onWindowFocusRegained);
-  document.addEventListener('visibilitychange', onWindowFocusRegained);
-  const controlsAcceptActivation = () =>
-    Date.now() - focusRegainedAt >= CONTROLS_FOCUS_GUARD_MS;
+  const onWindowReturned = () => {
+    // First observation wins, so a second focus event can't extend the window.
+    if (!focusRegainedAt) focusRegainedAt = Date.now();
+  };
+  // window blur/focus cover an app or window switch — visibilityState stays
+  // 'visible' for those — and visibilitychange covers a tab switch or minimise.
+  window.addEventListener('blur', onWindowLeft);
+  window.addEventListener('focus', onWindowReturned);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') onWindowLeft();
+    else onWindowReturned();
+  });
+  const controlsAcceptActivation = () => {
+    if (!reactivationPending) return true;
+    // The return event may not have been dispatched yet; the activation itself
+    // proves the window is active again, so start the guard here if nothing
+    // else has. Either way this activation falls inside it and is dropped.
+    if (!focusRegainedAt && document.hasFocus()) focusRegainedAt = Date.now();
+    if (focusRegainedAt && Date.now() - focusRegainedAt >= CONTROLS_FOCUS_GUARD_MS) {
+      reactivationPending = false;
+      return true;
+    }
+    return false;
+  };
 
   // Wire one button of the fullscreen control cluster: swallow the click from
   // the player underneath, drop keyboard focus after pointer presses, apply the

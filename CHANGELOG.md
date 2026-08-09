@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.5] - 2026-08-09
+
+### Fixed
+- **The settings panel could still open by itself after an app or tab switch, because the guard meant to stop it was armed too late.** 0.21.3 added a 350ms window after the window regains focus during which the controls ignore activations, which is the right idea — but it started that window from the `focus` / `visibilitychange` handler, so the guard only existed once the return event had actually been delivered to the page. That assumes the return event always arrives before the click that re-activated the window, and it usually does; the focus change and the mouse event travel to the page by different routes, though, so the order isn't guaranteed. On the frames where the click won that race the guard was still unarmed and the click sailed through to the gear exactly as it did before 0.21.3 — which is why this stayed an occasional, unpredictable "it just opened again" rather than something reproducible on demand. The guard is now latched when the window or tab is *left*, which is unambiguously before anything else in the sequence, and it stays latched until the 350ms have been observed to pass, no matter when the return event turns up (or whether one turns up at all). Verified against every ordering: with the click delivered before the focus event, before the `visibilitychange`, or with no return event at all, the activation is dropped in each case, while an ordinary deliberate click — and a second click straight after it — still goes through.
+- **A control left focused while the window sat in the background is now disarmed on the way out.** The browser restores focus to whatever was focused when you left, so returning to the stream and hitting Space to un-pause it could fire that control instead of the video. Pointer clicks have dropped focus since 0.20.1, but keyboard activations deliberately keep it so Tab users can operate the cluster, and for those the 350ms guard was the only thing standing in the way — wait longer than that before pressing Space and the control fired. Focus is now dropped as the window is left, which is the one point where doing so costs keyboard users nothing.
+
 ## [0.21.4] - 2026-08-08
 
 ### Fixed
