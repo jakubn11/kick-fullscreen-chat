@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.7] - 2026-08-13
+
+### Fixed
+- **Closing the side chat with Kick's own hide-chat button took two clicks.** The script watches for clicks on Kick's chat toggle so it can put the chat node back before Kick's React re-renders around it, and because that button is icon-only — no text, no `aria-label`, no `title` — it has to recognise it by its SVG path data. The code assumed there was a single toggle whose icon was mirrored in CSS depending on the state. There are actually two separate buttons with two separately drawn icons: the floating **Show chat** one over the player, and the **Hide chat** one in the chat panel's own header. Only the "show" icon was ever in the signature list, so the hide button went unrecognised and the teardown fell back to watching Kick's `data-chat` attribute flip to `false`. That works only while Kick's internal state agrees with the attribute — and the script deliberately forces the attribute to `true` when it opens the chat, so if Kick's React still thinks chat is hidden the first click merely re-syncs the two (attribute goes to `true`, nothing tears down) and only the second click actually closes it. The hide button's icon is now in the signature list, so the teardown fires on the click itself and no longer depends on which way the attribute happens to move. Verified against Kick's live markup: the two toggles are the only matches on a 135-button page, and Kick's visually similar sidebar-collapse button is not one of them.
+- **The lookup that re-syncs Kick when it thinks chat is hidden could have started clicking the wrong button.** Both toggles are in the DOM at the same time in both states — whichever one is inactive is either zero-sized or parked off-screen, never removed — so now that the script recognises both icons, the "click Kick's toggle to make it agree with us" lookup would have taken whichever came first in document order. It is now restricted to the show direction, by icon and by a narrower text match, so it can only ever drive Kick's state towards showing the chat.
+
 ## [0.21.6] - 2026-08-13
 
 ### Fixed

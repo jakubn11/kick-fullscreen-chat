@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.6
+// @version      0.21.7
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.6';
+  const VERSION = '0.21.7';
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -1802,25 +1802,44 @@
   };
 
   const CHAT_TOGGLE_RE = /(?:hide|close|collapse|show|open|expand)\s*chat/;
-  // Kick's chat-toggle button is icon-only on the current UI: no text content,
-  // no aria-label, no title. Fall back to recognising the arrow-with-lines SVG
-  // path data lifted into BTN_SVG (Kick's own "Show chat" icon, CSS-flipped
-  // when chat is open). The signature is the first ~12 chars of the arrow
-  // path's `d` attribute — distinctive enough that no other button in the
-  // chat panel shares it, but short enough to survive minor minifier changes.
-  const KICK_CHAT_TOGGLE_PATH_SIG = 'M8.79052 14.6146';
-  const looksLikeChatToggleBtn = (btn) => {
-    const paths = btn.querySelectorAll('path[d]');
-    for (const p of paths) {
-      if ((p.getAttribute('d') || '').startsWith(KICK_CHAT_TOGGLE_PATH_SIG)) return true;
+  // Narrower: only the verbs that mean "make chat appear". findKickShowChatBtn
+  // clicks what it finds, so it must never land on the *hide* control.
+  const SHOW_CHAT_RE = /(?:show|open|expand)\s*chat/;
+  // Kick's chat-toggle controls are icon-only on the current UI: no text
+  // content, no aria-label, no title. Recognise them by the SVG path data,
+  // taking the first ~12 chars of the arrow path's `d` — distinctive enough
+  // that nothing else on the page shares it (verified: exactly one matching
+  // path element each), but short enough to survive minor minifier changes.
+  //
+  // There are TWO separate buttons, not one CSS-flipped button as this code
+  // assumed until 0.21.7, and **both are in the DOM in both states** — the
+  // inactive one is either 0x0 or parked off-screen, never absent. So a lookup
+  // that wants a specific direction cannot just take the first icon match.
+  //   • Show chat — floating, over the player, `div.absolute.top-7`.
+  //   • Hide chat — in the chat panel's own header, 12px in from its left edge.
+  // Kick swapped the hide button to its own mirrored icon at some point, which
+  // this only knew the "show" half of; see the 0.21.7 changelog entry for what
+  // that broke.
+  const KICK_SHOW_CHAT_PATH_SIG = 'M8.79052 14.6146';
+  const KICK_HIDE_CHAT_PATH_SIG = 'm22.24 6.74';
+  const hasPathSig = (btn, sig) => {
+    for (const p of btn.querySelectorAll('path[d]')) {
+      if ((p.getAttribute('d') || '').startsWith(sig)) return true;
     }
     return false;
   };
-  // Best-effort lookup for Kick's own chat-toggle button anywhere on the page.
+  // Either direction — used to spot that the *user* clicked a chat toggle, where
+  // which one it was doesn't matter.
+  const looksLikeChatToggleBtn = (btn) =>
+    hasPathSig(btn, KICK_SHOW_CHAT_PATH_SIG) || hasPathSig(btn, KICK_HIDE_CHAT_PATH_SIG);
+  // Best-effort lookup for Kick's own "Show chat" button anywhere on the page.
   // Used during enableSideChat to sync Kick's React state when it thinks chat
   // is hidden (otherwise React reconciles our data-chat="true" back to "false"
-  // and the dataChatObserver immediately tears the layout down).
-  const findKickChatToggleBtn = () => {
+  // and the dataChatObserver immediately tears the layout down). Deliberately
+  // matches the show direction only: the hide button is present in the DOM at
+  // the same time, and clicking that one here would drive Kick's state the
+  // wrong way.
+  const findKickShowChatBtn = () => {
     const buttons = document.querySelectorAll('button');
     // Pass 1: explicit text/aria/title match — the most reliable signal.
     for (const b of buttons) {
@@ -1829,15 +1848,15 @@
       const aria = (b.getAttribute('aria-label') || '').toLowerCase();
       const title = (b.getAttribute('title') || '').toLowerCase();
       if (
-        CHAT_TOGGLE_RE.test(text) ||
-        CHAT_TOGGLE_RE.test(aria) ||
-        CHAT_TOGGLE_RE.test(title)
+        SHOW_CHAT_RE.test(text) ||
+        SHOW_CHAT_RE.test(aria) ||
+        SHOW_CHAT_RE.test(title)
       ) return b;
     }
     // Pass 2: SVG-path signature for icon-only buttons.
     for (const b of buttons) {
       if (b.id === BTN_ID) continue;
-      if (looksLikeChatToggleBtn(b)) return b;
+      if (hasPathSig(b, KICK_SHOW_CHAT_PATH_SIG)) return b;
     }
     return null;
   };
@@ -2170,7 +2189,7 @@
     const kickStateHidden =
       dataChatHostBefore?.getAttribute('data-chat') === 'false';
     if (kickStateHidden) {
-      const kickBtn = findKickChatToggleBtn();
+      const kickBtn = findKickShowChatBtn();
       if (kickBtn) {
         log('Kick state is hidden; syncing via programmatic click on Kick toggle');
         // Suppress both the dataChatObserver (Kick's onClick may set
