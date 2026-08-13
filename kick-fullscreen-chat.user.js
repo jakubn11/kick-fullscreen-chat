@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.5
+// @version      0.21.6
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.5';
+  const VERSION = '0.21.6';
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -3325,7 +3325,15 @@
     // well as click because a slider's thumb jumps on the press, not the click.
     for (const type of ['pointerdown', 'click']) {
       panel.addEventListener(type, (e) => {
-        if (controlsAcceptActivation()) return;
+        const accepted = controlsAcceptActivation({
+          // A pointerdown is always the pointer; a click is only keyboard when
+          // detail is 0.
+          pointer: type === 'pointerdown' || !!e.detail,
+          // Let the click be the one that disarms the parked-pointer guard —
+          // consuming it on the press would wave the click straight through.
+          consume: type === 'click',
+        });
+        if (accepted) return;
         e.preventDefault();
         e.stopPropagation();
       }, true);
@@ -3515,12 +3523,30 @@
   // `reactivationPending`, set while the window/tab is being left, which is
   // unambiguously before any of it: from then on no activation is honoured
   // until the guard has been seen to expire, whenever the focus event turns up.
+  //
+  // That latch is still a *clock*, though, and a clock can only cover the case
+  // where coming back and clicking are one gesture. Focus often returns on its
+  // own first — Cmd-Tab, the dock icon, swiping back to the fullscreen Space,
+  // or an activating click that landed on the video — and the user clicks a
+  // second or two later with the pointer still parked where they left it. By
+  // then the 350ms have passed and the branch below actively *allows* the
+  // activation, so the parked gear takes the click. Hence the second, untimed
+  // half: `pointerParked`, which asks whether the pointer has moved at all
+  // since the page was left. It has no window to lose a race against — it is
+  // set on the way out and cleared only by real pointer movement — and it
+  // swallows one activation before disarming, so the deliberate retry works.
   const CONTROLS_FOCUS_GUARD_MS = 350;
   let reactivationPending = false;
   let focusRegainedAt = 0;
+  let pointerParked = false;
   const onWindowLeft = () => {
     reactivationPending = true;
     focusRegainedAt = 0;
+    // Nothing the user does in another app moves the pointer over this page, so
+    // a control activation that arrives with the pointer still sitting exactly
+    // where it was left was aimed at whatever the user last had here — not at
+    // the button the return happened to park it on.
+    pointerParked = true;
     // Don't leave one of our controls focused while the window is in the
     // background: the browser restores that focus on return, and a restored
     // button is armed for the reflexive Space/Enter meant to un-pause the
@@ -3542,16 +3568,48 @@
     if (document.visibilityState === 'hidden') onWindowLeft();
     else onWindowReturned();
   });
-  const controlsAcceptActivation = () => {
+  // Any real pointer movement over the page proves the user is aiming again.
+  // Capture on window so it is seen before the panel's own capture handlers,
+  // and trusted-only so the keep-alive nudges (which are mousemove, not
+  // pointermove, but check anyway) can't clear it. Non-mouse input clears it
+  // too: a touch tap has no movement to offer, so gating it would swallow every
+  // first tap after a return.
+  window.addEventListener('pointermove', (e) => {
+    if (pointerParked && e.isTrusted) pointerParked = false;
+  }, true);
+  window.addEventListener('pointerdown', (e) => {
+    if (e.isTrusted && e.pointerType && e.pointerType !== 'mouse') pointerParked = false;
+  }, true);
+  // `pointer` — this activation came from the pointer, so the parked-pointer
+  // half applies (keyboard activations are covered by dropping focus in
+  // onWindowLeft). `consume` — this is the activation that would actually *do*
+  // something, so disarming here is what lets the deliberate retry through; a
+  // pointerdown check must not consume, or the click 50ms behind it walks in.
+  const controlsAcceptActivation = ({ pointer = true, consume = true } = {}) => {
+    if (pointer && pointerParked) {
+      if (consume) pointerParked = false;
+      log('activation ignored, pointer has not moved since the page was left');
+      return false;
+    }
+    const now = Date.now();
+    // Second source for the timed half: focus can leave for an iframe or the
+    // browser's own chrome without the top-level window seeing a `blur`, so the
+    // latch may never have been set. A focus regain we *did* see is enough on
+    // its own to distrust an activation landing right behind it.
+    if (focusRegainedAt && now - focusRegainedAt < CONTROLS_FOCUS_GUARD_MS) {
+      log('activation ignored, window just regained focus');
+      return false;
+    }
     if (!reactivationPending) return true;
     // The return event may not have been dispatched yet; the activation itself
     // proves the window is active again, so start the guard here if nothing
     // else has. Either way this activation falls inside it and is dropped.
-    if (!focusRegainedAt && document.hasFocus()) focusRegainedAt = Date.now();
-    if (focusRegainedAt && Date.now() - focusRegainedAt >= CONTROLS_FOCUS_GUARD_MS) {
+    if (!focusRegainedAt && document.hasFocus()) focusRegainedAt = now;
+    if (focusRegainedAt && now - focusRegainedAt >= CONTROLS_FOCUS_GUARD_MS) {
       reactivationPending = false;
       return true;
     }
+    log('activation ignored, window is still inside the refocus guard');
     return false;
   };
 
@@ -3574,8 +3632,9 @@
       // Keyboard activations (detail === 0) keep focus so Tab users can still
       // operate the controls normally.
       if (e.detail) btn.blur();
-      if (!controlsAcceptActivation()) {
-        log('activation ignored, window just regained focus:', btn.id);
+      // detail === 0 is a keyboard activation: it has no pointer to have parked.
+      if (!controlsAcceptActivation({ pointer: !!e.detail })) {
+        log('activation ignored:', btn.id);
         return;
       }
       onActivate(e);
