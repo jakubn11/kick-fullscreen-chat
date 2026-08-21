@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.7
+// @version      0.21.9
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,36 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.7';
+  const VERSION = '0.21.9';
+
+  // ─── Single instance ────────────────────────────────────────────────────
+  // Two copies of the script on one page (a manual install left alongside the
+  // auto-updating one, or two managers both enabled) do not run side by side —
+  // they fight. Every node we own is addressed by a fixed id, so the second
+  // instance's `ensureButton` adopts the *first* instance's control cluster
+  // instead of building its own, and from then on both write their own state
+  // onto the same element: each `syncControlState()` rewrites
+  // `kfc-settings-open` from its own `settingsOpen` flag, so an open settings
+  // panel is slammed shut by whichever instance ran last and re-opened by the
+  // other on the next mousemove or idle tick. The panel visibly flickers open
+  // and closed for as long as the pointer keeps moving.
+  //
+  // The marker lives on `<html>` rather than on `window` because managers
+  // disagree on whether userscripts share a JS context (`@grant none` runs in
+  // the page context, sandboxed grants do not) — but they always share the DOM.
+  // React never rewrites attributes on the root element, so the marker sticks
+  // (the script already keeps its own classes and CSS variables there).
+  const INSTANCE_ATTR = 'data-kfc-running';
+  const alreadyRunning = document.documentElement.getAttribute(INSTANCE_ATTR);
+  if (alreadyRunning) {
+    console.warn(
+      `[KickFullscreenChat] v${VERSION} is standing down: v${alreadyRunning} is already ` +
+        'running on this page. Two copies share the same DOM ids and fight over the ' +
+        'controls — disable or uninstall the duplicate.'
+    );
+    return;
+  }
+  document.documentElement.setAttribute(INSTANCE_ATTR, VERSION);
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -3320,11 +3349,17 @@
     close.className = 'kfc-settings-close';
     close.textContent = '✕';
     close.title = 'Close';
-    close.setAttribute('aria-label', 'Close fullscreen settings');
+    // Same reasoning as the gear's label — see syncControlState.
+    close.setAttribute('aria-label', 'Close fullscreen chat settings');
     // Hiding the panel already forces focus back to the body, so this is
     // belt-and-braces — but it keeps every panel control on the same rule.
     blurOnPointerActivate(close);
-    close.addEventListener('click', () => closeSettingsPanel());
+    close.addEventListener('click', (e) => {
+      // The other half of the flicker: this button carries a "settings" label
+      // too, so a sibling script hunting for the player gear can land on it.
+      if (!e.isTrusted) return;
+      closeSettingsPanel();
+    });
 
     head.appendChild(mark);
     head.appendChild(titles);
@@ -3648,6 +3683,17 @@
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
+      // Only real user input may activate a control. A click dispatched by
+      // script carries detail === 0, which the branch below reads as a keyboard
+      // activation and waves past the parked-pointer guard — so a sibling
+      // userscript clicking its way through the player's controls fires ours
+      // instead (see SETTINGS_BTN_ID's aria-label for the one that did). A
+      // keyboard Enter/Space produces a *trusted* click, so Tab users are
+      // unaffected; nothing in this script clicks its own controls.
+      if (!e.isTrusted) {
+        log('activation ignored, synthetic click on', btn.id);
+        return;
+      }
       // Keyboard activations (detail === 0) keep focus so Tab users can still
       // operate the controls normally.
       if (e.detail) btn.blur();
@@ -3807,7 +3853,21 @@
     const settingsBtn = document.getElementById(SETTINGS_BTN_ID);
     if (settingsBtn) {
       settingsBtn.classList.toggle('kfc-on', settingsOpen);
-      settingsBtn.setAttribute('aria-label', settingsOpen ? 'Close fullscreen settings' : 'Open fullscreen settings');
+      // The word "chat" in these labels is load-bearing, not decoration.
+      // kick-quality-saver finds Kick's player gear with, among others,
+      // `button[aria-label*="settings" i]:not([aria-label*="chat" i])`, and the
+      // old "Open fullscreen settings" matched it: on fullscreen entry Kick's
+      // real gear isn't mounted yet, so that lookup fell through to ours and
+      // clicked it up to three times a pass, which is what made the settings
+      // panel flicker open and shut. Naming the script the settings belong to
+      // is more accurate anyway. Keep "chat" away from the leading verb —
+      // CHAT_TOGGLE_RE / SHOW_CHAT_RE match `open|close|…` immediately followed
+      // by "chat", and "Open chat settings" would make this script mistake its
+      // own gear for Kick's chat toggle.
+      settingsBtn.setAttribute(
+        'aria-label',
+        settingsOpen ? 'Close fullscreen chat settings' : 'Open fullscreen chat settings'
+      );
     }
     const widthValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-width-value`);
     if (widthValue) widthValue.textContent = `${chatWidth}px`;
