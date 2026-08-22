@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.9
+// @version      0.21.10
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.9';
+  const VERSION = '0.21.10';
 
   // ─── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -69,6 +69,7 @@
   const VIDEO_ROOT_ATTR = 'data-kfc-video-root';
   const VIDEO_FRAME_ATTR = 'data-kfc-video-frame';
   const VIDEO_EL_ATTR = 'data-kfc-video-el';
+  const VIDEO_OVERLAY_ATTR = 'data-kfc-video-overlay';
   const CHAT_WIDTH = '340px';
   // Bounds for the draggable chat-width divider (px). Min keeps chat usable;
   // max is also capped to 60vw at drag time so chat never dominates.
@@ -961,6 +962,22 @@
            by the chat width when chat is docked on the left (0 otherwise). */
         transform: translateX(var(--kfc-video-shift, 0px)) translateZ(0);
       }
+      /* Kick's transient loading / blur overlays sit alongside the player
+         layers and are deliberately NOT marked as ones (they hold no controls;
+         see looksLikeFullscreenLayer, and 0.9.7 for what marking them broke).
+         They still have to be told how wide the player is now, or the spinner
+         they centre is centred on the viewport while the video sits shrunk to
+         one side of it. Width and the docked-left shift only — deliberately no
+         height, no overflow clipping, and the translateX doubles as a
+         containing block so a position:fixed spinner inside one is centred on
+         the video too. */
+      [${VIDEO_OVERLAY_ATTR}] {
+        width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
+        max-width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        transform: translateX(var(--kfc-video-shift, 0px));
+      }
       /* Kick can keep the actual <video> inside one or more inner wrappers that
          are sized from the viewport rather than from the marked player layer.
          Constrain that wrapper chain too so the picture follows the timeline
@@ -1469,6 +1486,7 @@
   let savedChatNextSibling = null;
   let chatSlot = null;
   let videoRoots = [];
+  let videoOverlays = [];
   let videoFrames = [];
   let markedVideos = [];
   let videoRootHost = null;
@@ -1612,7 +1630,34 @@
     });
     roots.forEach((root) => root.setAttribute(VIDEO_ROOT_ATTR, ''));
     videoRoots = roots;
+    refreshVideoOverlays(fsEl, nextRoots);
     refreshVideoFrames(roots);
+  };
+
+  // The large layers `looksLikeFullscreenLayer` deliberately leaves unmarked:
+  // Kick's transient loading / blur overlays, which carry no controls (that is
+  // the test) and so must not get the full player-layer treatment — 0.9.7 gave
+  // it to them and they became transformed hit targets sitting above the
+  // timeline. They still need *sizing*, though: left alone they keep the whole
+  // viewport's width while the player has been shrunk to the left of the chat,
+  // so the buffering spinner they centre lands at the centre of the screen
+  // rather than the centre of the video. They get width and the docked-left
+  // shift, and nothing else — no height, no overflow clipping, no restacking.
+  const refreshVideoOverlays = (fsEl, roots) => {
+    const overlays = Array.from(fsEl.children).filter(
+      (child) =>
+        child instanceof Element &&
+        !roots.has(child) &&
+        !isKfcOwnedNode(child) &&
+        !isKfcOwnedChild(child) &&
+        coversFullscreen(child)
+    );
+    const nextOverlays = new Set(overlays);
+    videoOverlays.forEach((overlay) => {
+      if (!nextOverlays.has(overlay)) overlay.removeAttribute(VIDEO_OVERLAY_ATTR);
+    });
+    overlays.forEach((overlay) => overlay.setAttribute(VIDEO_OVERLAY_ATTR, ''));
+    videoOverlays = overlays;
   };
 
   const refreshVideoFrames = (roots) => {
@@ -1647,6 +1692,8 @@
   const clearVideoRoots = () => {
     videoRoots.forEach((root) => root.removeAttribute(VIDEO_ROOT_ATTR));
     videoRoots = [];
+    videoOverlays.forEach((overlay) => overlay.removeAttribute(VIDEO_OVERLAY_ATTR));
+    videoOverlays = [];
     videoFrames.forEach((frame) => frame.removeAttribute(VIDEO_FRAME_ATTR));
     videoFrames = [];
     markedVideos.forEach((video) => video.removeAttribute(VIDEO_EL_ATTR));
@@ -1805,29 +1852,118 @@
   // (no data-chat change → observer doesn't fire), the second to actually
   // close. A document-level capture handler catches the toggle wherever Kick
   // mounts it.
-  // Kick's native double-click-to-exit-fullscreen handler lives on the
-  // `<video>` element, but we set `pointer-events: none` on the marked
-  // video while side chat is active so clicks pass through to Kick's
-  // controls (introduced in 0.9.7). That also blocks the native dblclick.
-  // Provide our own dblclick → exit-fullscreen while the side chat is up,
-  // so users keep the same gesture they have in the non-side-chat layout.
+  // Kick's native player gestures — double-click to exit fullscreen, single
+  // click to play/pause — are both handled on the `<video>` element, but we set
+  // `pointer-events: none` on the marked video while side chat is active so
+  // clicks pass through to Kick's controls (introduced in 0.9.7). That blocks
+  // both. Provide our own while the side chat is up, so users keep the gestures
+  // they have in the non-side-chat layout.
+  //
+  // Shared gate for both: the click has to be on the bare player surface. Our
+  // own UI, the chat panel, and anything Kick made interactive run their own
+  // handlers and must not also pause the stream or tear fullscreen down.
+  // Anything of ours that lives inside the fullscreen element. `isKfcOwnedChild`
+  // answers the same question for *direct children* of fsEl; this one answers it
+  // for a node at any depth, which is what a hit test or a DOM search needs.
+  const KFC_OWN_UI_SEL = `#${WRAP_ID}, #${SETTINGS_PANEL_ID}, #${INFO_ID}, #${RESIZE_ID}, #${TOAST_ID}`;
+  const isKfcOwnedNode = (el) =>
+    el instanceof Element &&
+    (!!el.closest(KFC_OWN_UI_SEL) || !!(chatSlot && (el === chatSlot || chatSlot.contains(el))));
+  const isVideoSurfaceTarget = (target) => {
+    if (!(target instanceof Element)) return false;
+    // Inside the chat slot is text selection / message UI; likewise our own
+    // control cluster, settings panel, info overlay, divider and toast.
+    if (isKfcOwnedNode(target)) return false;
+    // Kick's own controls (timeline scrub, setting buttons, menu items, links).
+    if (
+      target.closest('button, [role="button"], [role="slider"], a, input, textarea, select, [contenteditable]')
+    ) return false;
+    // The seekbar re-mounts the player; onDocClickCapture owns that path.
+    if (isSeekbarClick(target)) return false;
+    return true;
+  };
+  const isVideoSurfaceClick = (e) => isVideoSurfaceTarget(e.target);
+  const findPlayerVideo = () =>
+    markedVideos.find((video) => video.isConnected) ||
+    (videoEl?.isConnected ? videoEl : null) ||
+    null;
+  // **Clicking the video only ever resumes it — it never pauses it.** Kick's own
+  // handler toggles, but a click that pauses is the one nobody means: it is what
+  // a mis-aimed click on the player, or the click that re-activates the window,
+  // turns into. So a click while the stream is playing is deliberately inert.
+  const canResumeByClick = () => {
+    const video = findPlayerVideo();
+    return !!video && video.paused;
+  };
+  // The cursor has to say the same thing the click does — including saying
+  // nothing when the click would do nothing, so the pointer hand appears only
+  // while a click would actually resume playback. Kick's own `cursor: pointer`
+  // is on the <video>, which never gets hit while it is click-through, and the
+  // CSS fallback on the marked video layers only covers the hit landing on one
+  // of *those* (Kick stacks its own full-size layers over the video, and any of
+  // them may carry an explicit cursor that beats an inherited one). So drive it
+  // from the same two conditions the click uses. One inline property on one
+  // element at a time, removed as soon as it stops applying (and on teardown),
+  // so nothing of Kick's is left rewritten.
+  let hoverTarget = null;
+  let cursorTarget = null;
+  const clearSurfaceCursor = () => {
+    if (!cursorTarget) return;
+    cursorTarget.style.removeProperty('cursor');
+    cursorTarget = null;
+  };
+  // Teardown: drop the remembered hover as well, so a detached node isn't held
+  // and the next fullscreen session starts from nothing.
+  const resetSurfaceCursor = () => {
+    clearSurfaceCursor();
+    hoverTarget = null;
+  };
+  // Re-evaluated on pointer movement *and* on play/pause, since the answer
+  // changes with playback state while the pointer sits still.
+  const refreshSurfaceCursor = () => {
+    const next =
+      active && hoverTarget && isVideoSurfaceTarget(hoverTarget) && canResumeByClick()
+        ? hoverTarget
+        : null;
+    if (next === cursorTarget) return;
+    clearSurfaceCursor();
+    if (!next) return;
+    cursorTarget = next;
+    next.style.setProperty('cursor', 'pointer', 'important');
+  };
+  const applySurfaceCursor = (target) => {
+    hoverTarget = target instanceof Element ? target : null;
+    refreshSurfaceCursor();
+  };
   const onFsDblClick = (e) => {
     if (!active) return;
-    // Double-click inside the chat slot is text selection / message UI —
-    // don't exit fullscreen.
-    if (chatSlot?.contains(e.target)) return;
-    // Let interactive controls run their own handlers (timeline scrub,
-    // setting buttons, etc.) without us tearing fullscreen down on top.
-    if (
-      e.target instanceof Element &&
-      e.target.closest('button, [role="button"], [role="slider"], a, input, textarea')
-    ) return;
+    if (!isVideoSurfaceClick(e)) return;
     log('double-click on video area, exiting fullscreen');
     if (document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
     } else if (document.webkitExitFullscreen) {
       document.webkitExitFullscreen();
     }
+  };
+  // Click → resume. One-way on purpose (see canResumeByClick): a click on a
+  // playing stream does nothing at all, so nothing can pause the stream by
+  // accident, and the double-click that exits fullscreen has nothing to undo.
+  //
+  // Only real pointer clicks count. A script-dispatched click carries
+  // detail === 0 (see wireControlButton for the sibling userscript that fires
+  // them), and starting playback off another script's synthetic click is
+  // exactly the kind of thing 0.21.9 went to lengths to stop.
+  const onFsClick = (e) => {
+    if (!active) return;
+    if (!e.isTrusted || e.detail < 1) return;
+    if (!isVideoSurfaceClick(e)) return;
+    const video = findPlayerVideo();
+    if (!video || !video.paused) return;
+    log('click on video area, resuming playback');
+    // The gesture is still live (no timer between the click and here), so
+    // autoplay policies let this through; a rejection is nothing we can act on
+    // either way.
+    video.play()?.catch?.(() => {});
   };
 
   const CHAT_TOGGLE_RE = /(?:hide|close|collapse|show|open|expand)\s*chat/;
@@ -2287,8 +2423,13 @@
     if (videoEl) {
       videoEl.addEventListener('emptied', onVideoEmptied);
       videoEl.addEventListener('loadstart', onVideoLoadStart);
+      // Whether a click would do anything depends on playback state, so the
+      // cursor has to follow it even when the pointer never moves.
+      videoEl.addEventListener('play', refreshSurfaceCursor);
+      videoEl.addEventListener('pause', refreshSurfaceCursor);
     }
     fsEl.addEventListener('dblclick', onFsDblClick);
+    fsEl.addEventListener('click', onFsClick);
     updateBtnLabel();
     nudgePlayerResize();
   };
@@ -2304,9 +2445,13 @@
     if (videoEl) {
       videoEl.removeEventListener('emptied', onVideoEmptied);
       videoEl.removeEventListener('loadstart', onVideoLoadStart);
+      videoEl.removeEventListener('play', refreshSurfaceCursor);
+      videoEl.removeEventListener('pause', refreshSurfaceCursor);
       videoEl = null;
     }
     fsEl.removeEventListener('dblclick', onFsDblClick);
+    fsEl.removeEventListener('click', onFsClick);
+    resetSurfaceCursor();
 
     // Put chat back where it came from.
     const chat = chatSlot.firstChild;
@@ -3997,8 +4142,35 @@
   // Locate Kick's controls cluster: start at the seekbar/timeline and climb to
   // the top of the subtree that does NOT contain the <video>, so we fade the
   // controls overlay without ever touching the video layer.
+  //
+  // **Search Kick's player layers, never the whole fullscreen element.** The
+  // docked chat is a child of fsEl too, so an `fsEl.querySelector` for the
+  // seekbar can match something inside the chat — and since the climb below
+  // stops at the top-level child of fsEl, what it then returns is the chat slot
+  // itself, which we promptly fade to `opacity: 0`. That is the "chat goes
+  // black about a second after the timeline hides" bug: it needs Kick's own
+  // seekbar to be absent from the DOM at the moment of the lookup (Kick
+  // unmounts its controls while they are hidden), which is exactly when the
+  // reapply pass runs — and the pass is driven by DOM churn that the chat's own
+  // message stream provides, hence the one-second delay rather than an
+  // immediate blackout. Both halves are fixed: the search is scoped to the
+  // marked video layers (falling back to fsEl only when side chat is not up and
+  // there are no markers), and whatever the climb produces is refused if it is
+  // one of ours.
   const findKickControlsLayer = (fsEl) => {
-    const seek = fsEl.querySelector('[class*="seekbar" i], [role="slider"]');
+    // Marked player layers first; fsEl only as a last resort, for the case
+    // where Kick's controls sit outside every marked layer. That fallback is
+    // safe now only because both filters below apply to it.
+    const scopes = videoRoots.length ? [...videoRoots, fsEl] : [fsEl];
+    let seek = null;
+    for (const scope of scopes) {
+      for (const candidate of scope.querySelectorAll('[class*="seekbar" i], [role="slider"]')) {
+        if (isKfcOwnedNode(candidate)) continue;
+        seek = candidate;
+        break;
+      }
+      if (seek) break;
+    }
     if (!seek) return null;
     let node = seek;
     while (
@@ -4007,6 +4179,10 @@
       !node.parentElement.querySelector('video')
     ) {
       node = node.parentElement;
+    }
+    if (isKfcOwnedNode(node) || (chatSlot && node.contains(chatSlot))) {
+      log('controls-layer lookup landed on our own UI, refusing to fade it');
+      return null;
     }
     return node;
   };
@@ -4056,7 +4232,14 @@
           reapplyKickControlsHidden();
         }, 100);
       });
-      kickControlsObserver.observe(idleFsEl, { childList: true, subtree: true });
+      // Watch Kick's player layers, not the whole fullscreen element: with the
+      // chat docked inside fsEl, every arriving message would otherwise wake
+      // this observer (and, before the scoping above, drive the mis-targeted
+      // reapply that blacked the chat out).
+      const watchScopes = videoRoots.length ? videoRoots : [idleFsEl];
+      watchScopes.forEach((scope) =>
+        kickControlsObserver.observe(scope, { childList: true, subtree: true })
+      );
     } else {
       stopKickControlsWatch();
       if (fadedKickControls) {
@@ -4110,6 +4293,14 @@
     // Ignore the synthetic events we dispatch to keep Kick's controls alive —
     // only real pointer movement should reset our idle timer.
     if (e && !e.isTrusted) return;
+    // Paint the resume cursor on whatever the pointer is over, while the
+    // side layout is up (that is the only time the video is click-through).
+    // Only a real move re-evaluates it: this handler is also called with no
+    // event from a dozen places (fullscreen entry, settings changes, chat
+    // open/close), and those must not strip the cursor from an element the
+    // pointer is still sitting on.
+    if (!active) resetSurfaceCursor();
+    else if (e) applySurfaceCursor(e.target);
     setIdle(false);
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => setIdle(true), idleDelayMs);
@@ -4122,6 +4313,7 @@
     onFsMouseMove();
   };
   const stopIdleTracking = () => {
+    resetSurfaceCursor();
     if (idleFsEl) idleFsEl.removeEventListener('mousemove', onFsMouseMove);
     idleFsEl = null;
     if (idleTimer) {
