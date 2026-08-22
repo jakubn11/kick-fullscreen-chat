@@ -41,6 +41,7 @@
 - Disables the **Chat** button while the player is reloading (quality change, seek, "go to live") with a short grace period after the video reports ready, so a click can never land mid-reload and trigger Kick's 404 page
 - Leaves Kick's player nodes parented to the fullscreen element and shrinks them with a CSS marker, so background React refreshes (e.g. while the stream plays on a background macOS Space) can reconcile without 404-ing the page
 - Forces a containing block on the marked player layers so Kick's `position: fixed` video and timeline / controls stay inside the shrunken video area instead of overlapping the chat
+- **Player gestures kept working:** clicking a paused stream resumes it and double-clicking exits fullscreen, both of which Kick handles on the `<video>` element that the side layout has to make click-through. The click is one-way — it never pauses a playing stream — and the pointer cursor appears only while a click would actually resume
 - Restores the original DOM on exit — chat returns to its original location, no leftover wrappers
 - **Console hook** — a persisted `KickFullscreenChat.debug()` switch, and the running version as `KickFullscreenChat.version`
 - No network requests and no `GM_*` permissions — the only persistence is a single `localStorage` key (`kfc-settings`) holding your UI preferences and that switch
@@ -80,6 +81,8 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Drag the divider between video and chat | Resizes the chat panel (260–640px, capped at 60% of the screen); width is saved and restored on the next visit |
 | Drag the divider past the minimum width and release | Closes the side chat (slot dims while the close is armed; pull back above the threshold to cancel) |
 | Double-click the divider | Resets chat width to 340px |
+| Click the video | Resumes a paused stream. Clicking a playing stream does nothing — the click can only ever start playback, never pause it |
+| Double-click the video | Exits fullscreen, as it does without the side chat (the script provides both gestures, since the side layout blocks Kick's own handlers on the `<video>`) |
 | Click the layout-mode toggle (top-right, while chat is open) | Switches between side-by-side and overlay (chat floats over the video) |
 | Click the info toggle (top-right) | Hides or shows the streamer-info overlay |
 | Click the settings gear (top-right) | Opens fullscreen settings, grouped into **Chat** (width presets, dock side left/right, default overlay opening, auto-open chat on fullscreen), **Overlay** (opacity, stream-info backdrop opacity, overlay auto-hide) and **Controls** (hide delay, userscript control auto-hide), plus resetting to defaults. The panel caps at 76% of the screen height and scrolls, so every row stays reachable on short displays. Close it with the ✕, the gear, or a click outside |
@@ -104,7 +107,10 @@ KickFullscreenChat.version;         // the running version
 | Timeline shrinks but video still sits behind chat | Update to **0.9.6+** — the script now constrains both direct video layers and Kick's inner video wrapper chain. |
 | Stream becomes blurred/loading and controls cannot be clicked after sitting in the background | Update to **0.9.7+** — the script avoids marking Kick's transient loading overlays and lets clicks pass through the video surface to the controls. |
 | Emote-name tooltips don't appear when hovering chat emotes in fullscreen | Update to **0.9.8+** — the script now reparents Kick's body-portaled popovers into the fullscreen element while side chat is active, so the Fullscreen API can display them. |
+| Clicking a paused video doesn't resume it while side chat is open, or the cursor stays an arrow over it | Update to **0.21.10+** — same cause as the row below (`pointer-events: none` on the video), for the single-click gesture. The script now handles click → resume itself while side chat is active, and shows the pointer cursor whenever a click would start playback. Clicking a *playing* stream is inert by design, so the cursor stays an arrow then. |
 | Double-clicking the video to exit fullscreen does nothing while side chat is open | Update to **0.9.9+** — the script attaches its own dblclick → exit-fullscreen handler on the fullscreen element while side chat is active, since the side-chat layout sets `pointer-events: none` on the video and blocks Kick's native double-click handler. |
+| Chat panel turns black a second after the timeline and controls fade out | Update to **0.21.10+** — the routine that fades Kick's controls could re-target the docked chat itself once Kick unmounted its own controls, and blank it. |
+| Buffering spinner sits right of centre over the video | Update to **0.21.10+** — Kick's loading overlays are now sized to the shrunken player, so what they centre lands on the video rather than on the screen. |
 | Streamer info overlay doesn't appear in fullscreen | The streamer-card selector did not match Kick's current DOM. Inspect the channel-info card in DevTools and add its selector to `STREAMER_INFO_SELECTORS` near the top of the userscript. |
 | Video doesn't fill the left side / timeline overlaps chat | Update to **0.6.0+** — the video slot now creates a containing block for Kick's `position: fixed` player layers. |
 | Changing stream quality navigates Kick to a 404 page | Update to **0.7.0+** — the script tears the side-chat layout down at the first sign of a player reload to avoid React reconciliation conflicts. |
