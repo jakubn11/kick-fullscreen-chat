@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.10
+// @version      0.21.11
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.10';
+  const VERSION = '0.21.11';
 
   // ─── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -142,7 +142,21 @@
       return;
     }
     if (!s || typeof s !== 'object') return;
-    if (typeof s.chatWidth === 'number') chatWidth = clampChatWidth(s.chatWidth);
+    // Static bounds only — deliberately NOT clampChatWidth(). Its third term
+    // (60% of the viewport) would be measured here against the *windowed*
+    // viewport at document-idle, which is the wrong one to measure against:
+    // nothing re-clamps on fullscreen entry, and the fullscreen viewport is
+    // never narrower than the windowed one. Worse, the clamped-down value is
+    // written straight back to storage by the next persistSettings() from any
+    // unrelated toggle, so opening Kick once in a narrow window would
+    // permanently shrink a width the user set on a wide display (640 in a
+    // 700px window → 420, saved). setChatWidth still applies the viewport term
+    // on every drag and preset, where there is a live viewport to measure.
+    // Number.isFinite rather than typeof: JSON can hand back NaN-producing
+    // garbage that `typeof === 'number'` waves through into `--kfc-chat-width`.
+    if (Number.isFinite(s.chatWidth)) {
+      chatWidth = Math.max(CHAT_WIDTH_MIN, Math.min(s.chatWidth, CHAT_WIDTH_MAX));
+    }
     if (s.chatSide === 'left' || s.chatSide === 'right') chatSide = s.chatSide;
     if (typeof s.overlayOpacity === 'number') {
       overlayOpacity = Math.max(25, Math.min(90, s.overlayOpacity));
@@ -4077,6 +4091,19 @@
     closeSettingsPanel();
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) wrap.remove();
+    // The toast is parented to the fullscreen element too (showToast appends it
+    // to whatever is fullscreen at the time), and it was the one node the
+    // teardown left behind. Invisible — it settles at opacity 0 — but a foreign
+    // node stranded inside Kick's React-managed player subtree, which is
+    // precisely what the rest of this script goes out of its way not to do:
+    // the chat slot, the divider, the info overlay and this wrap are all
+    // removed on the way out so the DOM is handed back exactly as found.
+    // Its fade timer goes with it, so a pending one can't touch a detached node.
+    const toast = document.getElementById(TOAST_ID);
+    if (toast) {
+      clearTimeout(toast._kfcTimer);
+      toast.remove();
+    }
   };
 
   // Idle auto-hide: fade the toggle button out when the user stops moving the
