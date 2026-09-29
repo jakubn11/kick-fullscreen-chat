@@ -27,7 +27,7 @@
 
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
 - Twitch-style streamer info overlay (avatar / name / title / game / viewer count) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable and profile/category links remain clickable
-- Click the button to shrink the video and dock the chat panel on the right (340px wide by default)
+- Click the button to shrink the video and dock the chat panel on the right, or the left per the dock-side setting (340px wide by default)
 - **Resizable chat:** drag the divider between the video and chat to set the panel width — drag well past the minimum and release to close the side chat in one gesture (the slot dims while the close is armed)
 - **Dock left or right:** a setting moves the chat panel (and divider) to either edge; the video, controls, and stream-info overlay shift to clear it
 - **Overlay mode:** a layout toggle switches between side-by-side (video shrinks) and chat floating semi-transparently over the full-width video, Twitch-style
@@ -77,7 +77,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 
 | Action | Result |
 |--------|--------|
-| Click **Chat** | Video shrinks to the left, chat panel docks on the right (340px) |
+| Click **Chat** | Video shrinks, chat panel docks on the right (340px) — or on the left, per the dock-side setting |
 | Drag the divider between video and chat | Resizes the chat panel (260–640px, capped at 60% of the screen); width is saved and restored on the next visit |
 | Drag the divider past the minimum width and release | Closes the side chat (slot dims while the close is armed; pull back above the threshold to cancel) |
 | Double-click the divider | Resets chat width to 340px |
