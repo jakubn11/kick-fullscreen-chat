@@ -127,6 +127,10 @@ KickFullscreenChat.version;         // the running version
 | `KickFullscreenChat.version` reports an older version than your script manager shows | Update to **0.21.2+** — the version constant behind the console API had fallen out of sync with the metadata header, so a correctly updated 0.21.1 install answered `"0.21.0"`. Only the reported string was wrong; the installed script was the right one. |
 | Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |
 
+## How it works
+
+When Kick's player goes fullscreen, the script adds its control cluster to the fullscreen element. Opening chat **moves Kick's own chat node** into a fixed slot beside the video and marks Kick's full-coverage player layers so CSS shrinks them to the remaining width — the player nodes themselves are never re-parented, so React can keep reconciling them (wrapping them is what used to send Kick to its 404 page). A quality change, seek or "Go to live" is caught in the capture phase, before Kick handles it, and tears the layout down first; the **Chat** button then stays disabled until the new stream has loaded. Leaving fullscreen puts the chat back exactly where it came from and removes everything the script added. Preferences live in one `localStorage` key, `kfc-settings`, and the script makes **no network requests** (`@grant none`).
+
 ## License
 
 Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
