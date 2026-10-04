@@ -277,3 +277,5 @@ Before committing any change, always:
    - A bug affecting core functionality was fixed (button missing in fullscreen, split layout broken, chat not rendering)
 
    Do NOT suggest a release for: docs-only changes, internal refactors, formatting, style tweaks the user won't notice.
+
+**Commit when a task is finished** and the checks above pass — one commit per finished task, in this repo's commit-message style. **Push only when the user asks.**
