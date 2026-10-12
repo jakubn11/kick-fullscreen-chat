@@ -266,6 +266,8 @@ Manual testing is required in a browser with a userscript manager installed. The
 
 Update `INSTALL.md` when installation steps, supported browsers, troubleshooting guidance, or user-visible behavior changes.
 
+**Troubleshooting rows live in `INSTALL.md` only.** A user-visible bug fix adds one row under **Fixed in a past release** (oldest first, "Update to **x.y.z+** — …"); general diagnostics go under **If something doesn't work**. `README.md` keeps a three-row summary that links there — don't copy rows into it, since two copies drifted apart before.
+
 Keep docs browser-agnostic. When mentioning installation steps, cover the general flow and call out manager-specific differences (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other) where they matter.
 
 Keep this file a map: when a fix needs explaining, put the explanation in the code comment at the site and in `CHANGELOG.md`, and add only the resulting rule here.
@@ -290,7 +292,7 @@ Before committing any change, always:
    ```
 
 3. **Update `CHANGELOG.md`** — add an entry under the new version with a short summary of what changed.
-4. **Update `README.md`** if the change is user-facing: new or removed features, changed behaviour, new keyboard shortcuts, or updated troubleshooting steps. Internal refactors and bug fixes that don't change user-facing behaviour do not require a README update.
+4. **Update `README.md`** if the change is user-facing: new or removed features, changed behaviour, new keyboard shortcuts, or changes to its short troubleshooting summary (bug-fix rows go in `INSTALL.md` — see **Documentation**). Internal refactors and bug fixes that don't change user-facing behaviour do not require a README update.
 5. **Suggest a GitHub Release** after every commit if any of the following apply — say "this looks like a good point to publish a GitHub Release":
    - A security fix was made
    - A user-facing feature was added (new toggle, new layout, new keyboard shortcut)
