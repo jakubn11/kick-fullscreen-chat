@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.13
+// @version      0.21.14
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.13';
+  const VERSION = '0.21.14';
 
   // ─── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1842,11 +1842,19 @@
       updateBtnLabel();
     }
   };
+  // Nothing inside our own UI re-mounts the player, and the text tests above
+  // are loose enough to match plenty there: Kick puts each chat message's text
+  // straight into its own <span>, so clicking a message that just says "1080p",
+  // "source" or "go live" read as a quality / go-live click and tore the side
+  // chat down; and kick-quality-saver's panel, mounted in our control wrap, has
+  // chips labelled exactly "Auto" / "1080p60". A real quality change from that
+  // panel is still caught — it is applied by clicking Kick's own menu items.
   const onDocClickCapture = (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
     if (!fs) return;
+    if (isKfcOwnedNode(target)) return;
     const quality = isQualityOptionClick(target);
     if (quality) return markReloadAndMaybeTeardown(fs, `quality option click (${quality})`);
     if (isSeekbarClick(target)) return markReloadAndMaybeTeardown(fs, 'seekbar click');
@@ -1862,6 +1870,7 @@
     if (!isSeekbarClick(target)) return;
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
     if (!fs) return;
+    if (isKfcOwnedNode(target)) return;
     markReloadAndMaybeTeardown(fs, 'seekbar pointerdown');
   };
   document.addEventListener('pointerdown', onDocPointerDownCapture, true);
@@ -1999,10 +2008,16 @@
     video.play()?.catch?.(() => {});
   };
 
-  const CHAT_TOGGLE_RE = /(?:hide|close|collapse|show|open|expand)\s*chat/;
+  // Anchored, with a real space and a word end: the label has to *be* "hide
+  // chat" / "show chat" etc., not merely contain those letters. Kick renders
+  // every chat username as a <button>, and the unanchored form matched names
+  // like "OpenChatFan" or "xshowchatx" — clicking one tore the side chat down,
+  // and findKickShowChatBtn could click one while syncing Kick's state. The \b
+  // also keeps "show chatters"-style labels out.
+  const CHAT_TOGGLE_RE = /^(?:hide|close|collapse|show|open|expand)\s+chat\b/;
   // Narrower: only the verbs that mean "make chat appear". findKickShowChatBtn
   // clicks what it finds, so it must never land on the *hide* control.
-  const SHOW_CHAT_RE = /(?:show|open|expand)\s*chat/;
+  const SHOW_CHAT_RE = /^(?:show|open|expand)\s+chat\b/;
   // Kick's chat-toggle controls are icon-only on the current UI: no text
   // content, no aria-label, no title. Recognise them by the SVG path data,
   // taking the first ~12 chars of the arrow path's `d` — distinctive enough
@@ -2043,8 +2058,8 @@
     for (const b of buttons) {
       if (b.id === BTN_ID) continue;
       const text = (b.textContent || '').trim().toLowerCase();
-      const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-      const title = (b.getAttribute('title') || '').toLowerCase();
+      const aria = (b.getAttribute('aria-label') || '').trim().toLowerCase();
+      const title = (b.getAttribute('title') || '').trim().toLowerCase();
       if (
         SHOW_CHAT_RE.test(text) ||
         SHOW_CHAT_RE.test(aria) ||
@@ -2067,8 +2082,8 @@
     if (!btn) return;
     if (btn.id === BTN_ID) return; // ignore our own Chat toggle
     const text = (btn.textContent || '').trim().toLowerCase();
-    const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-    const title = (btn.getAttribute('title') || '').toLowerCase();
+    const aria = (btn.getAttribute('aria-label') || '').trim().toLowerCase();
+    const title = (btn.getAttribute('title') || '').trim().toLowerCase();
     if (
       !CHAT_TOGGLE_RE.test(text) &&
       !CHAT_TOGGLE_RE.test(aria) &&
@@ -4039,9 +4054,9 @@
       // clicked it up to three times a pass, which is what made the settings
       // panel flicker open and shut. Naming the script the settings belong to
       // is more accurate anyway. Keep "chat" away from the leading verb —
-      // CHAT_TOGGLE_RE / SHOW_CHAT_RE match `open|close|…` immediately followed
-      // by "chat", and "Open chat settings" would make this script mistake its
-      // own gear for Kick's chat toggle.
+      // CHAT_TOGGLE_RE / SHOW_CHAT_RE match a label that starts with
+      // `open|close|…` followed by "chat", and "Open chat settings" would make
+      // this script mistake its own gear for Kick's chat toggle.
       settingsBtn.setAttribute(
         'aria-label',
         settingsOpen ? 'Close fullscreen chat settings' : 'Open fullscreen chat settings'

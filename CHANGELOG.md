@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.14] - 2026-10-13
+
+### Fixed
+- **Clicking certain chat messages closed the side chat.** To dodge Kick's 404 on a player reload, the script treats a click on anything whose text is exactly a quality name (`1080p`, `auto`, `source`) or "go live" as a click on Kick's quality menu or Go-to-live button, and tears the side chat down first. Kick puts each chat message's text straight into its own element, so clicking a message that just said "1080p" matched — verified against Kick's live chat markup — and closed the chat, with the **Chat** button disabled for up to 5 seconds. kick-quality-saver's quality chips, which sit in this script's control cluster, matched the same way. Clicks inside the script's own UI (the docked chat and the control cluster) are now ignored by that check; a real quality change is still caught, including one applied from kick-quality-saver, which works by clicking Kick's own menu.
+- **A chat username like "OpenChatFan" could close the side chat.** The check that recognises Kick's show/hide chat buttons matched "openchat", "showchat" or "hidechat" anywhere in a button's text, and Kick renders chat usernames as buttons. It now needs the label to start with the verb and "chat" as separate words ("Hide chat"). Kick's real toggles are icon-only and recognised by their icon, so they are unaffected.
+
 ## [0.21.13] - 2026-10-13
 
 ### Fixed
