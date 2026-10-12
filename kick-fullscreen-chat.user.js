@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.11
+// @version      0.21.12
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.11';
+  const VERSION = '0.21.12';
 
   // ─── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -132,15 +132,19 @@
       saveSettings();
     }, 300);
   };
-  const loadSettings = () => {
-    let s;
-    try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return;
-      s = JSON.parse(raw);
-    } catch (_) {
-      return;
-    }
+  // Write a debounced save out now. Without this, a setting changed in the
+  // last 300ms before a reload, a tab close or a full navigation was lost: the
+  // timer simply died with the page.
+  const flushSettings = () => {
+    if (!saveTimer) return;
+    clearTimeout(saveTimer);
+    saveTimer = 0;
+    saveSettings();
+  };
+  // Validate and apply a settings object — the whole saved blob at startup, or
+  // only the fields another tab changed (see onSettingsStorage). Fields that are
+  // missing or invalid leave the current value alone.
+  const applySettings = (s) => {
     if (!s || typeof s !== 'object') return;
     // Static bounds only — deliberately NOT clampChatWidth(). Its third term
     // (60% of the viewport) would be measured here against the *windowed*
@@ -175,6 +179,17 @@
       infoBgOpacity = Math.max(0, Math.min(90, s.infoBgOpacity));
     }
     if (typeof s.debug === 'boolean') debugOn = s.debug;
+  };
+  const loadSettings = () => {
+    let s;
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return;
+      s = JSON.parse(raw);
+    } catch (_) {
+      return;
+    }
+    applySettings(s);
   };
 
   const BTN_SVG = `<svg width="32" height="32" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8.79052 14.6146L10.9377 12.4674L8.46758 10.0061L2 16.4737L8.46758 22.9413L10.9377 20.4799L8.57232 18.1058H30V14.6146H8.79052Z"></path><path d="M29.9643 6H12.5079V9.49127H29.9643V6Z"></path><path d="M29.9643 23.4564H12.5079V26.9476H29.9643V23.4564Z"></path></svg>`;
@@ -4434,6 +4449,40 @@
   // the saved chat width onto the CSS variable so the first open uses it.
   loadSettings();
   applyChatWidth();
+
+  // Keep every open Kick tab on the same settings. Each tab holds them in
+  // memory and saves the whole blob, so without this a tab that never heard
+  // about a change wrote its stale copy back over it on its next save: set the
+  // chat width to 520 in one tab, flip any switch in another, and the width was
+  // 340 again. Only the fields that actually changed between the old and new
+  // value are applied, so a change this tab made in the last 300ms — still
+  // waiting on its debounced save — isn't overwritten by the other tab's copy
+  // of that field.
+  const onSettingsStorage = (e) => {
+    if (e.key !== SETTINGS_KEY || !e.newValue) return;
+    let prev;
+    let next;
+    try {
+      prev = JSON.parse(e.oldValue || '{}') || {};
+      next = JSON.parse(e.newValue);
+    } catch (_) {
+      return;
+    }
+    if (!next || typeof next !== 'object') return;
+    const changed = {};
+    for (const key of Object.keys(next)) {
+      if (next[key] !== prev[key]) changed[key] = next[key];
+    }
+    if (!Object.keys(changed).length) return;
+    log('settings changed in another tab:', changed);
+    applySettings(changed);
+    applyChatWidth();
+    updateWidthChips();
+    syncControlState();
+    if (active) nudgePlayerResize();
+  };
+  window.addEventListener('storage', onSettingsStorage);
+  window.addEventListener('pagehide', flushSettings);
 
   // Console API. Mirrors the debug toggle the other kick-* scripts expose, so
   // verbose logging can be flipped without editing and re-installing the file.

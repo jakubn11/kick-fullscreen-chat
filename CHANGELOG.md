@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.12] - 2026-10-12
+
+### Fixed
+- **With Kick open in two tabs, one tab could silently undo a setting changed in the other.** Each tab holds the settings in memory and saves the whole set every time anything changes, and no tab ever heard about another tab's saves. So setting the chat width to 520 in one tab and then flipping any unrelated switch in a second tab wrote the second tab's stale 340 back over it — the same "my setting reverted on its own" symptom as 0.21.11, reached from a second tab instead of a narrow window. Tabs now listen for each other's saves and pick the change up straight away (the width, dock side, opacities and switches all update live, including in a tab that is fullscreen at the time). Only the fields that actually changed are taken over, so a change you made in the current tab a moment earlier, still waiting on its save, isn't lost either.
+- **A setting changed just before reloading or closing the tab could be lost.** Saves are held back for 300ms so that dragging the divider doesn't write to storage on every frame, and nothing wrote a held-back save out when the page went away — so a width chip clicked, or a divider released, right before a reload simply wasn't kept. A pending save is now written immediately when the page is hidden for good (`pagehide`).
+
 ## [0.21.11] - 2026-08-23
 
 ### Fixed
