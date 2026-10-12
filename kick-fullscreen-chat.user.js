@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.12
+// @version      0.21.13
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.12';
+  const VERSION = '0.21.13';
 
   // ─── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1964,8 +1964,12 @@
     hoverTarget = target instanceof Element ? target : null;
     refreshSurfaceCursor();
   };
+  // Double-click → exit fullscreen. Same trust rule as onFsClick below: only a
+  // real double-click counts, so another script dispatching events at the
+  // player can't throw the user out of fullscreen.
   const onFsDblClick = (e) => {
     if (!active) return;
+    if (!e.isTrusted) return;
     if (!isVideoSurfaceClick(e)) return;
     log('double-click on video area, exiting fullscreen');
     if (document.exitFullscreen) {

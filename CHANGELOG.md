@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.13] - 2026-10-13
+
+### Fixed
+- **Double-click to exit fullscreen now ignores double-clicks dispatched by script.** It was the one player gesture without the trust check: click-to-resume (0.21.10) and the control buttons (0.21.9) already ignore events that another userscript fires at the player, but a synthetic `dblclick` on the video area would still take the user out of fullscreen. No sibling kick-* script dispatches double-clicks today, so this closes a gap rather than fixing a reported problem. A real double-click works exactly as before.
+
 ## [0.21.12] - 2026-10-12
 
 ### Fixed
