@@ -33,7 +33,7 @@
 - **Overlay mode:** a layout toggle switches between side-by-side (video shrinks) and chat floating semi-transparently over the full-width video, Twitch-style
 - **Show/hide stream info:** a toggle hides or shows the streamer-info overlay for a cleaner picture
 - **Fullscreen settings:** a gear button opens controls for overlay opacity, stream-info backdrop opacity, width presets, hide delay, chat dock side, userscript control auto-hide, overlay auto-hide, default overlay opening, auto-opening chat on fullscreen entry, and resetting to defaults
-- **Settings persist:** preferences are saved to `localStorage` and restored on the next page load (no network, no `GM_*` grants)
+- **Settings persist:** preferences are saved to `localStorage`, restored on the next page load, and kept in step across every open Kick tab (no network, no `GM_*` grants)
 - A clean dark glass control set with green icon accents, matching the sibling [kick-quality-saver](https://github.com/jakubn11/kick-quality-saver), [kick-third-party-emotes](https://github.com/jakubn11/kick-third-party-emotes), [kick-chat-utils](https://github.com/jakubn11/kick-chat-utils), and [kick-vod-resume](https://github.com/jakubn11/kick-vod-resume) userscripts' design language
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after a configurable delay of mouse inactivity (2–8s, default 4s), kept in sync with Kick's own controls/timeline; reappears instantly on mouse movement
