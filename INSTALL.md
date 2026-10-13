@@ -67,7 +67,7 @@ The script is pure DOM manipulation and uses `@grant none`, so it should work wi
 
 ## Updating
 
-The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the `main` branch on GitHub. Most managers (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other) honour these and auto-update when a new `@version` is published. Greasemonkey uses a longer default check interval (set in its preferences). **Safari's Userscripts extension is the exception** — it runs from a local folder and does not fetch `@updateURL`, so you must re-copy the latest `kick-fullscreen-chat.user.js` into your scripts folder to update. To update manually in any manager, replace `kick-fullscreen-chat.user.js` with the new version.
+The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the `kick-fullscreen-chat.user.js` attached to the latest GitHub release — not at the `main` branch, so only published releases reach you. Most managers (Tampermonkey, Violentmonkey, Greasemonkey, ScriptCat, or other) honour these and auto-update when a release with a newer `@version` is published. Greasemonkey uses a longer default check interval (set in its preferences). **Safari's Userscripts extension is the exception** — it runs from a local folder and does not fetch `@updateURL`, so you must re-copy the latest `kick-fullscreen-chat.user.js` into your scripts folder to update. To update manually in any manager, replace `kick-fullscreen-chat.user.js` with the new version.
 
 ## Troubleshooting
 

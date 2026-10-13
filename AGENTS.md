@@ -39,7 +39,7 @@ The userscript header controls permissions and host access. Keep it valid across
 
 - `@match` should remain scoped to `https://kick.com/*` unless the target changes.
 - `@grant none` — this userscript does not need any GM_* APIs. Do not add grants unless a feature actually requires one.
-- `@updateURL` / `@downloadURL` point at the `main` branch on GitHub. If the repo or branch moves, update both.
+- `@updateURL` / `@downloadURL` point at the latest GitHub release's attached script, `https://github.com/jakubn11/kick-fullscreen-chat/releases/latest/download/kick-fullscreen-chat.user.js`. Pushing to `main` reaches no one; publishing a release ships it. **Every release must attach the script as exactly `kick-fullscreen-chat.user.js`** — a release without it breaks auto-update until the next one. If the repo moves, update both URLs.
 - Bump `@version` when changing user-facing behavior or DOM logic. The `VERSION` constant near the top of the IIFE must be bumped to the **same** string in the same commit — it is what `KickFullscreenChat.version` reports.
 
 Do not add `Co-Authored-By:` trailers to git commits.
@@ -320,5 +320,7 @@ Before committing any change, always:
    - A bug affecting core functionality was fixed (button missing in fullscreen, split layout broken, chat not rendering)
 
    Do NOT suggest a release for: docs-only changes, internal refactors, formatting, style tweaks the user won't notice.
+
+   A release is what ships to users. Create it from the `vX.Y.Z` tag, attach `kick-fullscreen-chat.user.js` under exactly that name, and use notes from the `release-notes` skill. Publish it promptly after pushing a version: until then, auto-updating users stay on the previous release.
 
 **Commit when a task is finished** and the checks above pass — one commit per finished task, in this repo's commit-message style. **Push only when the user asks.**
