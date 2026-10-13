@@ -239,6 +239,20 @@ Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) 
 - `#kfc-info-overlay` — top-left clone of Kick's channel-info card
 - `#kfc-toast` — neutral error toast
 
+## Code Style
+
+The kick-* scripts share these conventions. Follow them in new and edited code; don't reformat whole files just to comply — existing code converges as it's touched.
+
+- 2-space indent, no tabs, no trailing whitespace; semicolons; single-quoted strings, template literals when interpolating.
+- `const` by default, `let` only when the binding is reassigned, never `var`; `===` / `!==` only.
+- Named functions are `function` declarations (`function applyQuality() {…}`); arrow functions are for callbacks and short inline helpers.
+- Injected CSS is one readable template literal, one declaration per line.
+- Section dividers: `// ── Name ───…` — two box-drawing dashes, a space, the name, then a run of dashes.
+- Log through the script's `log()` / `warn()` helpers, which carry the `[Name]` prefix.
+- Comments say why, not what. History belongs in `CHANGELOG.md`, not in comments.
+
+This script predates the function rule: its named functions are `const name = () => {…}` throughout. Keep new functions in that form so the file stays internally consistent, and don't convert existing ones piecemeal — a `const` arrow isn't hoisted, so moving between the two forms can change behaviour.
+
 ## Manual Testing
 
 Manual testing is required in a browser with a userscript manager installed. The version in brackets is the release whose fix the step guards; its `CHANGELOG.md` entry explains what a failure means.

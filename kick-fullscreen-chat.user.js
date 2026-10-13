@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.15
+// @version      0.21.16
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,9 +21,9 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.15';
+  const VERSION = '0.21.16';
 
-  // ─── Single instance ────────────────────────────────────────────────────
+  // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
   // auto-updating one, or two managers both enabled) do not run side by side —
   // they fight. Every node we own is addressed by a fixed id, so the second
@@ -102,7 +102,7 @@
   let idleDelayMs = 4000;                   // delay before our fullscreen UI fades
   let settingsOpen = false;
 
-  // ─── Persistence ────────────────────────────────────────────────────────
+  // ── Persistence ────────────────────────────────────────────────────────
   // Settings are saved to localStorage under one key. Writes are debounced so
   // the per-frame width updates during a divider drag don't hammer storage.
   // All access is wrapped in try/catch (private-mode / disabled storage).
@@ -2103,7 +2103,7 @@
   };
   document.addEventListener('click', onDocChatToggleClickCapture, true);
 
-  // ─── Chat-width resize ──────────────────────────────────────────────────
+  // ── Chat-width resize ──────────────────────────────────────────────────
   // The chat panel width is a CSS variable (--kfc-chat-width) referenced by
   // both the chat slot and the video-shrink calc. A fixed-position divider
   // handle drives it via pointer drag. Width is persisted (see saveSettings).
