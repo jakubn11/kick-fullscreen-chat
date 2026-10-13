@@ -75,7 +75,7 @@ The userscript metadata includes `@updateURL` and `@downloadURL` pointing at the
 
 | Symptom | Fix |
 |---------|-----|
-| Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
+| Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines — the first is `[KickFullscreenChat] v<version> active`. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
 | Button appears, clicking it does nothing | The chat selector did not match Kick's current DOM. You will see `chat container not found` in the console. Inspect the chat panel in DevTools and add its selector to `CHAT_SELECTORS` near the top of the userscript. |
 | Streamer info overlay doesn't appear in fullscreen | The streamer-card selector did not match Kick's current DOM. Inspect the channel-info card in DevTools and add its selector to `STREAMER_INFO_SELECTORS` near the top of the userscript. |
 | Layout breaks after a Kick update | Kick may have changed the chat container class or the `data-chat` attribute. Open an issue with the relevant class names from the browser inspector. |

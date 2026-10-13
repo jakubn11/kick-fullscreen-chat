@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.15] - 2026-10-13
+
+### Added
+- **The running version is logged at boot** — `[KickFullscreenChat] v0.21.15 active` — as every sibling kick-* script already does, so the installed build shows in the console without asking for it. `KickFullscreenChat.version` still reports it too.
+
 ## [0.21.14] - 2026-10-13
 
 ### Fixed

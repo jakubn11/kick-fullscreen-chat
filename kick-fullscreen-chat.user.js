@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.14
+// @version      0.21.15
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.14';
+  const VERSION = '0.21.15';
 
   // ─── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -51,6 +51,9 @@
     return;
   }
   document.documentElement.setAttribute(INSTANCE_ATTR, VERSION);
+  // Logged once at boot, always — not gated by debug mode — like every kick-*
+  // script, so the running build shows in the console without asking for it.
+  console.info(`[KickFullscreenChat] v${VERSION} active`);
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.

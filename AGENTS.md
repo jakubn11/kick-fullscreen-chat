@@ -14,9 +14,15 @@ This file is the map and the rules. **The reasoning behind a rule lives next to 
 
 ## Commands
 
-There is no package manager, build step, linter, or automated test suite configured.
+There is no package manager, build step, or linter. `test/run.sh` is the one entry point for the automated checks: the syntax check below, then `@version` / `VERSION` / top CHANGELOG entry agreeing. It exits non-zero on any failure.
 
-- Syntax check: `node --check kick-fullscreen-chat.user.js`. Without Node installed, macOS ships a JavaScript engine that can parse-check without executing (the file is an IIFE, so it must not be *run* to be checked):
+```bash
+test/run.sh
+```
+
+There is no CI — don't add GitHub workflows. `test/run.sh` is the gate, run locally before every commit.
+
+- Syntax check (also run by `test/run.sh`): `node --check kick-fullscreen-chat.user.js`. Without Node installed, macOS ships a JavaScript engine that can parse-check without executing (the file is an IIFE, so it must not be *run* to be checked):
   `/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -e 'try { new Function(readFile("kick-fullscreen-chat.user.js")); print("syntax OK"); } catch (e) { print("SYNTAX ERROR: " + e); }'`
 - No build step — the `.user.js` is shipped as-is.
 
@@ -44,6 +50,7 @@ Do not add `Co-Authored-By:` trailers to git commits.
 
 - **Userscript metadata header**
 - **Single-instance guard** (0.21.8) — first thing in the IIFE. Marks `<html>` with `data-kfc-running="<version>"`; a later copy `console.warn`s naming both versions and `return`s. First instance wins. Two copies would adopt each other's fixed-id nodes and fight over them. The marker is a DOM attribute, not a `window` property, because managers disagree on whether userscripts share a JS context but always share the DOM.
+- **Boot line** (0.21.15) — right after the guard, `console.info` logs `[KickFullscreenChat] v<version> active`, always, not gated by debug mode — as the sibling scripts do.
 - **Constants** — element IDs (`BTN_ID`, `WRAP_ID`, `STYLE_ID`, …), `CHAT_WIDTH` and its bounds, and the inlined control SVGs (`BTN_SVG`, `MODE_SVG`, `INFO_SVG`, `SETTINGS_SVG`).
 - **Fragile DOM selectors** — `VIDEO_WRAPPER_SELECTORS`, `CHAT_SELECTORS`, `STREAMER_INFO_SELECTORS`, `VIEWER_COUNT_SELECTORS` (see DOM And Routing Notes).
 - **Chat discovery** — `pick()`, `findChatByInput()`, `findChat()`.
@@ -276,7 +283,7 @@ Keep this file a map: when a fix needs explaining, put the explanation in the co
 
 Before committing any change, always:
 
-1. **Run the syntax check** (see **Commands**) — it must print `syntax OK`.
+1. **Run `test/run.sh`** (see **Commands**) — it must end with `all checks passed`.
 2. **Bump `@version`** in the `kick-fullscreen-chat.user.js` metadata header using these rules:
 
    | Change | Bump | Example |

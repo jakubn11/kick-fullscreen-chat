@@ -101,7 +101,7 @@ KickFullscreenChat.version;         // the running version
 
 | Symptom | Fix |
 |---------|-----|
-| Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
+| Button never appears in fullscreen | Open DevTools → Console and look for `[KickFullscreenChat]` log lines — the first is `[KickFullscreenChat] v<version> active`. If absent, check that the userscript is enabled for `kick.com` and that `@match https://kick.com/*` is present in the metadata block. |
 | Button appears, clicking it does nothing | Kick has probably changed its chat markup: a "chat panel not found" toast appears and the console logs `chat container not found` with lookup diagnostics. Open an issue with them. |
 | Something else misbehaves | Most past problems — settings opening on their own, Kick 404s, a setting reverting, the chat going black — were fixed in a specific release. Run `KickFullscreenChat.version` in the console, update if you're behind, then check the full list in [INSTALL.md → Troubleshooting](INSTALL.md#troubleshooting). |
 
