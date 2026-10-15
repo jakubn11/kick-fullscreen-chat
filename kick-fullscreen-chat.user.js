@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.17
+// @version      0.21.18
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.17';
+  const VERSION = '0.21.18';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -462,17 +462,17 @@
          (dark #101013 surface, neutral translucent border, blur backdrop,
          layered shadow) rather than reusing Kick's native button classes.
          The single green (#22c55e) accent is the icon; the surface stays
-         neutral per the "one green accent per component" rule. */
+         neutral per the "one green accent per component" rule. Padding, type
+         and the 18px icon match kick-quality-saver's video button (7px 12px,
+         500 13px/1.2) and .kfc-control-btn, so every button in the cluster —
+         including the kqs one docked beside them — is the same 34px tall. */
       #${BTN_ID} {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: .5rem;
-        padding: .5rem .85rem;
-        font-family: sans-serif;
-        font-weight: 700;
-        font-size: 1rem;
-        line-height: 1;
+        gap: 8px;
+        padding: 7px 12px;
+        font: 500 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
         color: #fff;
         background: #101013;
         border: 1px solid rgba(255,255,255,.1);
@@ -497,8 +497,8 @@
         pointer-events: none;
       }
       #${BTN_ID} svg {
-        width: 1.25em;
-        height: 1.25em;
+        width: 18px;
+        height: 18px;
         fill: #22c55e;
         transition: transform .15s ease;
       }
@@ -511,7 +511,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: .45rem;
+        padding: 7px;
         color: #fff;
         background: #101013;
         border: 1px solid rgba(255,255,255,.1);
@@ -530,8 +530,8 @@
         background: linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013;
       }
       .kfc-control-btn svg {
-        width: 1.15rem;
-        height: 1.15rem;
+        width: 18px;
+        height: 18px;
         fill: #22c55e;
       }
       /* When the info overlay is hidden, dim the toggle's icon so its state
@@ -1489,17 +1489,24 @@
         width: 100% !important;
       }
 
+      /* The family toast spec, shared with every sibling kick-* toast: opaque
+         #101013, neutral border, 8px radius, the family shadow, 8px 12px
+         padding, 500 13px/1.3 system-ui text. (kick-chat-utils's scrolling
+         stack would clip the outer shadow, so its cards keep only the inset.) */
       #${TOAST_ID} {
         position: fixed;
         top: 24px;
         right: 24px;
         z-index: 2147483647;
-        background: rgba(16,16,19,.88);
+        background: #101013;
         color: #fff;
-        padding: 10px 14px;
+        padding: 8px 12px;
         border-radius: 8px;
-        font: 600 13px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 500 13px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
         border: 1px solid rgba(255,255,255,.1);
+        box-shadow: 0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
         opacity: 0;
         transform: translateY(-8px);
         transition: opacity .2s ease, transform .2s ease;
@@ -1509,6 +1516,14 @@
       #${TOAST_ID}.kfc-toast-show {
         opacity: 1;
         transform: translateY(0);
+      }
+      /* Reduced motion: the toast fades in place instead of sliding down. */
+      @media (prefers-reduced-motion: reduce) {
+        #${TOAST_ID},
+        #${TOAST_ID}.kfc-toast-show {
+          transform: none;
+          transition: opacity .2s ease;
+        }
       }
     `;
     document.head.appendChild(style);

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.18] - 2026-10-15
+
+### Changed
+- **The Chat button matches the rest of the control cluster.** It used the browser's generic sans-serif in bold at 16px, while kick-quality-saver's button docked beside it uses the system font at 13px. It now uses the same font, weight, padding and 18px icon, and the icon buttons were set to the same 18px icon and 7px padding, so every button in the row is 34px tall.
+- **The error toast uses the toast style shared by all kick-* scripts:** an opaque dark surface, the family shadow, regular-weight text and 8px 12px padding. With "reduce motion" turned on it fades in place instead of sliding down.
+
 ## [0.21.17] - 2026-10-13
 
 ### Changed

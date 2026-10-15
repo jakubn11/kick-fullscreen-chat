@@ -204,10 +204,11 @@ Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) 
 | Box shadow | `0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)` | Button depth |
 | Backdrop | `blur(10px)` | Button glass effect |
 | Border radius | `8px` | Button corners |
+| Button sizing | `7px 12px` padding, `500 13px/1.2` family stack, `18px` icon (Chat); `7px` padding, `18px` icon (`.kfc-control-btn`) | Every cluster button is 34px tall — the same as kick-quality-saver's docked video button |
 | `BTN_SVG` / `MODE_SVG` / `INFO_SVG` / `SETTINGS_SVG` | hardcoded icons | Button icon path data (recoloured green via CSS) |
 | `--kfc-chat-width` | default `340px` | Chat-panel width; drives both the slot width and the video-shrink `calc()` |
 | `top: 1.75rem; right: 1.75rem` | Kick's `top-7 right-7` placement | `#kfc-toggle-wrap` positioning |
-| `rgba(16,16,19,.88)` + `rgba(255,255,255,.1)` border | Toast surface — the family `#101013` at 88% | `#kfc-toast` (errors only) |
+| Family toast spec | opaque `#101013`, neutral border, `8px` radius, family shadow, `blur(10px)`, `8px 12px` padding, `500 13px/1.3` family stack | `#kfc-toast` (errors only) — shared with every sibling toast |
 
 ### Rules
 
@@ -223,7 +224,7 @@ Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) 
   - **Capped and scrollable:** `max-height: 76vh; overflow-y: auto` plus the family scrollbar (8px, `rgba(255,255,255,.13)` thumb inset by a 2px transparent border with `background-clip: padding-box`, `999px` radius), copied verbatim from `.kqs-card`. Uncapped, it ran off the bottom at 720p / 110%+ zoom. **Every new settings row must keep this true — check the panel at 720p.**
   - Keep it in step with the sibling panel; changing one usually means changing both.
 - **The resize divider is a thin neutral line** — 2px `rgba(255,255,255,.12)`, green (`#22c55e`) on hover/drag. No label, fill or shadow.
-- **Toasts sit on the family surface** — `rgba(16,16,19,.88)`, neutral border, `8px` radius, no green (an error surface, not a control).
+- **Toasts follow the family toast spec** shared by the kick-* scripts — opaque `#101013`, `rgba(255,255,255,.1)` border, `8px` radius, the family shadow (`0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)`), `blur(10px)`, `8px 12px` padding, `500 13px/1.3` text in the family stack (`system-ui, -apple-system, "Segoe UI", sans-serif`) — and no green (an error surface, not a control). With `prefers-reduced-motion: reduce` the toast fades in place instead of sliding down.
 - **The info overlay reuses Kick's own card markup** — a clone plus positioning and a readability gradient. No custom typography, badges, or colour tokens.
 - **No new self-painted tooltips, menus, or popovers.** The script's own UI is limited to: the control cluster, one settings panel, one chat slot, one resize divider, one toast, one info overlay (a clone), and a per-popover clone wrapper. Clone Kick's nodes instead of painting new UI.
 
