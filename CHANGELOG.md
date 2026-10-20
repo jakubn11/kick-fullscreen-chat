@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.20] - 2026-10-20
+
+### Fixed
+- **The stream-info overlay could start copying its own copy.** The overlay is a clone of Kick's channel card and viewer-count badge, placed inside the player — which comes before Kick's originals in the page — and it keeps their attributes, `data-testid="viewer-count"` included. When Kick re-mounts the badge or the card mid-fullscreen, the script looks the source up again, and that lookup returned the overlay's clone rather than Kick's node. From then on the overlay was sourced from itself: every refresh replaced the clone it was tracking, which counted as the source disappearing and started another lookup, so it re-cloned on every frame for the rest of the fullscreen session and stopped following Kick's real viewer count. Every lookup the overlay uses — the card's direct selectors, its avatar and category-link searches, and the viewer count's selectors and text fallback — now skips the script's own nodes. Confirmed on a live channel page: with a clone in place, the old viewer-count lookup and the category-link search both reached the clone first.
+
 ## [0.21.19] - 2026-10-20
 
 ### Fixed

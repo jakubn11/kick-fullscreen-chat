@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.19
+// @version      0.21.20
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.19';
+  const VERSION = '0.21.20';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -2939,6 +2939,19 @@
     popoverPortalHost = null;
   };
 
+  // First match for `selector` that isn't one of our own nodes. The info
+  // overlay's clone lives inside the player, ahead of Kick's originals in
+  // document order, and keeps their attributes — so a plain querySelector
+  // re-finding a source after Kick re-mounts it returns the clone. Sourcing
+  // from the clone re-clones it every frame: each reclone detaches the
+  // tracked "source", which triggers another refind.
+  const queryKickNode = (selector) => {
+    for (const el of document.querySelectorAll(selector)) {
+      if (!isKfcOwnedNode(el)) return el;
+    }
+    return null;
+  };
+
   // Twitch-style streamer info overlay. We *clone* Kick's existing channel-info
   // card into fsEl rather than moving it, for the same reason as popovers:
   // Kick's React reconciler may unmount or replace the card in the background,
@@ -2953,7 +2966,7 @@
     // 1. Try known direct selectors first.
     for (const s of STREAMER_INFO_SELECTORS) {
       try {
-        const el = document.querySelector(s);
+        const el = queryKickNode(s);
         if (el) return el;
       } catch (err) {
         // Selector syntax error in a fallback shouldn't break the rest.
@@ -2989,7 +3002,6 @@
       ));
     }
     for (const avatar of avatars) {
-      // Our own overlay clone sits inside the player, ahead of Kick's card.
       if (isKfcOwnedNode(avatar)) continue;
       let node = avatar.parentElement;
       for (let i = 0; i < 12 && node && node !== document.body; i++) {
@@ -3023,6 +3035,7 @@
       'a[href*="/categories/"], a[href*="/category/"]'
     );
     for (const link of categoryLinks) {
+      if (isKfcOwnedNode(link)) continue;
       let node = link.parentElement;
       for (let i = 0; i < 12 && node && node !== document.body; i++) {
         if (player && node.contains(player)) break;
@@ -3050,7 +3063,7 @@
     // Direct selectors first.
     for (const s of VIEWER_COUNT_SELECTORS) {
       try {
-        const el = document.querySelector(s);
+        const el = queryKickNode(s);
         if (el) return el;
       } catch (err) {}
     }
@@ -3064,6 +3077,7 @@
       const text = (el.textContent || '').trim();
       if (text.length === 0 || text.length > 30) continue;
       if (!VIEWER_COUNT_RE.test(text)) continue;
+      if (isKfcOwnedNode(el)) continue;
       if (
         !best ||
         text.length < (best.textContent || '').trim().length
