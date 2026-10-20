@@ -4,11 +4,15 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.21.18** — visual tidy-up to match the other kick-* scripts
+**0.24.3** — Kick's buttons and tags in the fullscreen stream info; Hide chat works on the first click again
 
-- **Chat button** uses the system font at 13px, so every button in the top-right row is the same 34px height.
-- **Error toast** uses the shared kick-* toast style: opaque dark surface, soft shadow, regular-weight text.
-- **Reduce motion:** with it on, the toast fades in place instead of sliding down.
+- **Kick's buttons in the stream info** — follow, bell, subscribe, gift subs, share and report sit under the channel card and work without leaving fullscreen: menus open next to the button, dialogs over the player.
+- **Kick's tooltips** on those buttons, e.g. your subscription's end date on the sub button.
+- **Tags** beside the category, with the viewer count after them.
+- **Stream info settings** — show or hide Kick's buttons and the tags; the backdrop slider moved into the same group.
+- **Avatar is back** in the stream info, and the title is no longer as big and bold as the channel name.
+- **Hide chat closes the side chat on the first click again**, after Kick redrew its chat buttons.
+- **Faded stream info no longer catches clicks**, and the settings panel no longer slides sideways as it opens.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -36,6 +40,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Double-click the divider | Resets chat width to 340px |
 | Layout toggle (while chat is open) | Switches between side-by-side and overlay |
 | Info toggle | Hides or shows the stream-info overlay |
+| Kick's buttons in the stream info | Work as on Kick's page, without leaving fullscreen |
 | Settings gear | Opens fullscreen settings |
 | Kick's **Hide chat** | Closes the side chat and restores the fullscreen video |
 
