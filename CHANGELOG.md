@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.2] - 2026-10-20
+
+### Fixed
+- **The stream title in the fullscreen info overlay was styled like the channel name.** The overlay makes the name stand out with a rule aimed at headings, from when the name was the card's only one. Kick now marks the title up as an `<h2>` as well, so the title was enlarged and bolded too (18.4px / 700 against the name's 23px / 700, where Kick's page has 14px / 600 against 20px / 700) and the two read as one block. The same assumption had also cut the title to a single line: the rule that lets it wrap onto a second line skips headings, so Kick's own one-line truncation won. The name styling now leaves out the title (`data-testid="livestream-title"`, `STREAM_TITLE_SEL`), which keeps Kick's own size and weight, and the two-line wrap names the title outright.
+
 ## [0.23.1] - 2026-10-20
 
 ### Added

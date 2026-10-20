@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.23.1
+// @version      0.23.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.23.1';
+  const VERSION = '0.23.2';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -239,6 +239,9 @@
     '#streamer-info',
     '#channel-info',
   ];
+  // Kick's stream title. It is an <h2>, so the styling meant for the channel
+  // name — which matches headings — has to leave it out by name.
+  const STREAM_TITLE_SEL = '[data-testid="livestream-title"]';
   // Kick's follow / subscribe buttons. They sit in a column beside the
   // channel card rather than inside it; the card search widens to the parent
   // holding both when it finds them, so the overlay carries Kick's actions.
@@ -1688,13 +1691,10 @@
          reads as the top element above the title. Size is only slightly
          larger than body text so a long username doesn't dominate the
          overlay (Kick's own compact card uses a similar restrained
-         hierarchy). */
-      #${INFO_ID} h1,
-      #${INFO_ID} h2,
-      #${INFO_ID} h3,
-      #${INFO_ID} [class*="username" i],
-      #${INFO_ID} [class*="streamer-name" i],
-      #${INFO_ID} [class*="channel-name" i] {
+         hierarchy). Not the title: Kick marks it up as an <h2> too, and
+         sized and weighted like the name the two read as one block. It keeps
+         Kick's own smaller, semibold text. */
+      #${INFO_ID} :is(h1, h2, h3, [class*="username" i], [class*="streamer-name" i], [class*="channel-name" i]):not(${STREAM_TITLE_SEL}) {
         font-size: 1.15em !important;
         font-weight: 700 !important;
         line-height: 1.2 !important;
@@ -1708,9 +1708,11 @@
          any descendant carrying those utility classes — covers the title
          specifically and is a no-op on shorter text that already fits.
          Headings (the streamer name) are excluded so a long username
-         doesn't sprawl across two lines. */
+         doesn't sprawl across two lines — except the title, a heading
+         itself, which is named outright. */
       #${INFO_ID} [class*="truncate"]:not(h1):not(h2):not(h3),
-      #${INFO_ID} [class*="line-clamp"]:not(h1):not(h2):not(h3) {
+      #${INFO_ID} [class*="line-clamp"]:not(h1):not(h2):not(h3),
+      #${INFO_ID} ${STREAM_TITLE_SEL} {
         display: -webkit-box !important;
         -webkit-box-orient: vertical !important;
         -webkit-line-clamp: 2 !important;
