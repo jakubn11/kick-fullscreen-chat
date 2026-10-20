@@ -18,7 +18,7 @@ Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/bl
 - **Resizable chat** — drag the divider to set the width (260–640px, at most 60% of the screen); drag past the minimum and release to close chat in one gesture
 - **Overlay mode** — switch between side-by-side and chat floating semi-transparently over the full-width video
 - **Stream-info overlay** — avatar, name, title, category, tags and viewer count in the top-left, with Kick's follow / subscribe / gift / share / report buttons under it, fading with Kick's own controls; its links and buttons leave fullscreen and then work as on Kick's page
-- **Fullscreen settings** — overlay and stream-info opacity, width presets, hide delay, dock side, control and overlay auto-hide, default overlay mode, auto-open chat on fullscreen, reset to defaults
+- **Fullscreen settings** — overlay and stream-info opacity, which parts of the stream info to show (follow / sub / share buttons, tags), width presets, hide delay, dock side, control and overlay auto-hide, default overlay mode, auto-open chat on fullscreen, reset to defaults
 - **Auto-fade** — the controls hide after 2–8s of mouse inactivity (default 4s) and come back as soon as you move the mouse
 - **Player gestures kept** — click a paused stream to resume it, double-click to exit fullscreen
 - **Safe around reloads** — the Chat button is disabled while the player reloads (quality change, seek, "go to live"), so a click can't trigger Kick's 404 page

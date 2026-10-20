@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.22.0
+// @version      0.23.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.22.0';
+  const VERSION = '0.23.0';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -94,6 +94,8 @@
   let overlayMode = false;                  // chat floats over video vs. shrinks it
   let infoHidden = false;                   // streamer-info overlay hidden by the user
   let infoBgOpacity = 60;                   // streamer-info overlay backdrop opacity, 0..90 (%)
+  let infoShowActions = true;               // Kick's follow / sub / share buttons in the info overlay
+  let infoShowTags = true;                  // Kick's tag pills in the info overlay
   let overlayOpacity = 55;                  // overlay chat opacity, 25..90 (%)
   let autoHideOverlayChat = true;           // fade overlay chat while player is idle
   let autoHideControls = true;              // fade the top control cluster / info overlay
@@ -123,6 +125,8 @@
           idleDelayMs,
           infoHidden,
           infoBgOpacity,
+          infoShowActions,
+          infoShowTags,
           debug: debugOn,
         })
       );
@@ -181,6 +185,8 @@
     if (typeof s.infoBgOpacity === 'number') {
       infoBgOpacity = Math.max(0, Math.min(90, s.infoBgOpacity));
     }
+    if (typeof s.infoShowActions === 'boolean') infoShowActions = s.infoShowActions;
+    if (typeof s.infoShowTags === 'boolean') infoShowTags = s.infoShowTags;
     if (typeof s.debug === 'boolean') debugOn = s.debug;
   };
   const loadSettings = () => {
@@ -1511,6 +1517,12 @@
       #${INFO_ID} .kfc-info-actions > * {
         align-self: auto !important;
       }
+      /* Per-part visibility from the settings panel. Set on the wrapper,
+         which survives the reclone that replaces the card under it. */
+      #${INFO_ID}.kfc-info-no-actions .kfc-info-actions,
+      #${INFO_ID}.kfc-info-no-tags .kfc-info-tag {
+        display: none !important;
+      }
       /* Boost streamer name prominence. The cloned card's headings (or
          heading-shaped class patterns) get bolder white text so the name
          reads as the top element above the title. Size is only slightly
@@ -2223,6 +2235,8 @@
     overlayMode = false;
     infoHidden = false;
     infoBgOpacity = 60;
+    infoShowActions = true;
+    infoShowTags = true;
     overlayOpacity = 55;
     autoHideOverlayChat = true;
     autoHideControls = true;
@@ -3345,6 +3359,12 @@
       node.style.setProperty('box-shadow', 'none', 'important');
       node.style.setProperty('text-shadow', 'none', 'important');
     }
+    // Kick's tag pills follow the category; marked so the settings can hide them.
+    let lastTag = categoryLink;
+    while (lastTag.nextElementSibling && looksLikeTagPill(lastTag.nextElementSibling)) {
+      lastTag = lastTag.nextElementSibling;
+      lastTag.classList.add('kfc-info-tag');
+    }
     if (infoViewerSource && document.body.contains(infoViewerSource)) {
       const viewerClone = infoViewerSource.cloneNode(true);
       viewerClone.classList.add('kfc-info-viewer-inline');
@@ -3352,13 +3372,8 @@
       const separator = document.createElement('span');
       separator.className = 'kfc-info-separator';
       separator.setAttribute('aria-hidden', 'true');
-      // After the tag pills that follow the category, so the row reads
-      // "IRL  Czech  18+ • 682 viewers".
-      let anchor = categoryLink;
-      while (anchor.nextElementSibling && looksLikeTagPill(anchor.nextElementSibling)) {
-        anchor = anchor.nextElementSibling;
-      }
-      anchor.after(separator, viewerClone);
+      // After the tags, so the row reads "IRL  Czech  18+ • 682 viewers".
+      lastTag.after(separator, viewerClone);
     }
   };
 
@@ -3510,6 +3525,15 @@
     infoBodyCheckPending = false;
   };
 
+  // The overlay's show/hide preferences live on its wrapper, not the card
+  // clone — every reclone replaces the clone.
+  const applyInfoOverlayPrefs = () => {
+    if (!infoOverlay) return;
+    infoOverlay.classList.toggle('kfc-hidden', infoHidden);
+    infoOverlay.classList.toggle('kfc-info-no-actions', !infoShowActions);
+    infoOverlay.classList.toggle('kfc-info-no-tags', !infoShowTags);
+  };
+
   const mountInfoOverlay = (fsEl) => {
     unmountInfoOverlay();
     const source = findStreamerInfoSource();
@@ -3546,8 +3570,8 @@
     fsEl.appendChild(wrapper);
     infoOverlay = wrapper;
     infoOverlaySource = source;
-    // Honour the user's show/hide preference for this session.
-    if (infoHidden) wrapper.classList.add('kfc-hidden');
+    // Honour the user's show/hide preferences.
+    applyInfoOverlayPrefs();
 
     // Re-clone the source on subtree / text mutations. Attribute mutations
     // are deliberately not observed — Kick's UI uses transitions driven by
@@ -3767,7 +3791,7 @@
     infoOpacityInput.step = '5';
     infoOpacityInput.value = String(infoBgOpacity);
     const infoOpacityRange = createSettingsRange(
-      'Stream-info backdrop',
+      'Backdrop',
       `${infoBgOpacity}%`,
       infoOpacityInput,
       'kfc-settings-info-opacity-value'
@@ -3864,7 +3888,6 @@
     panel.appendChild(createSettingsGroup(
       'Overlay',
       opacityRange.row,
-      infoOpacityRange.row,
       createSettingsSwitches(
         createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
           autoHideOverlayChat = checked;
@@ -3872,6 +3895,23 @@
           onFsMouseMove();
           persistSettings();
         }, 'kfc-settings-autohide-input'),
+      ),
+    ));
+
+    panel.appendChild(createSettingsGroup(
+      'Stream info',
+      infoOpacityRange.row,
+      createSettingsSwitches(
+        createSettingsCheckbox('Show follow, sub & share', infoShowActions, (checked) => {
+          infoShowActions = checked;
+          syncControlState();
+          persistSettings();
+        }, 'kfc-settings-info-actions-input'),
+        createSettingsCheckbox('Show tags', infoShowTags, (checked) => {
+          infoShowTags = checked;
+          syncControlState();
+          persistSettings();
+        }, 'kfc-settings-info-tags-input'),
       ),
     ));
 
@@ -4185,7 +4225,7 @@
       resizeHandle.classList.remove('kfc-overlay-idle');
     }
 
-    if (infoOverlay) infoOverlay.classList.toggle('kfc-hidden', infoHidden);
+    applyInfoOverlayPrefs();
 
     const modeBtn = document.getElementById(MODE_BTN_ID);
     if (modeBtn) {
@@ -4243,6 +4283,10 @@
     if (restoreInput) restoreInput.checked = restoreChatOnFullscreen;
     const dockLeftInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-dock-left-input`);
     if (dockLeftInput) dockLeftInput.checked = chatSide === 'left';
+    const infoActionsInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-info-actions-input`);
+    if (infoActionsInput) infoActionsInput.checked = infoShowActions;
+    const infoTagsInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-info-tags-input`);
+    if (infoTagsInput) infoTagsInput.checked = infoShowTags;
   };
 
   const toggleSettingsPanel = () => {

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-10-20
+
+### Added
+- **Stream-info settings.** A new **Stream info** group in fullscreen settings has two switches, **Show follow, sub & share** (Kick's action buttons under the card) and **Show tags** (the tag pills after the category), both on by default, alongside the backdrop slider, which moved here from the **Overlay** group and is now labelled **Backdrop**. Both are saved in `kfc-settings` (`infoShowActions`, `infoShowTags`), follow **Reset settings**, and stay in step across open tabs. They are applied as classes on the overlay's wrapper rather than on the card clone, since every reclone replaces the clone; the tag pills are marked `.kfc-info-tag` when the card is cloned so they can be hidden.
+
 ## [0.22.0] - 2026-10-20
 
 ### Added
