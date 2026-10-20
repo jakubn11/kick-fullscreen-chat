@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.2
+// @version      0.24.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.2';
+  const VERSION = '0.24.3';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -2404,8 +2404,8 @@
   // Narrower: only the verbs that mean "make chat appear". findKickShowChatBtn
   // clicks what it finds, so it must never land on the *hide* control.
   const SHOW_CHAT_RE = /^(?:show|open|expand)\s+chat\b/;
-  // Kick's chat-toggle controls are icon-only on the current UI: no text
-  // content, no aria-label, no title. Recognise them by the SVG path data,
+  // Kick's chat-toggle controls carry no telling label: no aria-label, no
+  // title, and at most the bare word "Chat". Recognise them by the SVG path data,
   // taking the first ~12 chars of the arrow path's `d` — distinctive enough
   // that nothing else on the page shares it (verified: exactly one matching
   // path element each), but short enough to survive minor minifier changes.
@@ -2427,10 +2427,27 @@
     }
     return false;
   };
+  // Kick has since moved both toggles onto its design-system icons, which name
+  // themselves (`data-ds-icon`) — a sturdier signature than path data, which
+  // went stale with the redraw and made closing the chat take two clicks again
+  // (0.24.3). Hide is the chat header's CollapseRight; Show is now a "Chat"
+  // button with MessagesOutline, floating over the player. That icon is
+  // generic, so the show button must also sit in the player's own container —
+  // findKickShowChatBtn *clicks* what this matches.
+  const KICK_HIDE_CHAT_ICON = 'CollapseRight';
+  const KICK_SHOW_CHAT_ICON = 'MessagesOutline';
+  const hasDsIcon = (btn, name) => !!btn.querySelector(`svg[data-ds-icon="${name}"]`);
+  const isKickHideChatBtn = (btn) =>
+    hasPathSig(btn, KICK_HIDE_CHAT_PATH_SIG) || hasDsIcon(btn, KICK_HIDE_CHAT_ICON);
+  const isKickShowChatBtn = (btn) => {
+    if (hasPathSig(btn, KICK_SHOW_CHAT_PATH_SIG)) return true;
+    if (!hasDsIcon(btn, KICK_SHOW_CHAT_ICON) || isKfcOwnedNode(btn)) return false;
+    const player = document.querySelector('#injected-channel-player, [data-testid="player"]');
+    return !!player?.parentElement?.contains(btn);
+  };
   // Either direction — used to spot that the *user* clicked a chat toggle, where
   // which one it was doesn't matter.
-  const looksLikeChatToggleBtn = (btn) =>
-    hasPathSig(btn, KICK_SHOW_CHAT_PATH_SIG) || hasPathSig(btn, KICK_HIDE_CHAT_PATH_SIG);
+  const looksLikeChatToggleBtn = (btn) => isKickShowChatBtn(btn) || isKickHideChatBtn(btn);
   // Best-effort lookup for Kick's own "Show chat" button anywhere on the page.
   // Used during enableSideChat to sync Kick's React state when it thinks chat
   // is hidden (otherwise React reconciles our data-chat="true" back to "false"
@@ -2452,10 +2469,10 @@
         SHOW_CHAT_RE.test(title)
       ) return b;
     }
-    // Pass 2: SVG-path signature for icon-only buttons.
+    // Pass 2: icon signature (design-system name, or legacy path data).
     for (const b of buttons) {
       if (b.id === BTN_ID) continue;
-      if (hasPathSig(b, KICK_SHOW_CHAT_PATH_SIG)) return b;
+      if (isKickShowChatBtn(b)) return b;
     }
     return null;
   };

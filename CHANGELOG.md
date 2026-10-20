@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.3] - 2026-10-20
+
+### Fixed
+- **Closing the side chat with Kick's Hide chat button took two clicks again.** Kick moved both chat-toggle buttons onto its design-system icon set: Hide chat is now the chat header's `CollapseRight` icon and Show chat a "Chat" button with a `MessagesOutline` icon floating over the player, with new path data in both. Neither matched the path signatures the script recognised them by, which had two effects. The capture handler that tears the side chat down on the Hide click itself never fired, and the script could no longer find Kick's Show chat button to bring Kick's state in line when opening the side chat — so Kick could still believe its chat was hidden, the first Hide click flipped it to shown, and only the second hid it and reached the `data-chat` observer. Both buttons are now recognised by their icon names (`data-ds-icon`), which survive a redraw; the show button must also sit in the player's own container, since its icon is a generic one and this is the button the script clicks. The old path signatures stay as fallbacks. Confirmed on a live channel page: exactly one button matches each, and clicking the matched Show chat button turns Kick's chat back on.
+
 ## [0.24.2] - 2026-10-20
 
 ### Fixed
