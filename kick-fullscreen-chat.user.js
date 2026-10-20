@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.20
+// @version      0.22.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.20';
+  const VERSION = '0.22.0';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -233,6 +233,11 @@
     '#streamer-info',
     '#channel-info',
   ];
+  // Kick's follow / subscribe buttons. They sit in a column beside the
+  // channel card rather than inside it; the card search widens to the parent
+  // holding both when it finds them, so the overlay carries Kick's actions.
+  const INFO_ACTION_SELECTORS =
+    '[data-testid="follow-button"], [data-testid="sub-button"]';
   // Viewer-count badge (e.g., "770 Viewers"). Cloned into the overlay as a
   // separate child below the streamer card, since Kick renders it as its
   // own element outside the compact streamer card we clone.
@@ -308,6 +313,13 @@
     );
   };
 
+  // The overlay's links and buttons sit where the pointer rests as often as
+  // the cluster's do, so they take the same guards: real input only, and not
+  // the click that re-activates the window (see controlsAcceptActivation).
+  // Stakes are higher here — one of them is Follow.
+  const overlayAcceptsActivation = (event) =>
+    event.isTrusted && controlsAcceptActivation({ pointer: !!event.detail });
+
   const wireOverlayNavigation = (el, getNativeEl, fallbackUrl) => {
     if (!el || el.dataset.kfcNavWired === 'true') return;
     el.dataset.kfcNavWired = 'true';
@@ -315,7 +327,43 @@
       if (!shouldHandleOverlayNavigation(event)) return;
       event.preventDefault();
       event.stopPropagation();
+      if (!overlayAcceptsActivation(event)) return;
       clickNativeOrNavigate(getNativeEl?.(), fallbackUrl);
+    });
+  };
+
+  // Kick's action buttons (follow, subscribe, gift subs, share, report) and
+  // the gifted-subs badge are cloned without their handlers. A click leaves
+  // fullscreen, then clicks Kick's original: what they open — sign-in,
+  // subscribe and gift dialogs, the share menu — renders outside the player,
+  // where a fullscreen page can't show it.
+  const wireOverlayAction = (btn, native) => {
+    if (btn.dataset.kfcNavWired === 'true') return;
+    btn.dataset.kfcNavWired = 'true';
+    const testId = native.getAttribute('data-testid');
+    const label = native.getAttribute('aria-label');
+    // Leaving fullscreen can re-render the card and replace the original.
+    const resolveNative = () => {
+      if (native.isConnected) return native;
+      if (testId) return queryKickNode(`button[data-testid="${CSS.escape(testId)}"]`);
+      if (label) return queryKickNode(`button[aria-label="${CSS.escape(label)}"]`);
+      return null;
+    };
+    // A clone left focused would take the Space meant to play/pause.
+    btn.addEventListener('pointerdown', () => setTimeout(() => btn.blur(), 0));
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!overlayAcceptsActivation(event)) return;
+      exitFullscreenBeforeAction(() => {
+        resolveNative()?.dispatchEvent(
+          new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          })
+        );
+      });
     });
   };
 
@@ -1358,6 +1406,17 @@
       #${INFO_ID}.kfc-idle {
         opacity: 0;
       }
+      /* The overlay carries links and Kick's action buttons, so it follows
+         the cluster's click-through rules: nothing in it is clickable while
+         faded out, or while fading back in (.kfc-unarmed — see the comment
+         on #${WRAP_ID}.kfc-unarmed). The !important beats the
+         pointer-events: auto the cloned card and its links opt into below. */
+      #${INFO_ID}.kfc-idle,
+      #${INFO_ID}.kfc-idle *,
+      #${INFO_ID}.kfc-unarmed,
+      #${INFO_ID}.kfc-unarmed * {
+        pointer-events: none !important;
+      }
       /* Reset positioning on the clone's root so a card that was originally
          absolutely positioned within its page layout doesn't escape the
          overlay frame. Inherited Tailwind utility classes (flex / gap /
@@ -1432,19 +1491,25 @@
            / viewer-count text instead of looking thin. */
         font-weight: 600 !important;
       }
-      /* Hide follow / subscribe / share / notification controls so the
-         overlay stays compact. Use aria-label / href patterns instead of
-         a broader 'button:not(:has(img))' rule — Kick wraps the
-         streamer-name text in a plain text button on some layouts, and
-         the broad rule was hiding it. Verified badges render as inline
-         SVG / span and remain visible. */
-      #${INFO_ID} button[aria-label*="follow" i]:not([aria-label*="followers" i]):not([aria-label*="following" i]),
-      #${INFO_ID} button[aria-label*="subscribe" i]:not([aria-label*="subscriber" i]),
-      #${INFO_ID} button[aria-label*="notif" i],
-      #${INFO_ID} button[aria-label*="share" i],
-      #${INFO_ID} a[href*="/follow" i],
-      #${INFO_ID} a[href*="/subscribe" i] {
-        display: none !important;
+      /* Kick's action column (follow / subscribe / gift subs, then share and
+         report) is stacked under the card — Kick's own narrow-screen layout
+         — rather than beside it, so the overlay stays a compact block in the
+         corner instead of a banner across the top of the video. Its two rows
+         become one. */
+      #${INFO_ID} .kfc-info-stacked {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        gap: .75rem !important;
+      }
+      #${INFO_ID} .kfc-info-actions {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: .5rem !important;
+      }
+      #${INFO_ID} .kfc-info-actions > * {
+        align-self: auto !important;
       }
       /* Boost streamer name prominence. The cloned card's headings (or
          heading-shaped class patterns) get bolder white text so the name
@@ -2952,6 +3017,16 @@
     return null;
   };
 
+  // Widen a found card to the parent it shares with Kick's action column.
+  const withActionColumn = (card, player) => {
+    const parent = card.parentElement;
+    if (!parent || parent === document.body) return card;
+    if (player && parent.contains(player)) return card;
+    if (!parent.querySelector(INFO_ACTION_SELECTORS)) return card;
+    if (parent.getBoundingClientRect().height >= window.innerHeight * 0.7) return card;
+    return parent;
+  };
+
   // Twitch-style streamer info overlay. We *clone* Kick's existing channel-info
   // card into fsEl rather than moving it, for the same reason as popovers:
   // Kick's React reconciler may unmount or replace the card in the background,
@@ -3013,7 +3088,7 @@
           rect.height < window.innerHeight * 0.7 &&
           node.querySelector('a[href*="/categories/"], a[href*="/category/"]')
         ) {
-          return node;
+          return withActionColumn(node, player);
         }
         node = node.parentElement;
       }
@@ -3047,7 +3122,7 @@
           node.querySelector('img, picture, [class*="avatar" i]') &&
           hasStreamerNameSignal(node)
         ) {
-          return node;
+          return withActionColumn(node, player);
         }
         node = node.parentElement;
       }
@@ -3159,11 +3234,13 @@
       if (event.defaultPrevented) return;
       event.preventDefault();
       event.stopPropagation();
+      if (!overlayAcceptsActivation(event)) return;
       clickNativeOrNavigate(findNativeProfileTarget(), profileUrl);
     };
     const onKeyDown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
+      if (!overlayAcceptsActivation(event)) return;
       clickNativeOrNavigate(findNativeProfileTarget(), profileUrl);
     };
 
@@ -3185,6 +3262,7 @@
         continue;
       }
       const target = candidate.closest('button') || candidate;
+      target.dataset.kfcNavWired = 'true';
       target.setAttribute('role', 'link');
       target.setAttribute('tabindex', '0');
       target.style.setProperty('cursor', 'pointer', 'important');
@@ -3193,7 +3271,27 @@
     }
   };
 
-  const transformClonedCard = (cardClone) => {
+  // Kick's tag pills ("Czech", "18+"): short text, no icon, image or heading.
+  // They do nothing when clicked on Kick's page, so the clones aren't wired.
+  const looksLikeTagPill = (el) => {
+    if (el.querySelector('img, picture, svg, h1, h2, h3')) return false;
+    const text = (el.textContent || '').trim();
+    return text.length > 0 && text.length <= 30;
+  };
+
+  const transformClonedCard = (cardClone, source) => {
+    // Pair cloned buttons with their originals while the two trees still
+    // match node for node — before anything below adds or removes nodes.
+    const sourceNodes = [source, ...source.querySelectorAll('*')];
+    const buttonTwins = [];
+    let viewerTwin = null;
+    [cardClone, ...cardClone.querySelectorAll('*')].forEach((node, i) => {
+      if (node.tagName === 'BUTTON') buttonTwins.push([node, sourceNodes[i]]);
+      if (sourceNodes[i] === infoViewerSource) viewerTwin = node;
+    });
+    // The action column carries Kick's own viewer count; the overlay shows
+    // it inline after the category instead (below).
+    viewerTwin?.remove();
     // The clone sits inside the player, ahead of Kick's card in document
     // order, so a copied id (`#channel-avatar`, `#channel-username`) would
     // answer Kick's own getElementById lookups. SVG ids stay: the verified
@@ -3202,20 +3300,33 @@
       if (!(el instanceof SVGElement)) el.removeAttribute('id');
     }
     makeProfileAffordancesClickable(cardClone);
+    const actionColumn = Array.from(cardClone.children).find((child) =>
+      child.querySelector(INFO_ACTION_SELECTORS)
+    );
+    if (actionColumn) {
+      cardClone.classList.add('kfc-info-stacked');
+      actionColumn.classList.add('kfc-info-actions');
+    }
     // Hide chevron / dropdown indicator buttons: a button containing only
     // an svg with no visible text or image. Kick puts one of these next
     // to the title to open an "expand title / description" popover; the
-    // popover isn't wired up in our cloned-and-detached overlay, so the
-    // button does nothing and just looks broken. Verified-badge buttons
-    // (which have aria-label "verified") and avatar-wrapping buttons
-    // (which contain an img) are exempted.
+    // overlay already shows two lines of title, so it adds nothing.
+    // Verified-badge buttons (which have aria-label "verified"),
+    // avatar-wrapping buttons (which contain an img) and Kick's icon-only
+    // action buttons (share, report) are exempted.
     for (const btn of cardClone.querySelectorAll('button')) {
+      if (actionColumn?.contains(btn)) continue;
       if (btn.querySelector('img, picture')) continue;
       const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
       if (aria.includes('verified')) continue;
       if ((btn.textContent || '').trim().length > 0) continue;
       if (!btn.querySelector('svg')) continue;
       btn.style.display = 'none';
+    }
+    for (const [btn, native] of buttonTwins) {
+      if (!cardClone.contains(btn) || btn.style.display === 'none') continue;
+      if (looksLikeTagPill(btn)) continue;
+      wireOverlayAction(btn, native);
     }
     const categoryLink = cardClone.querySelector(
       'a[href*="/categories/" i], a[href*="/category/" i]'
@@ -3234,20 +3345,6 @@
       node.style.setProperty('box-shadow', 'none', 'important');
       node.style.setProperty('text-shadow', 'none', 'important');
     }
-    const tagsRow = categoryLink.parentElement;
-    if (tagsRow) {
-      for (const sibling of Array.from(tagsRow.children)) {
-        if (sibling === categoryLink) continue;
-        if (sibling.contains(categoryLink)) continue;
-        // Only hide simple tag-pill-shaped siblings: short text, no
-        // imagery or heading content (so name/title rows are never hit
-        // even on layouts where they share a parent with the category).
-        if (sibling.querySelector('img, picture, svg, h1, h2, h3')) continue;
-        const text = (sibling.textContent || '').trim();
-        if (text.length === 0 || text.length > 30) continue;
-        sibling.style.display = 'none';
-      }
-    }
     if (infoViewerSource && document.body.contains(infoViewerSource)) {
       const viewerClone = infoViewerSource.cloneNode(true);
       viewerClone.classList.add('kfc-info-viewer-inline');
@@ -3255,7 +3352,13 @@
       const separator = document.createElement('span');
       separator.className = 'kfc-info-separator';
       separator.setAttribute('aria-hidden', 'true');
-      categoryLink.after(separator, viewerClone);
+      // After the tag pills that follow the category, so the row reads
+      // "IRL  Czech  18+ • 682 viewers".
+      let anchor = categoryLink;
+      while (anchor.nextElementSibling && looksLikeTagPill(anchor.nextElementSibling)) {
+        anchor = anchor.nextElementSibling;
+      }
+      anchor.after(separator, viewerClone);
     }
   };
 
@@ -3265,7 +3368,7 @@
     if (!document.body.contains(infoOverlaySource)) return;
     try {
       const cardClone = infoOverlaySource.cloneNode(true);
-      transformClonedCard(cardClone);
+      transformClonedCard(cardClone, infoOverlaySource);
       infoOverlay.replaceChildren(cardClone);
     } catch (err) {
       log('reclone info overlay failed:', err);
@@ -3432,7 +3535,7 @@
     infoViewerSource = viewerSource;
     try {
       const cardClone = source.cloneNode(true);
-      transformClonedCard(cardClone);
+      transformClonedCard(cardClone, source);
       wrapper.appendChild(cardClone);
     } catch (err) {
       log('initial clone failed:', err);
@@ -3848,8 +3951,14 @@
     // stream. Keyboard activations deliberately keep focus (see
     // wireControlButton), so leaving is the only safe point to drop it.
     const wrap = document.getElementById(WRAP_ID);
+    const info = document.getElementById(INFO_ID);
     const focused = document.activeElement;
-    if (wrap && focused instanceof HTMLElement && wrap.contains(focused)) focused.blur();
+    if (
+      focused instanceof HTMLElement &&
+      (wrap?.contains(focused) || info?.contains(focused))
+    ) {
+      focused.blur();
+    }
   };
   const onWindowReturned = () => {
     // First observation wins, so a second focus event can't extend the window.
@@ -4389,11 +4498,16 @@
         controlsArmTimer = setTimeout(() => {
           controlsArmTimer = 0;
           document.getElementById(WRAP_ID)?.classList.remove('kfc-unarmed');
+          document.getElementById(INFO_ID)?.classList.remove('kfc-unarmed');
         }, CONTROLS_FADE_MS);
       }
     }
     const info = document.getElementById(INFO_ID);
-    if (info) info.classList.toggle('kfc-idle', controlsIdle);
+    if (info) {
+      info.classList.toggle('kfc-idle', controlsIdle);
+      // The overlay fades on the cluster's clock, so it arms with it too.
+      info.classList.toggle('kfc-unarmed', !!wrap?.classList.contains('kfc-unarmed'));
+    }
     if (chatSlot) chatSlot.classList.toggle('kfc-idle', effectiveIdle);
     setKickControlsHidden(controlsIdle);
     syncControlState();

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-10-20
+
+### Added
+- **Kick's action buttons in the fullscreen stream-info overlay.** Follow, subscribe, gift subs, share and report — whichever Kick shows on the channel card — now sit in a row under the card in the overlay, along with the gifted-subs leaderboard badge. Kick lays them out in a column beside the card, so the card search now widens to the parent that holds both (`withActionColumn`, keyed on the follow / subscribe buttons' test ids); the column is stacked under the card, Kick's own narrow-screen layout, so the overlay stays a compact block in the corner. The buttons are clones without Kick's handlers: a click leaves fullscreen, then clicks Kick's original, because everything they open — the sign-in, subscribe and gift dialogs, the share menu — renders outside the player, where a fullscreen page can't show it. This is the same thing the avatar, name and category links in the overlay already did.
+- **Tag pills in the overlay.** The language and content tags beside the category (e.g. `Czech`, `18+`) are no longer hidden; the viewer count moved to after them, so the row reads "Counter-Strike 2 Czech 18+ • 305 viewers". Kick's tags do nothing when clicked, so neither do the copies.
+
+### Fixed
+- **The stream-info overlay was clickable while invisible.** Its fade only set `opacity: 0`, and the cloned card opts back into pointer events, so a click in the top-left of a faded player landed on an invisible profile or category link and left fullscreen. The overlay now follows the control cluster's rules: click-through while faded and while fading back in (`.kfc-unarmed`), real clicks only, and not the click that re-activates the window (`controlsAcceptActivation`). Leaving the window also drops focus from anything in it, as it does for the cluster. With the overlay now carrying Follow and Subscribe, this matters more than it did for links.
+
 ## [0.21.20] - 2026-10-20
 
 ### Fixed
