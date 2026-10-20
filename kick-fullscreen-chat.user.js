@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.21.18
+// @version      0.21.19
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.21.18';
+  const VERSION = '0.21.19';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -2968,38 +2968,47 @@
     const usernameSlug =
       pathSegments[0] && !pathSegments[0].includes('.') ? pathSegments[0] : null;
     // 2. Avatar-anchored search (primary). The avatar is the most distinct
-    //    element of the streamer card and lives inside a link back to the
-    //    streamer's own profile — `a[href="/${username}"]`. Walk up from
-    //    that link until we hit an ancestor that also contains a category
+    //    element of the streamer card: Kick tags it `img#channel-avatar`
+    //    inside a plain button, and older layouts wrapped it in a link back
+    //    to the streamer's own profile — `a[href="/${username}"]`. Walk up
+    //    from it until we hit an ancestor that also contains a category
     //    link (the game) and meets reasonable card dimensions. This finds
-    //    the FULL card (avatar + name + title + game + tags) instead of
-    //    just the title+tags sub-row that the older category-link walk
-    //    landed on.
+    //    the FULL card (avatar + name + title + game + tags) instead of a
+    //    sub-row the category-link walk below can land on — any `<img>`
+    //    beside the name (an emote, the gifted-subs leaderboard icon)
+    //    satisfies its image check one level short of the avatar.
+    //    The id goes first: querySelectorAll returns document order, and
+    //    the sidebar's recommended channels wrap their avatars in the same
+    //    profile links.
+    const avatars = [...document.querySelectorAll('img#channel-avatar')];
     if (usernameSlug) {
       const slug = CSS.escape(usernameSlug);
-      const profileImgSelector =
+      avatars.push(...document.querySelectorAll(
         `a[href="/${slug}" i] img, a[href="/${slug}/" i] img, ` +
-        `a[href="/${slug}" i] picture, a[href="/${slug}/" i] picture`;
-      const avatars = document.querySelectorAll(profileImgSelector);
-      for (const avatar of avatars) {
-        let node = avatar.parentElement;
-        for (let i = 0; i < 12 && node && node !== document.body; i++) {
-          if (player && node.contains(player)) break;
-          const rect = node.getBoundingClientRect();
-          if (
-            rect.width > 200 &&
-            rect.height > 60 &&
-            rect.height < window.innerHeight * 0.7 &&
-            node.querySelector('a[href*="/categories/"], a[href*="/category/"]')
-          ) {
-            return node;
-          }
-          node = node.parentElement;
+        `a[href="/${slug}" i] picture, a[href="/${slug}/" i] picture`
+      ));
+    }
+    for (const avatar of avatars) {
+      // Our own overlay clone sits inside the player, ahead of Kick's card.
+      if (isKfcOwnedNode(avatar)) continue;
+      let node = avatar.parentElement;
+      for (let i = 0; i < 12 && node && node !== document.body; i++) {
+        if (player && node.contains(player)) break;
+        const rect = node.getBoundingClientRect();
+        if (
+          rect.width > 200 &&
+          rect.height > 60 &&
+          rect.height < window.innerHeight * 0.7 &&
+          node.querySelector('a[href*="/categories/"], a[href*="/category/"]')
+        ) {
+          return node;
         }
+        node = node.parentElement;
       }
     }
-    // 3. Category-link walk fallback. Used when no profile-link-wrapped
-    //    avatar is found (e.g., URL slug doesn't match the rendered link).
+    // 3. Category-link walk fallback. Used when no avatar anchor is found
+    //    (no `#channel-avatar`, and the URL slug doesn't match a rendered
+    //    profile link).
     //    Requires h1/h2/h3 OR profile link + an avatar img + reasonable
     //    dimensions.
     const profileLinkSelector = usernameSlug
@@ -3171,6 +3180,13 @@
   };
 
   const transformClonedCard = (cardClone) => {
+    // The clone sits inside the player, ahead of Kick's card in document
+    // order, so a copied id (`#channel-avatar`, `#channel-username`) would
+    // answer Kick's own getElementById lookups. SVG ids stay: the verified
+    // badge fills from a `url(#…)` gradient defined inside it.
+    for (const el of [cardClone, ...cardClone.querySelectorAll('[id]')]) {
+      if (!(el instanceof SVGElement)) el.removeAttribute('id');
+    }
     makeProfileAffordancesClickable(cardClone);
     // Hide chevron / dropdown indicator buttons: a button containing only
     // an svg with no visible text or image. Kick puts one of these next

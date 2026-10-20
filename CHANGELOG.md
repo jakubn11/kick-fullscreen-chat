@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.19] - 2026-10-20
+
+### Fixed
+- **The fullscreen stream-info overlay was missing the channel's profile picture.** Kick no longer wraps the avatar in a link to the channel — it is now a plain button around `img#channel-avatar` — so the avatar-anchored search for the channel card found only the sidebar's recommended-channel avatars and gave up. The category-link fallback then stopped one level short of the card: it accepts the first ancestor holding an `<img>` and the name, and the new gifted-subs leaderboard badge beside the name carries an `<img>` icon, so it settled on the column with the name, title and category and left the avatar beside it out. The search now starts from `#channel-avatar`, ahead of the profile-link avatars (which still cover older layouts), and skips the overlay's own clone. The clone also drops the element ids it copies: it sits inside the player, ahead of Kick's card in document order, so a duplicated `#channel-avatar` or `#channel-username` would answer Kick's own lookups. SVG ids are kept, since the verified badge's gradient is referenced by id.
+
 ## [0.21.18] - 2026-10-15
 
 ### Changed

@@ -114,7 +114,7 @@ Kick is a single-page app and may change class names. The fragile selectors live
 
 - `VIDEO_WRAPPER_SELECTORS` — candidates for the fullscreened player container (`#injected-channel-player`, `[data-testid="player"]`, etc.)
 - `CHAT_SELECTORS` — candidates for the chat panel (`#chatroom`, `[data-testid="chatroom"]`, etc.)
-- `STREAMER_INFO_SELECTORS` — candidates for Kick's channel-info card cloned into the info overlay.
+- `STREAMER_INFO_SELECTORS` — candidates for Kick's channel-info card cloned into the info overlay. None match today; `findStreamerInfoSource()` anchors on the avatar (`img#channel-avatar`, then profile-link avatars) and walks up to the card. Keep the avatar anchor first: the category-link fallback stops at the first ancestor with an `<img>` and the name, which skips the avatar whenever an `<img>` sits beside the name (0.21.19).
 - `VIEWER_COUNT_SELECTORS` / `VIEWER_COUNT_RE` — the viewer-count badge; `VIEWER_COUNT_RE` is the content-based fallback ("770 Viewers"). Its trailing guard is `(?!\p{L})` under `/u`, **not** `\b` — outside `/u`, `\w` is ASCII-only, so `\b` after a non-ASCII token never matches (0.20.3). Verify any new localised token against a real string.
 
 **Prefer adding fallback selectors (at the end) to replacing working ones.** `findChat()` already falls back to walking up from a chat input whose placeholder matches `chat|message|send a message` — extend that heuristic before resorting to class-name matching.
