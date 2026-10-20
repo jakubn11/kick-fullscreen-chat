@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.1] - 2026-10-20
+
+### Fixed
+- **The report and unfollow tooltips didn't work in fullscreen.** Kick hangs those two tooltips off a wrapper `<div>` around the button rather than the button itself, and the overlay only recognised a popup as a button's when the button itself pointed at it — so they were left wherever Kick placed them for its original, not moved next to the overlay's button. Worse, the forwarded "pointer left" only reached the button: leave events don't bubble, and Kick's tooltip listens on the wrapper, so the tooltip never closed. A popup now counts as a button's when the button or a wrapper around it points at it (`popupOwner`, which also measures Kick's gap from that wrapper), and the forwarded leave goes to the button and up to the element that owns the open tooltip, as a real pointer's would (`unhoverNative`).
+- **Clicking share in the overlay again didn't close the share menu.** Kick closes its menus on a press outside them, and to Kick the press on the overlay's copy was outside: the menu closed on the press, then the forwarded click toggled it open again. The real press now stops at the overlay's button; the forwarded press lands on Kick's own button, which Kick treats as the toggle, and still counts as outside for any other open menu.
+
 ## [0.24.0] - 2026-10-20
 
 ### Changed

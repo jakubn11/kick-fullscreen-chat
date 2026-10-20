@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.0
+// @version      0.24.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.0';
+  const VERSION = '0.24.1';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -375,8 +375,18 @@
   const unhoverNative = (el) => {
     const r = el.getBoundingClientRect();
     const x = r.left + r.width / 2;
-    for (const type of ['pointerout', 'mouseout', 'pointerleave', 'mouseleave']) {
+    for (const type of ['pointerout', 'mouseout']) {
       firePointer(el, type, x, r.bottom + 2, { relatedTarget: document.body });
+    }
+    // Leave events don't bubble: a real pointer sends one to every element it
+    // leaves. Kick's tooltip listens on its trigger, which can be a wrapper
+    // around the button (report, unfollow) — so walk up to the element that
+    // owns an open tooltip, a few levels at most.
+    for (let node = el, depth = 0; node && node !== document.body && depth < 4; node = node.parentElement, depth++) {
+      for (const type of ['pointerleave', 'mouseleave']) {
+        firePointer(node, type, x, r.bottom + 2, { relatedTarget: document.body });
+      }
+      if (node.hasAttribute('aria-describedby')) break;
     }
     setTimeout(() => {
       firePointer(document.body, 'pointermove', x, r.bottom + 80);
@@ -413,13 +423,19 @@
   let popupHostObserver = null;
   let hoveredNative = null;
 
-  // The original a popup belongs to: Kick points a button at what it opens
-  // through aria-controls (menus) or aria-describedby (tooltips).
+  // The original a popup belongs to. Kick points at what it opens through
+  // aria-controls (menus) or aria-describedby (tooltips), from the button or
+  // from a wrapper around it — the report and unfollow tooltips hang off a
+  // <div> holding the button. Returns the button and that trigger, which is
+  // what Kick measures the popup's position from.
   const popupOwner = (wrapper) => {
-    const ids = new Set(Array.from(wrapper.querySelectorAll('[id]'), (el) => el.id));
-    for (const native of overlayTwins.keys()) {
-      const refs = `${native.getAttribute('aria-controls') || ''} ${native.getAttribute('aria-describedby') || ''}`;
-      if (refs.split(/\s+/).some((id) => id && ids.has(id))) return native;
+    for (const el of wrapper.querySelectorAll('[id]')) {
+      const id = CSS.escape(el.id);
+      for (const trigger of document.querySelectorAll(`[aria-controls~="${id}"], [aria-describedby~="${id}"]`)) {
+        if (isKfcOwnedNode(trigger)) continue;
+        const owners = Array.from(overlayTwins.keys()).filter((native) => trigger.contains(native));
+        if (owners.length === 1) return { native: owners[0], trigger };
+      }
     }
     return null;
   };
@@ -429,8 +445,8 @@
   // own, read off its placement. Flipped to the other side when that runs
   // off the screen, then kept within it.
   const placePopup = (wrapper) => {
-    const native = popupOwner(wrapper);
-    const btn = native && overlayTwins.get(native);
+    const owner = popupOwner(wrapper);
+    const btn = owner && overlayTwins.get(owner.native);
     const [shiftX, shiftY] = (wrapper.dataset.kfcShift || '0 0').split(' ').map(Number);
     if (!btn?.isConnected) {
       if (wrapper.dataset.kfcShift) {
@@ -445,7 +461,7 @@
     const w = wrapper.getBoundingClientRect();
     const left = w.left - shiftX; // where Kick put it
     const top = w.top - shiftY;
-    const n = native.getBoundingClientRect();
+    const n = owner.trigger.getBoundingClientRect();
     const b = btn.getBoundingClientRect();
     const kickGap = {
       top: n.top - (top + w.height),
@@ -599,6 +615,15 @@
     btn.addEventListener('pointerleave', () => {
       if (hoveredNative === native) setHoveredNative(null);
     });
+    // The press is relayed to the original, so the real one stops here. Kick's
+    // menus close on a press outside themselves, and to Kick a press on the
+    // clone is outside: the open share menu closed on the press, then the
+    // relayed click toggled it open again, so a second click never closed it.
+    // The relayed press lands on Kick's own button, which Kick treats as the
+    // toggle — and still counts as outside for any other open menu.
+    for (const type of ['pointerdown', 'mousedown']) {
+      btn.addEventListener(type, (event) => event.stopPropagation());
+    }
     // A clone left focused would take the Space meant to play/pause.
     btn.addEventListener('pointerdown', () => setTimeout(() => btn.blur(), 0));
     btn.addEventListener('click', (event) => {
