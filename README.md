@@ -26,7 +26,7 @@
 ## Features
 
 - Adds a **Chat** toggle button in the top-right of the fullscreen Kick player
-- Twitch-style streamer info overlay (avatar / name / title / game / tags / viewer count, plus Kick's follow / subscribe / gift / share / report buttons) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable, and its links and buttons leave fullscreen and then do what they do on Kick's page
+- Twitch-style streamer info overlay (avatar / name / title / game / tags / viewer count, plus Kick's follow / subscribe / gift / share / report buttons) in the top-left of the fullscreen player, fading in and out with Kick's own controls/timeline; overlay text is selectable; Kick's buttons in it work without leaving fullscreen (their menus, dialogs and tooltips open over the player), and the profile / category links leave fullscreen and open the page
 - Click the button to shrink the video and dock the chat panel on the right, or the left per the dock-side setting (340px wide by default)
 - **Resizable chat:** drag the divider between the video and chat to set the panel width — drag well past the minimum and release to close the side chat in one gesture (the slot dims while the close is armed)
 - **Dock left or right:** a setting moves the chat panel (and divider) to either edge; the video, controls, and stream-info overlay shift to clear it

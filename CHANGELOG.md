@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-10-20
+
+### Changed
+- **The stream-info overlay's buttons work without leaving fullscreen.** Follow, the bell, subscribe, gift subs, share, report and the gifted-subs badge used to leave fullscreen and then click Kick's button on the page, on the assumption that what they open can't be shown in fullscreen. It can: Kick's menus, dialogs and tooltips follow `document.fullscreenElement` and render inside the fullscreen player. The overlay now presses Kick's button in place (`pressNativeInPlace`): the heart follows / unfollows, dialogs (sign-in, subscribe, gift subs, report) open over the player, and the share and bell menus open next to the overlay's button. Kick positions those menus — and its tooltips — for its own button, which sits wherever the page beneath happens to lay it out, so the script moves them next to the overlay's copy with a CSS `translate` (`startPopupAnchoring` / `placePopup`), using Kick's own side, alignment and gap and flipping them into view when they don't fit. Kick's popups are lifted above the script's controls, chat and stream info; they are kept out of the side-chat layer resizing (a dialog's full-screen backdrop was otherwise squeezed beside the chat); and a click or double-click inside one no longer counts as a click on the video (resume / exit fullscreen). Should Kick open something outside the player anyway, the overlay leaves fullscreen for it as before. The avatar, name and category links still leave fullscreen, since they navigate.
+- **Tooltips on the overlay's buttons are Kick's own.** 0.23.1 copied the tooltip Kick opened beside its original button; in real fullscreen Kick renders that tooltip inside the player, so the copy would have appeared next to it — twice on screen. Hovering now just hovers the original, and Kick's tooltip is moved next to the overlay's button like the menus are.
+
 ## [0.23.2] - 2026-10-20
 
 ### Fixed

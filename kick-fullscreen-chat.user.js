@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.23.2
+// @version      0.24.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.23.2';
+  const VERSION = '0.24.0';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -385,8 +385,8 @@
   };
   // A whole click, the way a mouse makes one — not a bare click event. Kick's
   // tooltips count the pointer as arrived only after a hover, so after a bare
-  // click the first real pass over the button — on the way to the menu it
-  // just opened, which sits right above it — popped its tooltip over the menu.
+  // click the next real pass over the button pops its tooltip up over the menu
+  // the click just opened; and its bell menu opens on the press, not the click.
   const clickNative = (el) => {
     hoverNative(el);
     const r = el.getBoundingClientRect();
@@ -397,142 +397,215 @@
     }
   };
 
-  // Kick's hover tooltips for the overlay's buttons (a subscription's end
-  // date on the sub button, "Share" on share). Hovering a clone hovers Kick's
-  // original, and the tooltip Kick opens for it renders beside the original —
-  // outside the player, where a fullscreen page can't show it — so a copy is
-  // placed above the clone. Kick links a tooltip to its button through
-  // aria-describedby; the copy follows it until it closes.
-  let overlayTip = null; // { btn, native, source, clone, frame, schedule, observers }
+  // ── Kick's popups for the overlay's buttons ──────────────────────────
+  // In fullscreen Kick renders its menus, dialogs and tooltips inside the
+  // fullscreen element (its portals follow document.fullscreenElement), so
+  // pressing an overlay button's original in place opens them where they can
+  // be seen — no need to leave fullscreen. Dialogs centre themselves. Popups
+  // anchored to a button (tooltips, the share and bell menus) are positioned
+  // for the original, though, which sits wherever the page beneath happens to
+  // lay it out; those are moved next to the overlay's copy of the button.
+  // They stay Kick's own nodes, in place — only a CSS `translate` is added,
+  // which composes with the `transform` Kick's positioning keeps writing.
+  const KICK_POPPER_SEL = '[data-radix-popper-content-wrapper]';
+  let overlayTwins = new Map(); // Kick's original button -> its overlay clone
+  const anchoredPopups = new Map(); // popper wrapper -> MutationObserver
+  let popupHostObserver = null;
+  let hoveredNative = null;
 
-  const findNativeTooltip = (native) => {
-    const id = native.getAttribute('aria-describedby');
-    if (!id) return null;
-    const tip = queryKickNode(`[id="${CSS.escape(id)}"]`);
-    return tip?.closest('[data-radix-popper-content-wrapper]') || tip;
-  };
-
-  // Centred above the clone, below it if there's no room. Kick's own position
-  // is computed for the original, which in fullscreen can sit off-screen,
-  // where its collision handling flips and shifts the tooltip.
-  const placeOverlayTip = (clone, btn) => {
-    clone.style.setProperty('transform', 'none', 'important');
-    const b = btn.getBoundingClientRect();
-    const t = clone.getBoundingClientRect();
-    const gap = 4;
-    const x = Math.max(4, Math.min(b.left + (b.width - t.width) / 2, window.innerWidth - t.width - 4));
-    let y = b.top - t.height - gap;
-    if (y < 4) y = b.bottom + gap;
-    clone.style.setProperty('transform', `translate(${Math.round(x)}px, ${Math.round(y)}px)`, 'important');
-  };
-
-  const syncOverlayTip = () => {
-    const tip = overlayTip;
-    if (!tip) return;
-    tip.frame = 0;
-    const host = infoOverlay?.parentNode;
-    if (!host || !tip.btn.isConnected || !tip.native.isConnected) {
-      hideOverlayTip({ unhover: false });
-      return;
+  // The original a popup belongs to: Kick points a button at what it opens
+  // through aria-controls (menus) or aria-describedby (tooltips).
+  const popupOwner = (wrapper) => {
+    const ids = new Set(Array.from(wrapper.querySelectorAll('[id]'), (el) => el.id));
+    for (const native of overlayTwins.keys()) {
+      const refs = `${native.getAttribute('aria-controls') || ''} ${native.getAttribute('aria-describedby') || ''}`;
+      if (refs.split(/\s+/).some((id) => id && ids.has(id))) return native;
     }
-    const source = findNativeTooltip(tip.native);
-    if (source !== tip.source) {
-      tip.observers[1]?.disconnect();
-      tip.observers.length = 1;
-      tip.source = source;
-      if (source) {
-        const contentObserver = new MutationObserver(tip.schedule);
-        contentObserver.observe(source, { childList: true, subtree: true, characterData: true });
-        tip.observers.push(contentObserver);
+    return null;
+  };
+
+  // Kick's own side and alignment (it reports both on the content), measured
+  // against the overlay's button instead of the original; the gap is Kick's
+  // own, read off its placement. Flipped to the other side when that runs
+  // off the screen, then kept within it.
+  const placePopup = (wrapper) => {
+    const native = popupOwner(wrapper);
+    const btn = native && overlayTwins.get(native);
+    const [shiftX, shiftY] = (wrapper.dataset.kfcShift || '0 0').split(' ').map(Number);
+    if (!btn?.isConnected) {
+      if (wrapper.dataset.kfcShift) {
+        delete wrapper.dataset.kfcShift;
+        wrapper.style.removeProperty('translate');
       }
-    }
-    if (!source) {
-      tip.clone?.remove();
-      tip.clone = null;
       return;
     }
-    const clone = source.cloneNode(true);
-    // Same reason as the card clone: copied ids would shadow Kick's.
-    for (const el of [clone, ...clone.querySelectorAll('[id]')]) {
-      if (!(el instanceof SVGElement)) el.removeAttribute('id');
+    const content = wrapper.firstElementChild;
+    const side = content?.getAttribute('data-side') || 'bottom';
+    const align = content?.getAttribute('data-align') || 'center';
+    const w = wrapper.getBoundingClientRect();
+    const left = w.left - shiftX; // where Kick put it
+    const top = w.top - shiftY;
+    const n = native.getBoundingClientRect();
+    const b = btn.getBoundingClientRect();
+    const kickGap = {
+      top: n.top - (top + w.height),
+      bottom: top - n.bottom,
+      left: n.left - (left + w.width),
+      right: left - n.right,
+    }[side];
+    const gap = kickGap >= 0 && kickGap <= 24 ? kickGap : 4;
+    const alignAt = (start, size, extent) =>
+      align === 'start' ? start : align === 'end' ? start + size - extent : start + (size - extent) / 2;
+    let x;
+    let y;
+    if (side === 'left' || side === 'right') {
+      x = side === 'left' ? b.left - gap - w.width : b.right + gap;
+      if (x < 4 || x + w.width > window.innerWidth - 4) {
+        x = side === 'left' ? b.right + gap : b.left - gap - w.width;
+      }
+      y = alignAt(b.top, b.height, w.height);
+    } else {
+      y = side === 'top' ? b.top - gap - w.height : b.bottom + gap;
+      if (y < 4 || y + w.height > window.innerHeight - 4) {
+        y = side === 'top' ? b.bottom + gap : b.top - gap - w.height;
+      }
+      x = alignAt(b.left, b.width, w.width);
     }
-    clone.setAttribute(POPOVER_CLONE_ATTR, '');
-    if (tip.clone?.isConnected) tip.clone.replaceWith(clone);
-    else host.appendChild(clone);
-    tip.clone = clone;
-    placeOverlayTip(clone, tip.btn);
+    x = Math.max(4, Math.min(x, window.innerWidth - w.width - 4));
+    y = Math.max(4, Math.min(y, window.innerHeight - w.height - 4));
+    const shift = `${Math.round(x - left)} ${Math.round(y - top)}`;
+    // Our own write re-triggers the observer; an unchanged result stops there.
+    if (wrapper.dataset.kfcShift === shift) return;
+    wrapper.dataset.kfcShift = shift;
+    const [dx, dy] = shift.split(' ');
+    wrapper.style.setProperty('translate', `${dx}px ${dy}px`, 'important');
   };
 
-  const showOverlayTip = (btn, native) => {
-    hideOverlayTip();
-    if (!native.isConnected) return;
-    const tip = { btn, native, source: null, clone: null, frame: 0, observers: [] };
-    tip.schedule = () => {
-      if (overlayTip === tip && !tip.frame) tip.frame = requestAnimationFrame(syncOverlayTip);
-    };
-    // Recopy only when Kick's tooltip opens, closes or changes — a copy per
-    // frame would restart its entrance animation every frame.
-    const linkObserver = new MutationObserver(tip.schedule);
-    linkObserver.observe(native, { attributes: true, attributeFilter: ['aria-describedby'] });
-    tip.observers.push(linkObserver);
-    overlayTip = tip;
-    hoverNative(native);
-    tip.schedule();
+  const placeAllPopups = () => anchoredPopups.forEach((_observer, wrapper) => placePopup(wrapper));
+
+  const trackPopup = (wrapper) => {
+    if (anchoredPopups.has(wrapper) || !popupOwner(wrapper)) return;
+    let frame = 0;
+    // Kick re-writes the wrapper's style as it repositions and its content
+    // can change size (a menu filling in), so re-place on both.
+    const observer = new MutationObserver(() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (anchoredPopups.has(wrapper)) placePopup(wrapper);
+      });
+    });
+    observer.observe(wrapper, {
+      attributes: true,
+      attributeFilter: ['style'],
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    anchoredPopups.set(wrapper, observer);
+    placePopup(wrapper);
   };
 
-  // `unhover: false` when the pointer is, as far as Kick knows, still on the
-  // original — a click about to press it, or the original already gone.
-  const hideOverlayTip = ({ unhover = true } = {}) => {
-    const tip = overlayTip;
-    if (!tip) return;
-    overlayTip = null;
-    if (tip.frame) cancelAnimationFrame(tip.frame);
-    tip.observers.forEach((observer) => observer.disconnect());
-    tip.clone?.remove();
-    if (unhover && tip.native.isConnected) unhoverNative(tip.native);
+  const untrackPopup = (wrapper) => {
+    anchoredPopups.get(wrapper)?.disconnect();
+    anchoredPopups.delete(wrapper);
+  };
+
+  const startPopupAnchoring = (fsEl) => {
+    stopPopupAnchoring();
+    popupHostObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        m.addedNodes.forEach((node) => {
+          if (!(node instanceof Element)) return;
+          if (node.matches(KICK_POPPER_SEL)) trackPopup(node);
+          else node.querySelectorAll?.(KICK_POPPER_SEL).forEach(trackPopup);
+        });
+        m.removedNodes.forEach((node) => {
+          if (anchoredPopups.has(node)) untrackPopup(node);
+        });
+      }
+    });
+    popupHostObserver.observe(fsEl, { childList: true });
+    fsEl.querySelectorAll(`:scope > ${KICK_POPPER_SEL}`).forEach(trackPopup);
+    window.addEventListener('resize', placeAllPopups);
+  };
+
+  const stopPopupAnchoring = () => {
+    popupHostObserver?.disconnect();
+    popupHostObserver = null;
+    anchoredPopups.forEach((_observer, wrapper) => {
+      untrackPopup(wrapper);
+      delete wrapper.dataset.kfcShift;
+      wrapper.style.removeProperty('translate');
+    });
+    window.removeEventListener('resize', placeAllPopups);
+  };
+
+  // Hovering a clone hovers its original, so Kick shows that button's tooltip
+  // (a subscription's end date on the sub button, "Share" on share) — inside
+  // the fullscreen element, moved next to the clone by placePopup. Every way
+  // out un-hovers it again, so no tooltip is left open on the page.
+  // A reclone can replace the hovered clone under a still pointer, and the
+  // replaced one never sees a pointerleave; so while hovering, any real move
+  // that isn't over the current clone ends it.
+  const onHoverPointerMove = (e) => {
+    if (!e.isTrusted) return;
+    const btn = hoveredNative && overlayTwins.get(hoveredNative);
+    if (!btn || !(e.target instanceof Node) || !btn.contains(e.target)) setHoveredNative(null);
+  };
+  const setHoveredNative = (native) => {
+    if (hoveredNative === native) return;
+    if (hoveredNative?.isConnected) unhoverNative(hoveredNative);
+    hoveredNative = native;
+    if (native?.isConnected) hoverNative(native);
+    if (native) window.addEventListener('pointermove', onHoverPointerMove, true);
+    else window.removeEventListener('pointermove', onHoverPointerMove, true);
+  };
+
+  // Something Kick opened outside the fullscreen element — one of its dialogs
+  // that doesn't follow the fullscreen element — can't be seen from here, so
+  // leave fullscreen for it rather than open it invisibly.
+  // Watched for a while, since some of Kick's dialogs load lazily.
+  const KICK_OPENED_SEL = '[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-popper-content-wrapper]';
+  const pressNativeInPlace = (native) => {
+    const watcher = new MutationObserver((mutations) => {
+      const openedOutside = mutations.some((m) =>
+        Array.from(m.addedNodes).some(
+          (el) => el instanceof Element && (el.matches(KICK_OPENED_SEL) || !!el.querySelector(KICK_OPENED_SEL))
+        )
+      );
+      if (!openedOutside) return;
+      watcher.disconnect();
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        exitFullscreenBeforeAction(() => {});
+      }
+    });
+    watcher.observe(document.body, { childList: true });
+    setTimeout(() => watcher.disconnect(), 1500);
+    clickNative(native);
   };
 
   // Kick's action buttons (follow, subscribe, gift subs, share, report) and
-  // the gifted-subs badge are cloned without their handlers. A click leaves
-  // fullscreen, then clicks Kick's original: what they open — sign-in,
-  // subscribe and gift dialogs, the share menu — renders outside the player,
-  // where a fullscreen page can't show it. Hovering one shows Kick's tooltip
-  // for it (see overlayTip).
+  // the gifted-subs badge are cloned without their handlers. Pressing one
+  // presses Kick's original, in place; hovering one hovers it (see above).
   const wireOverlayAction = (btn, native) => {
     if (btn.dataset.kfcNavWired === 'true') return;
     btn.dataset.kfcNavWired = 'true';
-    // A reclone of the card replaces the hovered clone under a still pointer;
-    // carry its tooltip over rather than dropping it until the next move.
-    if (overlayTip?.native === native) overlayTip.btn = btn;
+    overlayTwins.set(native, btn);
     btn.addEventListener('pointerenter', (event) => {
       if (!event.isTrusted || event.pointerType === 'touch') return;
-      // Already showing — the clone a reclone carried the tooltip over to.
-      if (overlayTip?.btn === btn) return;
-      showOverlayTip(btn, native);
+      setHoveredNative(native);
     });
     btn.addEventListener('pointerleave', () => {
-      if (overlayTip?.btn === btn) hideOverlayTip();
+      if (hoveredNative === native) setHoveredNative(null);
     });
-    const testId = native.getAttribute('data-testid');
-    const label = native.getAttribute('aria-label');
-    // Leaving fullscreen can re-render the card and replace the original.
-    const resolveNative = () => {
-      if (native.isConnected) return native;
-      if (testId) return queryKickNode(`button[data-testid="${CSS.escape(testId)}"]`);
-      if (label) return queryKickNode(`button[aria-label="${CSS.escape(label)}"]`);
-      return null;
-    };
     // A clone left focused would take the Space meant to play/pause.
     btn.addEventListener('pointerdown', () => setTimeout(() => btn.blur(), 0));
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (!overlayAcceptsActivation(event)) return;
-      hideOverlayTip({ unhover: false });
-      exitFullscreenBeforeAction(() => {
-        const target = resolveNative();
-        if (target) clickNative(target);
-      });
+      if (native.isConnected) pressNativeInPlace(native);
     });
   };
 
@@ -1524,6 +1597,14 @@
         z-index: 2147483647 !important;
         pointer-events: none !important;
       }
+      /* Kick's own menus, dialogs and tooltips inside the fullscreen element
+         — opened from the overlay's buttons, or Kick's own player menus — go
+         above this script's controls, chat and stream info, as a popup does.
+         Same top value as the cluster; later in the DOM, so they win. */
+      :fullscreen > [data-fullscreen-portal-owner],
+      :fullscreen > [data-radix-popper-content-wrapper] {
+        z-index: 2147483647 !important;
+      }
       [${POPOVER_CLONE_ATTR}] * {
         z-index: 2147483647 !important;
       }
@@ -1863,6 +1944,18 @@
     pendingTimeoutId = 0;
   };
 
+  // Kick's portaled popups. In fullscreen they render inside the fullscreen
+  // element — a dialog's backdrop as a full-coverage child of it — and are
+  // not player layers: marking one would shrink it beside the chat.
+  const KICK_POPUP_SEL =
+    '[data-fullscreen-portal-owner], [data-radix-popper-content-wrapper], [data-radix-focus-guard], [role="dialog"], [role="alertdialog"], [role="menu"]';
+  const isKickPopup = (el) => {
+    const popup = el instanceof Element && el.closest(KICK_POPUP_SEL);
+    // A match that holds the video is a page-level wrapper around the player,
+    // not a popup — otherwise every click on the video would count as one.
+    return !!popup && !popup.querySelector('video');
+  };
+
   const isKfcOwnedChild = (el) =>
     el === chatSlot ||
     el.id === WRAP_ID ||
@@ -1908,6 +2001,7 @@
       (child) =>
         child instanceof Element &&
         !isKfcOwnedChild(child) &&
+        !isKickPopup(child) &&
         looksLikeFullscreenLayer(child)
     );
     const nextRoots = new Set(roots);
@@ -1936,6 +2030,7 @@
         !roots.has(child) &&
         !isKfcOwnedNode(child) &&
         !isKfcOwnedChild(child) &&
+        !isKickPopup(child) &&
         coversFullscreen(child)
     );
     const nextOverlays = new Set(overlays);
@@ -2169,6 +2264,10 @@
     // Inside the chat slot is text selection / message UI; likewise our own
     // control cluster, settings panel, info overlay, divider and toast.
     if (isKfcOwnedNode(target)) return false;
+    // Kick's own menus, dialogs and tooltips, which in fullscreen render inside
+    // the fullscreen element — a click on a menu's text is not a click on the
+    // video, and a double-click there must not exit fullscreen.
+    if (isKickPopup(target)) return false;
     // Kick's own controls (timeline scrub, setting buttons, menu items, links).
     if (
       target.closest('button, [role="button"], [role="slider"], a, input, textarea, select, [contenteditable]')
@@ -3051,10 +3150,6 @@
   const adoptPopover = (node, fsEl) => {
     if (!(node instanceof Element)) return;
     if (fsEl.contains(node) || isKfcOwnedChild(node)) return;
-    // The tooltip of an overlay button being hovered is placed by
-    // syncOverlayTip; adopting it here too would add a copy positioned for
-    // Kick's original, somewhere else on the screen.
-    if (overlayTip) return;
     if (node.hasAttribute?.(POPOVER_CLONE_ATTR)) return;
     if (!isPopoverHost(node)) return;
     if (popoverClones.has(node)) return;
@@ -3460,6 +3555,7 @@
   };
 
   const transformClonedCard = (cardClone, source) => {
+    overlayTwins = new Map();
     // Pair cloned buttons with their originals while the two trees still
     // match node for node — before anything below adds or removes nodes.
     const sourceNodes = [source, ...source.querySelectorAll('*')];
@@ -3551,8 +3647,7 @@
       const cardClone = infoOverlaySource.cloneNode(true);
       transformClonedCard(cardClone, infoOverlaySource);
       infoOverlay.replaceChildren(cardClone);
-      // Hovering a button Kick has since replaced or removed.
-      if (overlayTip && !overlayTip.btn.isConnected) hideOverlayTip();
+      placeAllPopups();
     } catch (err) {
       log('reclone info overlay failed:', err);
     }
@@ -3737,6 +3832,7 @@
 
     fsEl.appendChild(wrapper);
     infoOverlay = wrapper;
+    startPopupAnchoring(fsEl);
     infoOverlaySource = source;
     // Honour the user's show/hide preferences.
     applyInfoOverlayPrefs();
@@ -3775,7 +3871,9 @@
   const unmountInfoOverlay = () => {
     // Also closes Kick's tooltip, which would otherwise be left open on the
     // page once fullscreen exits.
-    hideOverlayTip();
+    setHoveredNative(null);
+    stopPopupAnchoring();
+    overlayTwins = new Map();
     stopInfoSourceWatcher();
     if (infoOverlayObserver) {
       infoOverlayObserver.disconnect();
@@ -4718,7 +4816,7 @@
       }
     }
     const info = document.getElementById(INFO_ID);
-    if (controlsIdle) hideOverlayTip();
+    if (controlsIdle) setHoveredNative(null);
     if (info) {
       info.classList.toggle('kfc-idle', controlsIdle);
       // The overlay fades on the cluster's clock, so it arms with it too.
