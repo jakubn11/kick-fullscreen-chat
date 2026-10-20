@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.1
+// @version      0.24.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.1';
+  const VERSION = '0.24.2';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -917,8 +917,13 @@
         display: flex;
         animation: kfc-settings-rise .2s cubic-bezier(.16, 1, .3, 1);
       }
+      /* Fade and drop only — no scale. kick-quality-saver's card rises with a
+         scale(.97) as well, which reads as a zoom on its centred card, but on
+         this panel, pinned under the gear, scaling around the centre slid the
+         left edge — the one seen against the video — ~4.5px left as it opened
+         (and around the top-right corner it would slide twice as far). */
       @keyframes kfc-settings-rise {
-        from { opacity: 0; transform: translateY(-8px) scale(.97); }
+        from { opacity: 0; transform: translateY(-8px); }
       }
       #${SETTINGS_PANEL_ID} :focus-visible {
         outline: 2px solid rgba(34,197,94,.65);

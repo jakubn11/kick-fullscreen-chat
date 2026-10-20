@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.2] - 2026-10-20
+
+### Fixed
+- **The fullscreen settings panel slid a little to the left as it opened.** Its opening animation started the panel at 97% size and scaled it up around its centre, so the left edge — the one seen against the video — travelled ~4.5px left while the panel grew. The panel now just fades in while dropping 8px into place, with no sideways movement. (kick-quality-saver's settings card, which shares this design, keeps its scale: centred on the screen, it reads as a zoom rather than a slide.)
+
 ## [0.24.1] - 2026-10-20
 
 ### Fixed
