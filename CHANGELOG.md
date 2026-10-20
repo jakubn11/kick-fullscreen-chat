@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.1] - 2026-10-20
+
+### Added
+- **Kick's hover tooltips on the overlay's buttons** — a subscription's end date on the sub button, "Share" on share, and the rest. The buttons in the overlay are copies without Kick's handlers, so hovering one did nothing. Hovering now hovers Kick's original button, and the tooltip Kick opens for it — which renders beside the original, outside the player, where a fullscreen page can't show it — is copied above the overlay's button and follows it until it closes (`showOverlayTip` / `syncOverlayTip`, found through the button's `aria-describedby`). Moving away, the overlay fading, a click or leaving fullscreen closes Kick's original too, so none is left open on the page. The tooltip is placed by the script rather than taken from Kick's position, which is computed for the original and, with the original off-screen behind the fullscreen player, gets flipped and shifted.
+
+### Fixed
+- **Clicking share in the overlay left Kick's "Share" tooltip over the share menu.** The overlay passed the click on as a bare `click` event. Kick's tooltips only count the pointer as having arrived after a hover, so the first real pass over the share button after leaving fullscreen — on the way to the menu, which opens right above it — popped the tooltip up over the menu. The click is now passed on the way a mouse makes one: hover, press, release, click (`clickNative`). Reproduced on a live channel page before the fix and confirmed gone after it.
+
 ## [0.23.0] - 2026-10-20
 
 ### Added

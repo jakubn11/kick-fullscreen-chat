@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.23.0
+// @version      0.23.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.23.0';
+  const VERSION = '0.23.1';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -338,14 +338,178 @@
     });
   };
 
+  // Pointer input relayed from an overlay clone to Kick's original button, at
+  // the original's own coordinates. Synthetic, so none of it can pass the
+  // isTrusted gates on this script's own controls.
+  const firePointer = (target, type, x, y, extra = {}) => {
+    const Ctor = type.startsWith('pointer') ? PointerEvent : MouseEvent;
+    target.dispatchEvent(new Ctor(type, {
+      bubbles: !/enter|leave/.test(type),
+      cancelable: true,
+      composed: true,
+      view: window,
+      clientX: x,
+      clientY: y,
+      pointerType: 'mouse',
+      pointerId: 1,
+      isPrimary: true,
+      button: 0,
+      buttons: type.endsWith('down') ? 1 : 0,
+      ...extra,
+    }));
+  };
+  const hoverNative = (el) => {
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    for (const type of ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove']) {
+      firePointer(el, type, x, y);
+    }
+  };
+  // Kick's tooltips (Radix) stay open after the pointer leaves the button
+  // until it is seen moving away from both button and tooltip, so the leave
+  // is followed — once React has committed it — by a move well below.
+  const unhoverNative = (el) => {
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    for (const type of ['pointerout', 'mouseout', 'pointerleave', 'mouseleave']) {
+      firePointer(el, type, x, r.bottom + 2, { relatedTarget: document.body });
+    }
+    setTimeout(() => {
+      firePointer(document.body, 'pointermove', x, r.bottom + 80);
+      firePointer(document.body, 'mousemove', x, r.bottom + 80);
+    }, 50);
+  };
+  // A whole click, the way a mouse makes one — not a bare click event. Kick's
+  // tooltips count the pointer as arrived only after a hover, so after a bare
+  // click the first real pass over the button — on the way to the menu it
+  // just opened, which sits right above it — popped its tooltip over the menu.
+  const clickNative = (el) => {
+    hoverNative(el);
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+      firePointer(el, type, x, y);
+    }
+  };
+
+  // Kick's hover tooltips for the overlay's buttons (a subscription's end
+  // date on the sub button, "Share" on share). Hovering a clone hovers Kick's
+  // original, and the tooltip Kick opens for it renders beside the original —
+  // outside the player, where a fullscreen page can't show it — so a copy is
+  // placed above the clone. Kick links a tooltip to its button through
+  // aria-describedby; the copy follows it until it closes.
+  let overlayTip = null; // { btn, native, source, clone, frame, schedule, observers }
+
+  const findNativeTooltip = (native) => {
+    const id = native.getAttribute('aria-describedby');
+    if (!id) return null;
+    const tip = queryKickNode(`[id="${CSS.escape(id)}"]`);
+    return tip?.closest('[data-radix-popper-content-wrapper]') || tip;
+  };
+
+  // Centred above the clone, below it if there's no room. Kick's own position
+  // is computed for the original, which in fullscreen can sit off-screen,
+  // where its collision handling flips and shifts the tooltip.
+  const placeOverlayTip = (clone, btn) => {
+    clone.style.setProperty('transform', 'none', 'important');
+    const b = btn.getBoundingClientRect();
+    const t = clone.getBoundingClientRect();
+    const gap = 4;
+    const x = Math.max(4, Math.min(b.left + (b.width - t.width) / 2, window.innerWidth - t.width - 4));
+    let y = b.top - t.height - gap;
+    if (y < 4) y = b.bottom + gap;
+    clone.style.setProperty('transform', `translate(${Math.round(x)}px, ${Math.round(y)}px)`, 'important');
+  };
+
+  const syncOverlayTip = () => {
+    const tip = overlayTip;
+    if (!tip) return;
+    tip.frame = 0;
+    const host = infoOverlay?.parentNode;
+    if (!host || !tip.btn.isConnected || !tip.native.isConnected) {
+      hideOverlayTip({ unhover: false });
+      return;
+    }
+    const source = findNativeTooltip(tip.native);
+    if (source !== tip.source) {
+      tip.observers[1]?.disconnect();
+      tip.observers.length = 1;
+      tip.source = source;
+      if (source) {
+        const contentObserver = new MutationObserver(tip.schedule);
+        contentObserver.observe(source, { childList: true, subtree: true, characterData: true });
+        tip.observers.push(contentObserver);
+      }
+    }
+    if (!source) {
+      tip.clone?.remove();
+      tip.clone = null;
+      return;
+    }
+    const clone = source.cloneNode(true);
+    // Same reason as the card clone: copied ids would shadow Kick's.
+    for (const el of [clone, ...clone.querySelectorAll('[id]')]) {
+      if (!(el instanceof SVGElement)) el.removeAttribute('id');
+    }
+    clone.setAttribute(POPOVER_CLONE_ATTR, '');
+    if (tip.clone?.isConnected) tip.clone.replaceWith(clone);
+    else host.appendChild(clone);
+    tip.clone = clone;
+    placeOverlayTip(clone, tip.btn);
+  };
+
+  const showOverlayTip = (btn, native) => {
+    hideOverlayTip();
+    if (!native.isConnected) return;
+    const tip = { btn, native, source: null, clone: null, frame: 0, observers: [] };
+    tip.schedule = () => {
+      if (overlayTip === tip && !tip.frame) tip.frame = requestAnimationFrame(syncOverlayTip);
+    };
+    // Recopy only when Kick's tooltip opens, closes or changes — a copy per
+    // frame would restart its entrance animation every frame.
+    const linkObserver = new MutationObserver(tip.schedule);
+    linkObserver.observe(native, { attributes: true, attributeFilter: ['aria-describedby'] });
+    tip.observers.push(linkObserver);
+    overlayTip = tip;
+    hoverNative(native);
+    tip.schedule();
+  };
+
+  // `unhover: false` when the pointer is, as far as Kick knows, still on the
+  // original — a click about to press it, or the original already gone.
+  const hideOverlayTip = ({ unhover = true } = {}) => {
+    const tip = overlayTip;
+    if (!tip) return;
+    overlayTip = null;
+    if (tip.frame) cancelAnimationFrame(tip.frame);
+    tip.observers.forEach((observer) => observer.disconnect());
+    tip.clone?.remove();
+    if (unhover && tip.native.isConnected) unhoverNative(tip.native);
+  };
+
   // Kick's action buttons (follow, subscribe, gift subs, share, report) and
   // the gifted-subs badge are cloned without their handlers. A click leaves
   // fullscreen, then clicks Kick's original: what they open — sign-in,
   // subscribe and gift dialogs, the share menu — renders outside the player,
-  // where a fullscreen page can't show it.
+  // where a fullscreen page can't show it. Hovering one shows Kick's tooltip
+  // for it (see overlayTip).
   const wireOverlayAction = (btn, native) => {
     if (btn.dataset.kfcNavWired === 'true') return;
     btn.dataset.kfcNavWired = 'true';
+    // A reclone of the card replaces the hovered clone under a still pointer;
+    // carry its tooltip over rather than dropping it until the next move.
+    if (overlayTip?.native === native) overlayTip.btn = btn;
+    btn.addEventListener('pointerenter', (event) => {
+      if (!event.isTrusted || event.pointerType === 'touch') return;
+      // Already showing — the clone a reclone carried the tooltip over to.
+      if (overlayTip?.btn === btn) return;
+      showOverlayTip(btn, native);
+    });
+    btn.addEventListener('pointerleave', () => {
+      if (overlayTip?.btn === btn) hideOverlayTip();
+    });
     const testId = native.getAttribute('data-testid');
     const label = native.getAttribute('aria-label');
     // Leaving fullscreen can re-render the card and replace the original.
@@ -361,14 +525,10 @@
       event.preventDefault();
       event.stopPropagation();
       if (!overlayAcceptsActivation(event)) return;
+      hideOverlayTip({ unhover: false });
       exitFullscreenBeforeAction(() => {
-        resolveNative()?.dispatchEvent(
-          new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          })
-        );
+        const target = resolveNative();
+        if (target) clickNative(target);
       });
     });
   };
@@ -2889,6 +3049,10 @@
   const adoptPopover = (node, fsEl) => {
     if (!(node instanceof Element)) return;
     if (fsEl.contains(node) || isKfcOwnedChild(node)) return;
+    // The tooltip of an overlay button being hovered is placed by
+    // syncOverlayTip; adopting it here too would add a copy positioned for
+    // Kick's original, somewhere else on the screen.
+    if (overlayTip) return;
     if (node.hasAttribute?.(POPOVER_CLONE_ATTR)) return;
     if (!isPopoverHost(node)) return;
     if (popoverClones.has(node)) return;
@@ -3385,6 +3549,8 @@
       const cardClone = infoOverlaySource.cloneNode(true);
       transformClonedCard(cardClone, infoOverlaySource);
       infoOverlay.replaceChildren(cardClone);
+      // Hovering a button Kick has since replaced or removed.
+      if (overlayTip && !overlayTip.btn.isConnected) hideOverlayTip();
     } catch (err) {
       log('reclone info overlay failed:', err);
     }
@@ -3605,6 +3771,9 @@
   };
 
   const unmountInfoOverlay = () => {
+    // Also closes Kick's tooltip, which would otherwise be left open on the
+    // page once fullscreen exits.
+    hideOverlayTip();
     stopInfoSourceWatcher();
     if (infoOverlayObserver) {
       infoOverlayObserver.disconnect();
@@ -4547,6 +4716,7 @@
       }
     }
     const info = document.getElementById(INFO_ID);
+    if (controlsIdle) hideOverlayTip();
     if (info) {
       info.classList.toggle('kfc-idle', controlsIdle);
       // The overlay fades on the cluster's clock, so it arms with it too.
