@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.3
+// @version      0.24.4
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.3';
+  const VERSION = '0.24.4';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -3377,8 +3377,14 @@
       .filter(Boolean);
     const usernameSlug =
       pathSegments[0] && !pathSegments[0].includes('.') ? pathSegments[0] : null;
+    // Kick renders the card twice — a mobile copy and a desktop copy, one of
+    // them `display: none` — and the hidden one comes first. A walk from a
+    // hidden anchor finds no box until it reaches the column holding both
+    // copies and the channel's About section, so anchors must be rendered.
+    const isRendered = (el) => el.getClientRects().length > 0;
     // 2. Avatar-anchored search (primary). The avatar is the most distinct
-    //    element of the streamer card: Kick tags it `img#channel-avatar`
+    //    element of the streamer card: Kick tags it
+    //    `img[data-testid="channel-avatar"]` (formerly `img#channel-avatar`)
     //    inside a plain button, and older layouts wrapped it in a link back
     //    to the streamer's own profile — `a[href="/${username}"]`. Walk up
     //    from it until we hit an ancestor that also contains a category
@@ -3387,10 +3393,12 @@
     //    sub-row the category-link walk below can land on — any `<img>`
     //    beside the name (an emote, the gifted-subs leaderboard icon)
     //    satisfies its image check one level short of the avatar.
-    //    The id goes first: querySelectorAll returns document order, and
-    //    the sidebar's recommended channels wrap their avatars in the same
-    //    profile links.
-    const avatars = [...document.querySelectorAll('img#channel-avatar')];
+    //    The tagged avatar goes first: querySelectorAll returns document
+    //    order, and the sidebar's recommended channels wrap their avatars in
+    //    the same profile links.
+    const avatars = [...document.querySelectorAll(
+      'img[data-testid="channel-avatar"], img#channel-avatar'
+    )];
     if (usernameSlug) {
       const slug = CSS.escape(usernameSlug);
       avatars.push(...document.querySelectorAll(
@@ -3399,7 +3407,7 @@
       ));
     }
     for (const avatar of avatars) {
-      if (isKfcOwnedNode(avatar)) continue;
+      if (isKfcOwnedNode(avatar) || !isRendered(avatar)) continue;
       let node = avatar.parentElement;
       for (let i = 0; i < 12 && node && node !== document.body; i++) {
         if (player && node.contains(player)) break;
@@ -3416,7 +3424,7 @@
       }
     }
     // 3. Category-link walk fallback. Used when no avatar anchor is found
-    //    (no `#channel-avatar`, and the URL slug doesn't match a rendered
+    //    (no tagged avatar, and the URL slug doesn't match a rendered
     //    profile link).
     //    Requires h1/h2/h3 OR profile link + an avatar img + reasonable
     //    dimensions.
@@ -3432,7 +3440,7 @@
       'a[href*="/categories/"], a[href*="/category/"]'
     );
     for (const link of categoryLinks) {
-      if (isKfcOwnedNode(link)) continue;
+      if (isKfcOwnedNode(link) || !isRendered(link)) continue;
       let node = link.parentElement;
       for (let i = 0; i < 12 && node && node !== document.body; i++) {
         if (player && node.contains(player)) break;

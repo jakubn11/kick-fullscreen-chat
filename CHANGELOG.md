@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.4] - 2026-11-03
+
+### Fixed
+- **On some channels the fullscreen stream-info overlay was a large dark box that included the channel's About panel.** Kick now tags the channel card's avatar `data-testid="channel-avatar"` instead of `id="channel-avatar"`, so the avatar-anchored card search found nothing and fell back to walking up from the category link. Kick also renders the card twice, a mobile copy and a desktop copy, and the hidden mobile copy comes first. Walking up from its hidden category link, the search passed nothing with a size until it reached the column holding both copies and the About section ("About KAD1M", follower count, bio), and it cloned that column. The search now recognises the new avatar tag (the old id stays as a fallback) and starts only from avatars and category links that are actually rendered. Checked on kick.com/kad1m: the old search returned a 628×353 block containing the About text; the new one returns the 572×92 card with Kick's buttons, whether it finds the card from the avatar or from the category link.
+
 ## [0.24.3] - 2026-10-20
 
 ### Fixed
