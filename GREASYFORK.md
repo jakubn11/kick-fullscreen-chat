@@ -4,15 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.3** — Kick's buttons and tags in the fullscreen stream info; Hide chat works on the first click again
+**0.24.4** — The stream info shows just the channel card again on every channel
 
-- **Kick's buttons in the stream info** — follow, bell, subscribe, gift subs, share and report sit under the channel card and work without leaving fullscreen: menus open next to the button, dialogs over the player.
-- **Kick's tooltips** on those buttons, e.g. your subscription's end date on the sub button.
-- **Tags** beside the category, with the viewer count after them.
-- **Stream info settings** — show or hide Kick's buttons and the tags; the backdrop slider moved into the same group.
-- **Avatar is back** in the stream info, and the title is no longer as big and bold as the channel name.
-- **Hide chat closes the side chat on the first click again**, after Kick redrew its chat buttons.
-- **Faded stream info no longer catches clicks**, and the settings panel no longer slides sideways as it opens.
+- **No more big box in the stream info** — on some channels the fullscreen stream info grew into a large dark box that also showed the channel's About panel (follower count, bio). It now shows only the channel card with Kick's buttons, after Kick changed how that card is built.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
