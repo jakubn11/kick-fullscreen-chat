@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.5] - 2026-11-06
+
+### Fixed
+- **The fullscreen settings panel's contents sat to the left whenever the panel had to scroll.** The panel is ~803px tall and caps at `76vh`, so it scrolls on anything shorter than about 1057px. Its 8px scrollbar then took its width from the right side of the content only, leaving 17px of inset on the left and 25px on the right, so the rows no longer lined up with the control cluster above. This is the shift 0.24.2 didn't cover: that fix only removed the sideways slide from the opening animation. The panel now always reserves the transparent scrollbar track and takes its width back out of the right padding, so both insets are 17px and the content is 266px wide whether the panel scrolls or not. Measured in WebKit at 1280×720, 1440×900 and 1920×1080. Browsers without `::-webkit-scrollbar` (Firefox) keep the old behaviour, since their scrollbar's width isn't known.
+
 ## [0.24.4] - 2026-11-03
 
 ### Fixed

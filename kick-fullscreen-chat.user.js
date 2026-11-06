@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.4
+// @version      0.24.5
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.4';
+  const VERSION = '0.24.5';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -944,6 +944,21 @@
         border: 2px solid transparent;
         background-clip: padding-box;
         border-radius: 999px;
+      }
+      /* That 8px track comes out of the content box, on the right only, so a
+         panel tall enough to scroll sat 8px off-centre (17px of inset on the
+         left, 25px on the right) and its rows stopped lining up with the
+         control cluster above. Always reserving the track and taking its width
+         back out of the right padding keeps both insets equal, and keeps the
+         content the same width whether the panel scrolls or not. The track is
+         transparent and has no thumb until there is something to scroll, so a
+         panel that fits shows nothing. Only where ::-webkit-scrollbar sets the
+         width: elsewhere the scrollbar is the platform's, of unknown size. */
+      @supports selector(::-webkit-scrollbar) {
+        #${SETTINGS_PANEL_ID} {
+          overflow-y: scroll;
+          padding-right: calc(1rem - 8px);
+        }
       }
 
       /* Header: icon mark, name, close. */
