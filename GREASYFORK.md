@@ -4,9 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.4** — The stream info shows just the channel card again on every channel
+**0.24.5** — The settings panel's contents stay centred when it scrolls
 
-- **No more big box in the stream info** — on some channels the fullscreen stream info grew into a large dark box that also showed the channel's About panel (follower count, bio). It now shows only the channel card with Kick's buttons, after Kick changed how that card is built.
+- **Even margins in the settings panel** — on screens too short to fit the whole panel, the scrollbar pushed its contents to the left. The gaps on both sides now match whether the panel scrolls or not.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
