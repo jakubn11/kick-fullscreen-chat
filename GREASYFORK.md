@@ -4,9 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.6** — The console now shows what crashed Kick's chat
+**0.24.7** — Other scripts' errors no longer show up as this script's
 
-- **Crash details in the console** — when Kick's chat breaks with *"We are sorry, but something went wrong."* while side chat is open, the console now lists the page errors that led up to it, oldest first and with their stacks. The error just before the crash usually shows whether it was Kick itself or another script. `KickFullscreenChat.lastErrors()` lists them again at any time. They're kept in memory only.
+- **Honest console** — since 0.24.6, every error on a Kick page, whether from Kick or another script, appeared in the browser console as if it came from Kick Fullscreen Chat, because the script listened in on `console.error` the whole time. It now does that only while side chat is open, which is the only time the crash report needs it. Crash details work exactly as before.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -43,7 +43,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 
 - `@grant none` and **no network requests**.
 - Your preferences are stored in one `localStorage` key, `kfc-settings`, and never leave your machine. No analytics, no tracking.
-- The page's last 15 errors are kept in memory for crash diagnostics — never stored or sent anywhere.
+- The page's last 15 errors are kept in memory for crash diagnostics (`console.error` calls only while side chat is open) — never stored or sent anywhere.
 
 ## Compatibility
 
