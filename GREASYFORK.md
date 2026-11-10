@@ -4,9 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.5** — The settings panel's contents stay centred when it scrolls
+**0.24.6** — The console now shows what crashed Kick's chat
 
-- **Even margins in the settings panel** — on screens too short to fit the whole panel, the scrollbar pushed its contents to the left. The gaps on both sides now match whether the panel scrolls or not.
+- **Crash details in the console** — when Kick's chat breaks with *"We are sorry, but something went wrong."* while side chat is open, the console now lists the page errors that led up to it, oldest first and with their stacks. The error just before the crash usually shows whether it was Kick itself or another script. `KickFullscreenChat.lastErrors()` lists them again at any time. They're kept in memory only.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -21,6 +21,7 @@ Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/bl
 - **Player gestures kept** — click a paused stream to resume it, double-click to exit fullscreen
 - **Safe around reloads** — the Chat button is disabled while the player reloads (quality change, seek, "go to live"), so a click can't trigger Kick's 404 page
 - **Clean exit** — leaving fullscreen puts chat back exactly where it was
+- **Chat crash recovery** — if Kick's chat breaks while docked, the side chat closes so you can reopen it with one click, and the console lists the errors that led up to the crash
 - A dark control set with green accents that matches the other kick-* userscripts
 
 ## How to use
@@ -42,6 +43,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 
 - `@grant none` and **no network requests**.
 - Your preferences are stored in one `localStorage` key, `kfc-settings`, and never leave your machine. No analytics, no tracking.
+- The page's last 15 errors are kept in memory for crash diagnostics — never stored or sent anywhere.
 
 ## Compatibility
 
