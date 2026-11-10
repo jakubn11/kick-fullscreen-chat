@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.5
+// @version      0.24.6
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.5';
+  const VERSION = '0.24.6';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -272,6 +272,80 @@
     if (debugOn) console.log('[KickFullscreenChat]', ...args);
   };
   const warn = (...args) => console.warn('[KickFullscreenChat]', ...args);
+
+  // ── Recent page errors ─────────────────────────────────────────────────
+  // Kick's chat error boundary ("We are sorry, but something went wrong")
+  // swallows the error that tripped it, and by the time anyone opens the
+  // console the culprit (Kick itself, this script, or a sibling script
+  // touching React's nodes) is buried under unrelated noise. So we keep the
+  // last few page errors in memory — uncaught errors, unhandled rejections
+  // and console.error calls, which is where React reports an error a boundary
+  // caught — and print them when the chat crashes. Memory only, never
+  // persisted; the console.error wrapper passes every call through unchanged.
+  const RECENT_ERRORS_MAX = 15;
+  const ERROR_TEXT_MAX = 500;
+  const ERROR_STACK_MAX = 3000;
+  const recentErrors = [];
+
+  const clip = (text, max) => (text.length > max ? `${text.slice(0, max)}…` : text);
+
+  const describeErrorValue = (value) => {
+    if (value instanceof Error) return `${value.name}: ${value.message}`;
+    if (typeof value === 'string') return value;
+    try {
+      return JSON.stringify(value) ?? String(value);
+    } catch (_) {
+      return String(value);
+    }
+  };
+
+  const recordError = (source, values) => {
+    try {
+      const error = values.find((v) => v instanceof Error);
+      recentErrors.push({
+        at: Date.now(),
+        source,
+        message: clip(values.map(describeErrorValue).join(' '), ERROR_TEXT_MAX),
+        stack: clip(String(error?.stack || ''), ERROR_STACK_MAX),
+      });
+      if (recentErrors.length > RECENT_ERRORS_MAX) recentErrors.shift();
+    } catch (_) {
+      // A diagnostic must never be what breaks the page.
+    }
+  };
+
+  const formatRecentErrors = (now = Date.now()) =>
+    recentErrors.map((e) => ({
+      ago: `${((now - e.at) / 1000).toFixed(1)}s`,
+      time: new Date(e.at).toLocaleTimeString(),
+      source: e.source,
+      message: e.message,
+      stack: e.stack,
+    }));
+
+  const dumpRecentErrors = (reason) => {
+    const entries = formatRecentErrors();
+    if (!entries.length) {
+      warn(`${reason} — no page errors were recorded before it.`);
+      return;
+    }
+    warn(`${reason} — the last ${entries.length} page error(s), oldest first:`);
+    entries.forEach((e, i) => {
+      warn(`#${i + 1} ${e.ago} ago [${e.source}] ${e.message}${e.stack ? `\n${e.stack}` : ''}`);
+    });
+  };
+
+  window.addEventListener('error', (e) => {
+    recordError('uncaught', [e.error || e.message || 'unknown error']);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    recordError('unhandled rejection', [e.reason]);
+  });
+  const pageConsoleError = console.error;
+  console.error = function (...args) {
+    recordError('console.error', args);
+    return pageConsoleError.apply(this, args);
+  };
 
   const getCurrentChannelPath = () => {
     const slug = (window.location.pathname || '').split('/').filter(Boolean)[0];
@@ -2743,6 +2817,7 @@
         if (!CHAT_ERROR_RE.test(chatSlot.textContent || '')) return;
         chatErrorRecovering = true;
         log('Kick chat error boundary detected; tearing down side chat');
+        dumpRecentErrors('Kick chat crashed');
         showToast('Kick chat errored. Click Chat to reopen.');
         stopChatErrorWatcher();
         disableSideChat(fsEl);
@@ -5059,6 +5134,9 @@
       console.log('[KickFullscreenChat] debug logging', debugOn ? 'on' : 'off');
       return debugOn;
     },
+    // The recorded page errors, oldest first — for a crash seen outside
+    // fullscreen side chat, where the crash watcher doesn't run.
+    lastErrors: () => formatRecentErrors(),
   };
 
   document.addEventListener('fullscreenchange', onFullscreenChange);

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.6] - 2026-11-10
+
+### Added
+- **When Kick's chat crashes in side chat, the console now shows what crashed it.** The script already caught Kick's *"We are sorry, but something went wrong."* screen, closed the side chat and showed *"Kick chat errored. Click Chat to reopen."*, but the error behind it was gone by the time anyone looked: the crash is rare, and the console is busy. The script now keeps the page's last 15 errors in memory — uncaught errors, unhandled promise rejections and `console.error` calls, which is where React reports an error that an error boundary caught — and prints them, oldest first with their stacks and how long before the crash each happened, as `Kick chat crashed — the last N page error(s)` before the toast. `KickFullscreenChat.lastErrors()` returns the same list at any time, for a crash outside fullscreen. The `console.error` wrapper passes every call through unchanged; nothing is stored or sent anywhere.
+
 ## [0.24.5] - 2026-11-06
 
 ### Fixed
