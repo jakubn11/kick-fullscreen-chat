@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.7] - 2026-11-10
+
+### Fixed
+- **Every error on a Kick page showed up in the browser console as coming from this script.** 0.24.6 started recording `console.error` calls so it could print what crashed Kick's chat, and did it by wrapping `console.error` for the whole page as soon as it loaded. The browser console labels each message with the line that logged it, and with the wrapper in place that line was the script's — so errors from Kick itself or any other script were attributed to Kick Fullscreen Chat on every Kick page, fullscreen or not. The wrapper is now installed only while side chat is open, the one time the crash report needs it, and removed again when side chat closes (unless another script has wrapped `console.error` on top of it since, in which case it stays in place but stops recording). Uncaught errors and unhandled rejections are still recorded all the time; they don't change how messages are labelled. `KickFullscreenChat.lastErrors()` outside side chat therefore lists only those.
+
 ## [0.24.6] - 2026-11-10
 
 ### Added

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.6
+// @version      0.24.7
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.6';
+  const VERSION = '0.24.7';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -279,9 +279,10 @@
   // console the culprit (Kick itself, this script, or a sibling script
   // touching React's nodes) is buried under unrelated noise. So we keep the
   // last few page errors in memory — uncaught errors, unhandled rejections
-  // and console.error calls, which is where React reports an error a boundary
-  // caught — and print them when the chat crashes. Memory only, never
-  // persisted; the console.error wrapper passes every call through unchanged.
+  // and, while side chat is open, console.error calls, which is where React
+  // reports an error a boundary caught — and print them when the chat
+  // crashes. Memory only, never persisted; the console.error wrapper passes
+  // every call through unchanged.
   const RECENT_ERRORS_MAX = 15;
   const ERROR_TEXT_MAX = 500;
   const ERROR_STACK_MAX = 3000;
@@ -341,10 +342,35 @@
   window.addEventListener('unhandledrejection', (e) => {
     recordError('unhandled rejection', [e.reason]);
   });
-  const pageConsoleError = console.error;
-  console.error = function (...args) {
-    recordError('console.error', args);
-    return pageConsoleError.apply(this, args);
+  // console.error is wrapped only while side chat is open — the only time the
+  // crash watcher needs it. DevTools labels every console message with the
+  // line that called console.error, and with the wrapper installed that line
+  // is ours: every error Kick or another script logged was shown as coming
+  // from this script, on every Kick page. Stopping puts the page's function
+  // back only if it is still ours on top; if another script wrapped over us
+  // since, unhooking would cut it off too, so the wrapper stays in its chain
+  // and just stops recording until the next start reuses it.
+  let consoleErrorWrapper = null;
+  let consoleErrorBeneath = null;
+  let capturingConsoleErrors = false;
+  const startConsoleErrorCapture = () => {
+    capturingConsoleErrors = true;
+    if (consoleErrorWrapper) return;
+    const beneath = console.error;
+    consoleErrorBeneath = beneath;
+    consoleErrorWrapper = function (...args) {
+      if (capturingConsoleErrors) recordError('console.error', args);
+      return beneath.apply(this, args);
+    };
+    console.error = consoleErrorWrapper;
+  };
+  const stopConsoleErrorCapture = () => {
+    capturingConsoleErrors = false;
+    if (consoleErrorWrapper && console.error === consoleErrorWrapper) {
+      console.error = consoleErrorBeneath;
+      consoleErrorWrapper = null;
+      consoleErrorBeneath = null;
+    }
   };
 
   const getCurrentChannelPath = () => {
@@ -2806,6 +2832,7 @@
 
   const startChatErrorWatcher = (fsEl) => {
     if (!chatSlot || chatErrorObserver) return;
+    startConsoleErrorCapture();
     chatErrorObserver = new MutationObserver(() => {
       // Coalesce a burst of message mutations into one textContent read per
       // frame; on a busy stream we'd otherwise re-scan the slot once per
@@ -2832,6 +2859,7 @@
   };
 
   const stopChatErrorWatcher = () => {
+    stopConsoleErrorCapture();
     if (chatErrorObserver) {
       chatErrorObserver.disconnect();
       chatErrorObserver = null;
@@ -5135,7 +5163,8 @@
       return debugOn;
     },
     // The recorded page errors, oldest first — for a crash seen outside
-    // fullscreen side chat, where the crash watcher doesn't run.
+    // fullscreen side chat, where the crash watcher doesn't run. Outside side
+    // chat only uncaught errors and rejections are recorded.
     lastErrors: () => formatRecentErrors(),
   };
 

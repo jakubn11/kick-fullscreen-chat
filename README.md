@@ -98,7 +98,7 @@ A couple of things are available from the browser console:
 ```js
 KickFullscreenChat.debug(true);     // persisted verbose logging (no argument toggles it)
 KickFullscreenChat.version;         // the running version
-KickFullscreenChat.lastErrors();    // the page's last 15 errors, oldest first (memory only)
+KickFullscreenChat.lastErrors();    // recent page errors, oldest first (memory only)
 ```
 
 ## Troubleshooting
