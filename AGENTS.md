@@ -292,7 +292,8 @@ Manual testing is required in a browser with a userscript manager installed. The
 23. Set a wide width (~640px / **Max**) on a full-size window, reload in a window under ~1070px wide, change an unrelated setting, reload on the full-size window — the width is unchanged. [0.21.11]
 24. Open Kick in two tabs. In one, change the chat width and an opacity slider; in the other, flip an unrelated switch — then reload both. The first tab's changes survive. Also move a slider and reload straight away: the new value is kept. [0.21.12]
 25. With side chat open, run `console.error(new Error('kfc test'))`, then `KickFullscreenChat.lastErrors()` — the entry is listed with its stack, and the error still prints in the console as usual. Close side chat and run it again — the console's source link now points at the console, not at the script, and `lastErrors()` gains no entry. [0.24.7] When Kick's chat crashes with side chat open, the console shows `Kick chat crashed — the last N page error(s)` before the toast; the error just before it is usually the cause. [0.24.6]
-26. Check the developer console for `[KickFullscreenChat]` log lines if something doesn't work (`KickFullscreenChat.debug()` turns on verbose logging).
+26. With side chat open, click the names of a few chatters with a high sub badge until a card shows an animated tier banner — the card is its normal ~356px size next to the chat and above the stream info, not stretched over the video; clicking it doesn't resume a paused stream. Repeat with **Dock chat on left** (card on the chat's right) and after dragging the chat wider (card still hugs the chat). [0.24.8]
+27. Check the developer console for `[KickFullscreenChat]` log lines if something doesn't work (`KickFullscreenChat.debug()` turns on verbose logging).
 
 ## Documentation
 

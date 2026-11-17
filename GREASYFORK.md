@@ -4,9 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.7** — Other scripts' errors no longer show up as this script's
+**0.24.8** — Chatter cards open at their normal size in side chat
 
-- **Honest console** — since 0.24.6, every error on a Kick page, whether from Kick or another script, appeared in the browser console as if it came from Kick Fullscreen Chat, because the script listened in on `console.error` the whole time. It now does that only while side chat is open, which is the only time the crash report needs it. Crash details work exactly as before.
+- **User cards fixed** — with side chat open, clicking the name of a higher-tier subscriber filled the whole video area with their user card, banner stretched across the screen. Their card plays a small animated badge video, and the script mistook it for the stream. The card now opens at its normal size next to the chat, above the stream info, and on the chat's left side when chat is docked left.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
