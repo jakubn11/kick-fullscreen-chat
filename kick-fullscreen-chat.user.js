@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.7
+// @version      0.24.8
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.7';
+  const VERSION = '0.24.8';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1747,8 +1747,22 @@
          above this script's controls, chat and stream info, as a popup does.
          Same top value as the cluster; later in the DOM, so they win. */
       :fullscreen > [data-fullscreen-portal-owner],
-      :fullscreen > [data-radix-popper-content-wrapper] {
+      :fullscreen > [data-radix-popper-content-wrapper],
+      :fullscreen #user-identity {
         z-index: 2147483647 !important;
+      }
+      /* The chatter card hangs off the chat's edge through Kick's own
+         --chat-width (right: var(--chat-width)), which is Kick's chat width,
+         not the docked slot's. Scoped to the card, so Kick's :root value and
+         its windowed layout are untouched. */
+      :fullscreen #user-identity {
+        --chat-width: var(--kfc-chat-width, ${CHAT_WIDTH});
+      }
+      /* Docked left, the card goes on the chat's other side — the left edge.
+         No !important: an inline position Kick writes still wins. */
+      html.kfc-chat-left :fullscreen #user-identity {
+        left: var(--kfc-chat-width, ${CHAT_WIDTH});
+        right: auto;
       }
       [${POPOVER_CLONE_ATTR}] * {
         z-index: 2147483647 !important;
@@ -2089,16 +2103,37 @@
     pendingTimeoutId = 0;
   };
 
+  // Not every <video> in the fullscreen element is the stream. A chatter's user
+  // card (`#user-identity`, opened by clicking a name in chat) plays a looping
+  // tier animation (static.kick.com/tier/animation/level-NN.webm) for
+  // higher-tier subs, and the chat can hold video emotes. Treating either as
+  // the player made the card a player layer: it was stretched over the whole
+  // video area. Every "find the video" lookup goes through these.
+  const NON_PLAYER_VIDEO_HOST_SEL = '#user-identity, .kfc-chat-slot';
+  const isPlayerVideo = (video) =>
+    video instanceof Element && !video.closest(NON_PLAYER_VIDEO_HOST_SEL);
+  const queryPlayerVideo = (root) => {
+    if (!root?.querySelectorAll) return null;
+    for (const video of root.querySelectorAll('video')) {
+      if (isPlayerVideo(video)) return video;
+    }
+    return null;
+  };
+  const holdsPlayerVideo = (el) =>
+    el?.matches?.('video') ? isPlayerVideo(el) : !!queryPlayerVideo(el);
+
   // Kick's portaled popups. In fullscreen they render inside the fullscreen
   // element — a dialog's backdrop as a full-coverage child of it — and are
   // not player layers: marking one would shrink it beside the chat.
+  // `#user-identity` is the chatter card: no dialog role, so it is named.
   const KICK_POPUP_SEL =
-    '[data-fullscreen-portal-owner], [data-radix-popper-content-wrapper], [data-radix-focus-guard], [role="dialog"], [role="alertdialog"], [role="menu"]';
+    '[data-fullscreen-portal-owner], [data-radix-popper-content-wrapper], [data-radix-focus-guard], [role="dialog"], [role="alertdialog"], [role="menu"], #user-identity';
   const isKickPopup = (el) => {
     const popup = el instanceof Element && el.closest(KICK_POPUP_SEL);
-    // A match that holds the video is a page-level wrapper around the player,
-    // not a popup — otherwise every click on the video would count as one.
-    return !!popup && !popup.querySelector('video');
+    // A match that holds the stream is a page-level wrapper around the
+    // player, not a popup — otherwise every click on the video would count
+    // as one. Only the stream counts: the user card holds a video of its own.
+    return !!popup && !queryPlayerVideo(popup);
   };
 
   const isKfcOwnedChild = (el) =>
@@ -2135,8 +2170,7 @@
   // only marked when they contain controls, which avoids turning Kick's transient
   // loading/blur overlays into transformed hit targets above the timeline.
   const looksLikeFullscreenLayer = (el) => {
-    if (el.matches?.('video')) return true;
-    if (el.querySelector?.('video')) return true;
+    if (holdsPlayerVideo(el)) return true;
     return coversFullscreen(el) && looksLikePlayerControls(el);
   };
 
@@ -2192,6 +2226,7 @@
     roots.forEach((root) => {
       if (root.matches?.('video')) videos.push(root);
       root.querySelectorAll?.('video').forEach((video) => {
+        if (!isPlayerVideo(video)) return;
         videos.push(video);
         let node = video.parentElement;
         while (node && node !== root) {
@@ -2881,7 +2916,7 @@
     // of mounting the player tree, and changing the fullscreen DOM mid-mount
     // can still cause reconciliation to fail and Kick to navigate to its 404
     // page.
-    const probeVideo = fsEl.querySelector('video');
+    const probeVideo = queryPlayerVideo(fsEl);
     if (!probeVideo) {
       log('no video element yet, ignoring click — button should be disabled');
       return;
@@ -2990,7 +3025,7 @@
     if (wrap) fsEl.appendChild(wrap);
 
     enabledAt = Date.now();
-    videoEl = fsEl.querySelector('video');
+    videoEl = queryPlayerVideo(fsEl);
     if (videoEl) {
       videoEl.addEventListener('emptied', onVideoEmptied);
       videoEl.addEventListener('loadstart', onVideoLoadStart);
@@ -3086,7 +3121,7 @@
     // Check video loading state to set correct disabled state and aria-label
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
     if (fs) {
-      const video = fs.querySelector('video');
+      const video = queryPlayerVideo(fs);
       const isLoaded = !videoReloading && video && video.readyState >= 2;
       btn.disabled = !isLoaded;
       btn.setAttribute('aria-label', isLoaded ? 'Show chat' : 'Loading video...');
@@ -3190,7 +3225,7 @@
     }
 
     const tryAttach = () => {
-      const video = fsEl.querySelector('video');
+      const video = queryPlayerVideo(fsEl);
       if (!video) return false;
       if (video === fullscreenVideoEl) return true;
       detachVideoListeners();
@@ -3220,7 +3255,7 @@
     // whole fsEl subtree. Same filter trick videoRootObserver uses.
     videoSwapObserver = new MutationObserver((mutations) => {
       if (chatSlot && mutations.every((m) => chatSlot.contains(m.target))) return;
-      const currentVideo = fsEl.querySelector('video');
+      const currentVideo = queryPlayerVideo(fsEl);
       if (!currentVideo) return;
       if (currentVideo !== fullscreenVideoEl) {
         log('video element swapped, re-attaching monitor');
@@ -4806,7 +4841,7 @@
   // without resetting our own idle timer.
   const nudgeKickControls = () => {
     if (!idleFsEl) return;
-    const target = idleFsEl.querySelector('video') || idleFsEl;
+    const target = queryPlayerVideo(idleFsEl) || idleFsEl;
     const rect = target.getBoundingClientRect();
     target.dispatchEvent(new MouseEvent('mousemove', {
       bubbles: true,
@@ -4880,7 +4915,7 @@
     while (
       node.parentElement &&
       node.parentElement !== fsEl &&
-      !node.parentElement.querySelector('video')
+      !queryPlayerVideo(node.parentElement)
     ) {
       node = node.parentElement;
     }
@@ -5083,7 +5118,7 @@
       // Only react when fullscreening something that looks like the player.
       const looksLikePlayer =
         VIDEO_WRAPPER_SELECTORS.some((s) => fsEl.matches?.(s) || fsEl.querySelector?.(s)) ||
-        fsEl.querySelector?.('video');
+        !!queryPlayerVideo(fsEl);
       if (!looksLikePlayer) return;
       ensureButton(fsEl);
       mountInfoOverlay(fsEl);

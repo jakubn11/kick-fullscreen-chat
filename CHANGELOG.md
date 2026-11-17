@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.8] - 2026-11-17
+
+### Fixed
+- **Clicking some chatters' names in side chat filled the whole video area with their user card.** Kick's user card (`#user-identity`) plays a looping tier animation, a `<video>` from `static.kick.com/tier/animation/`, for higher-tier subscribers. In fullscreen the card renders inside the fullscreen element, and the script counted any layer there holding a `<video>` as part of the player. So it gave the card the player-layer treatment: full video-area width and height, with the banner stretched across the screen and the info overlay painted over it. Every lookup for "the video" now skips videos inside the user card or the chat (`queryPlayerVideo`). That covers player-layer marking, the Chat button's loading state, the video monitor and the controls-fade search. The card also counts as one of Kick's popups, so clicking it doesn't resume the stream and double-clicking it doesn't leave fullscreen. In fullscreen the card now sits above the stream-info overlay and lines up with the docked chat's real width, on its left side when the chat is docked left.
+
 ## [0.24.7] - 2026-11-10
 
 ### Fixed
