@@ -4,9 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.8** — Chatter cards open at their normal size in side chat
+**0.24.9** — Ads stay on the video, off the side chat
 
-- **User cards fixed** — with side chat open, clicking the name of a higher-tier subscriber filled the whole video area with their user card, banner stretched across the screen. Their card plays a small animated badge video, and the script mistook it for the stream. The card now opens at its normal size next to the chat, above the stream info, and on the chat's left side when chat is docked left.
+- **Ad display fixed** — during a Kick ad with side chat open, the ad's ⓘ ("Why am I seeing this ad") button sat on the chat header, covering its button, and the green progress bar ran along the bottom under the chat. With chat docked left, the "Ad 1 of 1 · 25s left" label landed on the chat. All of these now stay within the video area, and the ⓘ opens Kick's ad info as it should.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
