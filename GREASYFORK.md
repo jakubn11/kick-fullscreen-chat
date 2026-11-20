@@ -19,7 +19,7 @@ Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/bl
 - **Fullscreen settings** — overlay and stream-info opacity, which parts of the stream info to show (follow / sub / share buttons, tags), width presets, hide delay, dock side, control and overlay auto-hide, default overlay mode, auto-open chat on fullscreen, reset to defaults
 - **Auto-fade** — the controls hide after 2–8s of mouse inactivity (default 4s) and come back as soon as you move the mouse
 - **Player gestures kept** — click a paused stream to resume it, double-click to exit fullscreen
-- **Safe around reloads** — the Chat button is disabled while the player reloads (quality change, seek, "go to live"), so a click can't trigger Kick's 404 page
+- **Safe around reloads** — the Chat button is disabled while the player reloads (quality change, live-stream seek, "go to live"), so a click can't trigger Kick's 404 page; seeking a VOD or clip keeps the chat open
 - **Clean exit** — leaving fullscreen puts chat back exactly where it was
 - **Chat crash recovery** — if Kick's chat breaks while docked, the side chat closes so you can reopen it with one click, and the console lists the errors that led up to the crash
 - A dark control set with green accents that matches the other kick-* userscripts

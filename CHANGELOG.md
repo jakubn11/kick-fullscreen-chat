@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.10] - 2026-11-21
+
+### Changed
+- **Seeking a VOD or a clip no longer closes the side chat.** Any click on the seekbar tore the side chat down, because on a live stream it switches to the DVR timeline and Kick re-mounts the whole player, and a docked chat caught in that re-mount sent the page to Kick's 404. A VOD (`/<channel>/videos/<id>`) or a clip (`/<channel>/clips/<id>`) doesn't do that: the seekbar moves the same `<video>` in place, with no `loadstart` or `emptied`, and the player tree stays put. Closing the chat there only meant reopening it after every scrub. On those pages the seekbar now leaves the side chat open, and the chat replay follows the new position. A live stream's seekbar, a quality change and "Go to live" still tear down first as before, and a reload that does happen anywhere is still caught by the video's `loadstart`. Tested with three seeks on a VOD and two on a clip with the chat docked: no errors, same `<video>`, chat still in place.
+
+### Fixed
+- **In overlay mode, an ad's click area, ⓘ and progress bar sat on top of the floating chat.** Clicking anywhere in the chat during an ad opened the advertiser. In overlay mode the video keeps the full width, and 0.24.9 sized the ad layers to the video, so they covered the chat too. Kick's transparent "Visit advertiser" button carries its own z-index, which put it above the chat panel, which has none. Ad layers with their own z-index now stop at the chat's edge in overlay mode, the same way Kick's timeline already does, and the video itself stays full width. Side mode is unchanged.
+- **Docked left, the "Ad 1 of 1 · 25s left" label could still land on the chat.** Sometimes Kick's fullscreen element is a flex row, and the label's zero-height wrapper then measures 0px wide. 0.24.9 judged it narrow and left it alone. A static wrapper with no box of its own is now measured by the label and ⓘ it positions, and `display: contents` children are skipped.
+- **Dragging the divider past the minimum to close the chat also shrank it to 260px for next time.** The drag clamps the width to the minimum on its way past, and that clamped width was what got saved. The chat now reopens at the width it had before the drag.
+
 ## [0.24.9] - 2026-11-20
 
 ### Fixed

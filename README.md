@@ -38,7 +38,7 @@
 - Hides itself when chat is open — Kick's native **Hide chat** button inside the chat panel takes over
 - Auto-fades after a configurable delay of mouse inactivity (2–8s, default 4s), kept in sync with Kick's own controls/timeline; reappears instantly on mouse movement
 - Auto-teardown: clicking Kick's native **Hide chat** restores fullscreen video and re-shows the **Chat** button so chat can be re-opened
-- Disables the **Chat** button while the player is reloading (quality change, seek, "go to live") with a short grace period after the video reports ready, so a click can never land mid-reload and trigger Kick's 404 page
+- Disables the **Chat** button while the player is reloading (quality change, live-stream seek, "go to live") with a short grace period after the video reports ready, so a click can never land mid-reload and trigger Kick's 404 page
 - Leaves Kick's player nodes parented to the fullscreen element and shrinks them with a CSS marker, so background React refreshes (e.g. while the stream plays on a background macOS Space) can reconcile without 404-ing the page
 - Forces a containing block on the marked player layers so Kick's `position: fixed` video and timeline / controls stay inside the shrunken video area instead of overlapping the chat
 - **Player gestures kept working:** clicking a paused stream resumes it and double-clicking exits fullscreen, both of which Kick handles on the `<video>` element that the side layout has to make click-through. The click is one-way — it never pauses a playing stream — and the pointer cursor appears only while a click would actually resume
@@ -91,7 +91,8 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Click the settings gear (top-right) | Opens fullscreen settings, grouped into **Chat** (width presets, dock side left/right, default overlay opening, auto-open chat on fullscreen), **Overlay** (opacity, overlay auto-hide), **Stream info** (backdrop opacity, follow / sub / share buttons, tags) and **Controls** (hide delay, userscript control auto-hide), plus resetting to defaults. The panel caps at 76% of the screen height and scrolls, so every row stays reachable on short displays. Close it with the ✕, the gear, or a click outside |
 | Click a chatter's name in the side chat | Kick's user card opens beside the chat, above the stream info — on the chat's left when it's docked right, and on its right when it's docked left |
 | Click Kick's native **Hide chat** inside the chat panel | Split layout tears down, fullscreen video restored, **Chat** button reappears |
-| Change stream quality / seek / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
+| Change stream quality / seek a live stream / "Go to live" | Side chat tears down automatically; **Chat** button is disabled until the player finishes reloading |
+| Seek a VOD or clip | Side chat stays open; the chat replay follows |
 | Exit fullscreen | DOM restored to its original state — chat returns to its original location |
 
 A couple of things are available from the browser console:
@@ -112,7 +113,7 @@ KickFullscreenChat.lastErrors();    // recent page errors, oldest first (memory 
 
 ## How it works
 
-When Kick's player goes fullscreen, the script adds its control cluster to the fullscreen element. Opening chat **moves Kick's own chat node** into a fixed slot beside the video and marks Kick's full-coverage player layers so CSS shrinks them to the remaining width — the player nodes themselves are never re-parented, so React can keep reconciling them (wrapping them is what used to send Kick to its 404 page). A quality change, seek or "Go to live" is caught in the capture phase, before Kick handles it, and tears the layout down first; the **Chat** button then stays disabled until the new stream has loaded. The stream-info overlay is a copy of Kick's channel card; its buttons press Kick's own, and since Kick renders its menus, dialogs and tooltips inside the fullscreen player, the script only has to move the ones tied to a button next to the overlay's copy. Leaving fullscreen puts the chat back exactly where it came from and removes everything the script added. Preferences live in one `localStorage` key, `kfc-settings`, and the script makes **no network requests** (`@grant none`).
+When Kick's player goes fullscreen, the script adds its control cluster to the fullscreen element. Opening chat **moves Kick's own chat node** into a fixed slot beside the video and marks Kick's full-coverage player layers so CSS shrinks them to the remaining width — the player nodes themselves are never re-parented, so React can keep reconciling them (wrapping them is what used to send Kick to its 404 page). A quality change, live-stream seek or "Go to live" is caught in the capture phase, before Kick handles it, and tears the layout down first; the **Chat** button then stays disabled until the new stream has loaded. The stream-info overlay is a copy of Kick's channel card; its buttons press Kick's own, and since Kick renders its menus, dialogs and tooltips inside the fullscreen player, the script only has to move the ones tied to a button next to the overlay's copy. Leaving fullscreen puts the chat back exactly where it came from and removes everything the script added. Preferences live in one `localStorage` key, `kfc-settings`, and the script makes **no network requests** (`@grant none`).
 
 ## License
 

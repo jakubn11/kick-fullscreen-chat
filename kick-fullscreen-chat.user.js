@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.9
+// @version      0.24.10
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.9';
+  const VERSION = '0.24.10';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1446,13 +1446,17 @@
         box-sizing: border-box !important;
         transform: translateX(var(--kfc-video-shift, 0px));
       }
-      /* Wide but short layers beside the player: during a server-side ad,
-         Kick's ad progress bar (absolute, bottom, full width) and the
-         wrapper around its "Ad 1 of 1 · 25s left" label and "Why am I seeing
-         this ad" button (a plain zero-height div whose absolute children
-         anchor to fsEl). Left alone they span the whole screen, and their
-         z-index paints them over the chat. They get the video width and the
-         docked-left shift through left, deliberately not a transform: a
+      /* Wide layers beside the player that carry their own z-index: during a
+         server-side ad, Kick's ad progress bar (absolute, bottom, full
+         width), its transparent "Visit advertiser" button (absolute, inset 0)
+         and the wrapper around its "Ad 1 of 1 · 25s left" label and "Why am I
+         seeing this ad" button (a plain zero-height div whose absolute
+         children anchor to fsEl). Left alone they span the whole screen, and
+         their z-index paints them over the chat. They get the area beside the
+         chat: the video width and docked-left shift in side mode, and in
+         overlay mode the full width less the floating chat (the control
+         inset / shift that keep the timeline clear of it). That goes through
+         left, deliberately not a transform: a
          transform makes a stacking context, which would drop the info button
          (z-controls) under Kick's transparent "Visit advertiser" button
          (z-player) so a click on it opened the advertiser. A static wrapper
@@ -1462,11 +1466,11 @@
          height it covered the player and, holding a button, was re-marked as
          a player layer on the next pass, which put it back in the flow. */
       [${VIDEO_STRIP_ATTR}] {
-        width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
-        max-width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
+        width: calc(var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) - var(--kfc-control-inset, 0px)) !important;
+        max-width: calc(var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) - var(--kfc-control-inset, 0px)) !important;
         min-width: 0 !important;
         box-sizing: border-box !important;
-        left: var(--kfc-video-shift, 0px) !important;
+        left: calc(var(--kfc-video-shift, 0px) + var(--kfc-control-shift, 0px)) !important;
         right: auto !important;
       }
       [${VIDEO_STRIP_ATTR}="static"] {
@@ -2239,6 +2243,7 @@
         !isKfcOwnedNode(child) &&
         !isKfcOwnedChild(child) &&
         !isKickPopup(child) &&
+        !isRaisedLayer(child) &&
         coversFullscreen(child)
     );
     const nextOverlays = new Set(overlays);
@@ -2250,15 +2255,41 @@
     refreshVideoStrips(fsEl, roots, nextOverlays);
   };
 
-  // The wide, short layers neither test above catches (Kick's ad progress
-  // bar and ad-label wrapper; see the [data-kfc-video-strip] rule). Measured
-  // against the same basis as coversFullscreen, so a strip already narrowed
-  // to the video area stays marked.
+  // A positioned layer with its own z-index (Kick's transparent "Visit
+  // advertiser" button, z-player, during an ad) paints over the chat slot,
+  // which has none: the overlay rule's transform only makes it a stacking
+  // context at that same z-index. It is sized as a strip instead, which also
+  // keeps it out from under the floating chat in overlay mode.
+  const isRaisedLayer = (el) => {
+    const style = getComputedStyle(el);
+    return (
+      (style.position === 'absolute' || style.position === 'fixed') && style.zIndex !== 'auto'
+    );
+  };
+
+  // The wide layers neither test above catches (Kick's ad progress bar,
+  // ad-label wrapper and ad click button; see the [data-kfc-video-strip]
+  // rule). Measured against the area beside the chat in both modes, so a
+  // strip already narrowed to it stays marked. A static wrapper with no box
+  // of its own is measured by its positioned children, which are what anchor
+  // to fsEl: fsEl is sometimes a flex row, and there the wrapper is a 0px-wide
+  // item.
   const spansVideoWidth = (el) => {
+    const basisWidth = active ? Math.max(1, window.innerWidth - chatWidth) : window.innerWidth;
     const rect = el.getBoundingClientRect();
-    const basisWidth =
-      active && !overlayMode ? Math.max(1, window.innerWidth - chatWidth) : window.innerWidth;
-    return rect.width >= basisWidth * 0.7;
+    if (rect.width >= basisWidth * 0.7) return true;
+    if ((rect.width && rect.height) || getComputedStyle(el).position !== 'static') return false;
+    let left = Infinity;
+    let right = -Infinity;
+    for (const child of el.children) {
+      const position = getComputedStyle(child).position;
+      if (position !== 'absolute' && position !== 'fixed') continue;
+      const box = child.getBoundingClientRect();
+      if (!box.width && !box.height) continue;
+      left = Math.min(left, box.left);
+      right = Math.max(right, box.right);
+    }
+    return right - left >= basisWidth * 0.7;
   };
 
   const refreshVideoStrips = (fsEl, roots, overlays) => {
@@ -2270,6 +2301,7 @@
         !isKfcOwnedNode(child) &&
         !isKfcOwnedChild(child) &&
         !isKickPopup(child) &&
+        getComputedStyle(child).display !== 'contents' &&
         spansVideoWidth(child)
     );
     const nextStrips = new Set(strips);
@@ -2403,6 +2435,12 @@
   // The seekbar uses Tailwind's group/seekbar class.
   const isSeekbarClick = (target) =>
     !!target.closest('[class*="group/seekbar"], [class*="seekbar"]');
+  // Only a live stream's seekbar re-mounts the player (the live → DVR switch).
+  // On a VOD (/<channel>/videos/<id>) or a clip (/<channel>/clips/<id>) it
+  // seeks the same <video> in place, with no loadstart or emptied and the
+  // player tree left standing, so tearing the chat down there only closed it
+  // on every scrub. A reload that does happen is still caught by loadstart.
+  const isRecordingPage = () => /^\/[^/]+\/(?:videos|clips)\/[^/]+/.test(location.pathname);
   // "Go to live" / "Jump to live" — exiting DVR mode also re-mounts the player.
   const GO_LIVE_RE = /^(?:go\s*to\s*live|jump\s*to\s*live|back\s*to\s*live|skip\s*to\s*live|go\s*live)$/i;
   const isGoLiveClick = (target) => {
@@ -2455,7 +2493,10 @@
     if (isKfcOwnedNode(target)) return;
     const quality = isQualityOptionClick(target);
     if (quality) return markReloadAndMaybeTeardown(fs, `quality option click (${quality})`);
-    if (isSeekbarClick(target)) return markReloadAndMaybeTeardown(fs, 'seekbar click');
+    if (isSeekbarClick(target)) {
+      if (isRecordingPage()) return;
+      return markReloadAndMaybeTeardown(fs, 'seekbar click');
+    }
     const goLive = isGoLiveClick(target);
     if (goLive) return markReloadAndMaybeTeardown(fs, `go-to-live click (${goLive})`);
   };
@@ -2465,7 +2506,7 @@
   const onDocPointerDownCapture = (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
-    if (!isSeekbarClick(target)) return;
+    if (!isSeekbarClick(target) || isRecordingPage()) return;
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
     if (!fs) return;
     if (isKfcOwnedNode(target)) return;
@@ -2787,6 +2828,7 @@
   let resizeMoveFrame = 0;
   let resizePointerX = 0;
   let resizeViewportWidth = 0;
+  let resizeStartWidth = 0;
 
   const setResizeUiState = (isResizing) => {
     const wrap = document.getElementById(WRAP_ID);
@@ -2874,6 +2916,10 @@
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
       if (fsEl && active) {
         log('resize divider released past close threshold; closing side chat');
+        // The drag clamped the width to the minimum on its way past it. The
+        // gesture means "close", not "make it narrow", so the chat reopens
+        // at the width it had before the drag.
+        setChatWidth(resizeStartWidth, resizeViewportWidth);
         disableSideChat(fsEl);
         return;
       }
@@ -2889,6 +2935,7 @@
     // drag, and reading it per-move would force a synchronous chat reflow.
     resizeViewportWidth = window.innerWidth;
     resizePointerX = e.clientX;
+    resizeStartWidth = chatWidth;
     setResizeUiState(true);
     if (resizeHandle) {
       resizeHandle.classList.add('kfc-dragging');
