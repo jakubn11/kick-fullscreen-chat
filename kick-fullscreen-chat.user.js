@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.8
+// @version      0.24.9
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.8';
+  const VERSION = '0.24.9';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -73,6 +73,7 @@
   const VIDEO_FRAME_ATTR = 'data-kfc-video-frame';
   const VIDEO_EL_ATTR = 'data-kfc-video-el';
   const VIDEO_OVERLAY_ATTR = 'data-kfc-video-overlay';
+  const VIDEO_STRIP_ATTR = 'data-kfc-video-strip';
   const CHAT_WIDTH = '340px';
   // Bounds for the draggable chat-width divider (px). Min keeps chat usable;
   // max is also capped to 60vw at drag time so chat never dominates.
@@ -1445,6 +1446,33 @@
         box-sizing: border-box !important;
         transform: translateX(var(--kfc-video-shift, 0px));
       }
+      /* Wide but short layers beside the player: during a server-side ad,
+         Kick's ad progress bar (absolute, bottom, full width) and the
+         wrapper around its "Ad 1 of 1 · 25s left" label and "Why am I seeing
+         this ad" button (a plain zero-height div whose absolute children
+         anchor to fsEl). Left alone they span the whole screen, and their
+         z-index paints them over the chat. They get the video width and the
+         docked-left shift through left, deliberately not a transform: a
+         transform makes a stacking context, which would drop the info button
+         (z-controls) under Kick's transparent "Visit advertiser" button
+         (z-player) so a click on it opened the advertiser. A static wrapper
+         is pinned to the top as an absolute box, so it is the containing
+         block for its children: made relative, it sat in fsEl's flow below
+         the video, off-screen. It keeps its zero height — stretched to full
+         height it covered the player and, holding a button, was re-marked as
+         a player layer on the next pass, which put it back in the flow. */
+      [${VIDEO_STRIP_ATTR}] {
+        width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
+        max-width: var(--kfc-video-width, calc(100% - var(--kfc-chat-width, ${CHAT_WIDTH}))) !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        left: var(--kfc-video-shift, 0px) !important;
+        right: auto !important;
+      }
+      [${VIDEO_STRIP_ATTR}="static"] {
+        position: absolute !important;
+        top: 0 !important;
+      }
       /* Kick can keep the actual <video> inside one or more inner wrappers that
          are sized from the viewport rather than from the marked player layer.
          Constrain that wrapper chain too so the picture follows the timeline
@@ -2013,6 +2041,7 @@
   let chatSlot = null;
   let videoRoots = [];
   let videoOverlays = [];
+  let videoStrips = [];
   let videoFrames = [];
   let markedVideos = [];
   let videoRootHost = null;
@@ -2218,6 +2247,41 @@
     });
     overlays.forEach((overlay) => overlay.setAttribute(VIDEO_OVERLAY_ATTR, ''));
     videoOverlays = overlays;
+    refreshVideoStrips(fsEl, roots, nextOverlays);
+  };
+
+  // The wide, short layers neither test above catches (Kick's ad progress
+  // bar and ad-label wrapper; see the [data-kfc-video-strip] rule). Measured
+  // against the same basis as coversFullscreen, so a strip already narrowed
+  // to the video area stays marked.
+  const spansVideoWidth = (el) => {
+    const rect = el.getBoundingClientRect();
+    const basisWidth =
+      active && !overlayMode ? Math.max(1, window.innerWidth - chatWidth) : window.innerWidth;
+    return rect.width >= basisWidth * 0.7;
+  };
+
+  const refreshVideoStrips = (fsEl, roots, overlays) => {
+    const strips = Array.from(fsEl.children).filter(
+      (child) =>
+        child instanceof Element &&
+        !roots.has(child) &&
+        !overlays.has(child) &&
+        !isKfcOwnedNode(child) &&
+        !isKfcOwnedChild(child) &&
+        !isKickPopup(child) &&
+        spansVideoWidth(child)
+    );
+    const nextStrips = new Set(strips);
+    videoStrips.forEach((strip) => {
+      if (!nextStrips.has(strip)) strip.removeAttribute(VIDEO_STRIP_ATTR);
+    });
+    strips.forEach((strip) => {
+      if (strip.hasAttribute(VIDEO_STRIP_ATTR)) return;
+      const position = getComputedStyle(strip).position;
+      strip.setAttribute(VIDEO_STRIP_ATTR, position === 'static' ? 'static' : '');
+    });
+    videoStrips = strips;
   };
 
   const refreshVideoFrames = (roots) => {
@@ -2255,6 +2319,8 @@
     videoRoots = [];
     videoOverlays.forEach((overlay) => overlay.removeAttribute(VIDEO_OVERLAY_ATTR));
     videoOverlays = [];
+    videoStrips.forEach((strip) => strip.removeAttribute(VIDEO_STRIP_ATTR));
+    videoStrips = [];
     videoFrames.forEach((frame) => frame.removeAttribute(VIDEO_FRAME_ATTR));
     videoFrames = [];
     markedVideos.forEach((video) => video.removeAttribute(VIDEO_EL_ATTR));

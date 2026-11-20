@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.9] - 2026-11-20
+
+### Fixed
+- **During an ad, parts of Kick's ad display showed up over the side chat.** Kick's mid-roll ads are inserted into the stream itself and play in the normal player. While one runs, Kick adds three pieces of ad UI as direct children of the fullscreen element: the "Ad 1 of 1 · 25s left" label with a "Why am I seeing this ad" ⓘ button, a progress bar along the bottom, and a transparent full-size "Visit advertiser" button. The script only resized layers that cover most of the screen. The click-through button was resized, but the progress bar (4px tall) and the label's wrapper (zero height, its two children anchored to the corners of the fullscreen element) kept the full screen width. Their z-index put them above the chat. So the ⓘ sat on the chat header, covering its button, and the green progress bar ran under the chat, filling to the screen's right edge instead of the video's. Docked left, the label landed on the chat. Wide-but-short layers like these now get the video area's width and the docked-left offset, and a zero-height wrapper is pinned to the top of the video area so its label and ⓘ follow. This is done with `left` rather than a `transform`: a transform would have put the ⓘ under the "Visit advertiser" button, so clicking it would have opened the advertiser. Tested by injecting replicas of Kick's ad nodes (Kick's own classes and stacking) into an emulated fullscreen, with the chat docked right and left. Nothing of Kick's gets the new treatment when no ad is playing.
+
 ## [0.24.8] - 2026-11-17
 
 ### Fixed
