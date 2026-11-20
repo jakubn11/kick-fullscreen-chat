@@ -4,9 +4,12 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.9** — Ads stay on the video, off the side chat
+**0.24.10** — Ads stay off the chat in every layout, and seeking a VOD or clip keeps the chat open
 
-- **Ad display fixed** — during a Kick ad with side chat open, the ad's ⓘ ("Why am I seeing this ad") button sat on the chat header, covering its button, and the green progress bar ran along the bottom under the chat. With chat docked left, the "Ad 1 of 1 · 25s left" label landed on the chat. All of these now stay within the video area, and the ⓘ opens Kick's ad info as it should.
+- **Seeking a VOD or clip keeps the side chat open** — every click on the timeline of a past broadcast or a clip used to close the chat; now it stays docked and the chat replay follows. Seeking a live stream still closes it first, to avoid Kick's error page.
+- **Ads in overlay mode** — during an ad, Kick's invisible "Visit advertiser" area, the ⓘ and the progress bar sat on top of the floating chat, so clicking the chat opened the advertiser. They now stop at the chat's edge.
+- **Ad label with chat docked left** — the "Ad 1 of 1 · 25s left" label could still land on the chat on some layouts. It now sits in the video area.
+- **Drag-to-close keeps your width** — closing the chat by dragging the divider past the minimum no longer shrinks it to 260px for next time.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
