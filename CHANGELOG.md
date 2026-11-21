@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-11-21
+
+### Removed
+- **The fullscreen ad mute button.** The speaker button that appeared in the bottom-left corner of the video during an ad is gone. The **Ads → Mute ads** setting stays and works as in 0.25.0: with it on, every ad is muted and the sound comes back when the ad ends. With it off, Kick's own volume button is the way to mute an ad. Ad detection is back to running only while **Mute ads** is on.
+
 ## [0.26.1] - 2026-11-21
 
 ### Changed

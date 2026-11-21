@@ -4,11 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.26.1** — Mute Kick's ads, automatically or one ad at a time
+**0.27.0** — Mute Kick's ads automatically
 
 - **Mute ads** — a new switch in fullscreen settings (**Ads → Mute ads**, off by default) silences the player while Kick plays an ad and brings the sound back when it ends. It works on the regular channel page too. Kick's ads are part of the stream, so they can't be skipped.
-- **Ad mute button** — in fullscreen, a speaker button appears in the bottom-left corner of the video while an ad plays, above Kick's own controls. Press it to mute or unmute that one ad; it's green while the ad has sound and red while it's muted.
 - **Your sound settings are respected** — a stream you muted before the ad stays muted, unmuting during an ad is kept, and the volume level is never changed.
+- **No ad mute button** — the speaker button 0.26 showed in the corner of the video during an ad has been removed; the setting covers muting.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -19,7 +19,7 @@ Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/bl
 - **Overlay mode** — switch between side-by-side and chat floating semi-transparently over the full-width video
 - **Stream-info overlay** — avatar, name, title, category, tags and viewer count in the top-left, with Kick's follow / subscribe / gift / share / report buttons under it, fading with Kick's own controls; Kick's buttons work right there in fullscreen, and the profile / category links take you to the page
 - **Fullscreen settings** — overlay and stream-info opacity, which parts of the stream info to show (follow / sub / share buttons, tags), width presets, hide delay, dock side, control and overlay auto-hide, default overlay mode, auto-open chat on fullscreen, mute ads, reset to defaults
-- **Mute ads** — optional: the player goes silent while Kick plays an ad and the sound comes back after it (ads are part of the stream, so they can't be skipped), plus a speaker button in fullscreen to mute or unmute a single ad
+- **Mute ads** — optional: the player goes silent while Kick plays an ad and the sound comes back after it (ads are part of the stream, so they can't be skipped)
 - **Auto-fade** — the controls hide after 2–8s of mouse inactivity (default 4s) and come back as soon as you move the mouse
 - **Player gestures kept** — click a paused stream to resume it, double-click to exit fullscreen
 - **Safe around reloads** — the Chat button is disabled while the player reloads (quality change, live-stream seek, "go to live"), so a click can't trigger Kick's 404 page; seeking a VOD or clip keeps the chat open
@@ -40,7 +40,6 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Info toggle | Hides or shows the stream-info overlay |
 | Kick's buttons in the stream info | Work as on Kick's page, without leaving fullscreen |
 | Settings gear | Opens fullscreen settings |
-| Speaker button (bottom-left, during an ad) | Mutes or unmutes that ad |
 | Kick's **Hide chat** | Closes the side chat and restores the fullscreen video |
 
 ## Privacy & permissions

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.26.1
+// @version      0.27.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.26.1';
+  const VERSION = '0.27.0';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -63,7 +63,6 @@
   const MODE_BTN_ID = 'kfc-mode-btn';
   const INFO_BTN_ID = 'kfc-info-btn';
   const SETTINGS_BTN_ID = 'kfc-settings-btn';
-  const AD_MUTE_BTN_ID = 'kfc-ad-mute-btn';
   const SETTINGS_PANEL_ID = 'kfc-settings-panel';
   const RESIZE_ID = 'kfc-resize-handle';
   const WRAP_ID = 'kfc-toggle-wrap';
@@ -211,10 +210,6 @@
   const MODE_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="11" height="14" rx="2"></rect><rect x="16" y="5" width="5" height="14" rx="2"></rect></svg>`;
   // Info "i in a circle" icon for the streamer-info overlay show/hide toggle.
   const INFO_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>`;
-  // Speaker / crossed-out speaker for the ad mute button (shows the sound's
-  // current state: speaker = audible, crossed out = muted).
-  const SOUND_ON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>`;
-  const SOUND_OFF_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z"></path></svg>`;
   // Gear icon for the settings popover.
   const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58-1.92-3.32-2.39.96a7.33 7.33 0 0 0-1.63-.94L14.86 3h-3.72l-.36 3.18c-.58.23-1.13.54-1.63.94l-2.39-.96-1.92 3.32 2.03 1.58a7.6 7.6 0 0 0-.06.94c0 .31.02.63.06.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.4 1.05.71 1.63.94l.36 3.18h3.72l.36-3.18c.58-.23 1.13-.54 1.63-.94l2.39.96 1.92-3.32-2.03-1.58zM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5z"></path></svg>`;
 
@@ -980,40 +975,6 @@
       #${SETTINGS_BTN_ID}.kfc-on {
         background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
         border-color: rgba(34,197,94,.5);
-      }
-      /* Ad mute button: only mounted while an ad plays. Bottom-left of the
-         video area, inset 1.75rem from the left like the cluster is from the
-         right, and 1.75rem above Kick's controls (their 48px button row plus
-         the seekbar reach 76px up), so it never covers Kick's play or volume
-         button. Follows the video beside a left-docked chat the same way the
-         ad strips do. Fades and arms on the cluster's clock (setIdle). */
-      #${AD_MUTE_BTN_ID} {
-        position: absolute;
-        left: calc(1.75rem + var(--kfc-video-shift, 0px) + var(--kfc-control-shift, 0px));
-        bottom: calc(76px + 1.75rem);
-        z-index: 2147483647;
-        pointer-events: auto;
-        opacity: 1;
-        transition: background .08s, opacity .2s ease, left .15s ease;
-      }
-      #${AD_MUTE_BTN_ID}.kfc-idle {
-        opacity: 0;
-        pointer-events: none;
-      }
-      #${AD_MUTE_BTN_ID}.kfc-unarmed {
-        pointer-events: none;
-      }
-      /* Same surface as every cluster button; only the icon carries the
-         state: the green speaker while the ad has sound, a red crossed-out
-         speaker while it's muted. The red is the family's danger red
-         (#f87171, the reset / close hover border). */
-      #${AD_MUTE_BTN_ID}.kfc-muted svg { fill: #f87171; }
-      /* Muted, the hover is red too: the family's danger hover (the reset and
-         close buttons'), the red tint composited over the opaque surface. */
-      #${AD_MUTE_BTN_ID}.kfc-muted:hover,
-      #${AD_MUTE_BTN_ID}.kfc-muted:focus-visible {
-        background: linear-gradient(rgba(239,68,68,.14), rgba(239,68,68,.14)), #101013;
-        border-color: rgba(248,113,113,.5);
       }
       /* The settings panel shares kick-quality-saver's panel design: a
          14px-radius card, a titled header with a red-on-hover close button,
@@ -2215,7 +2176,6 @@
     el === chatSlot ||
     el.id === WRAP_ID ||
     el.id === TOAST_ID ||
-    el.id === AD_MUTE_BTN_ID ||
     el.classList?.contains('kfc-chat-slot');
 
   const coversFullscreen = (el) => {
@@ -2585,7 +2545,7 @@
   // Anything of ours that lives inside the fullscreen element. `isKfcOwnedChild`
   // answers the same question for *direct children* of fsEl; this one answers it
   // for a node at any depth, which is what a hit test or a DOM search needs.
-  const KFC_OWN_UI_SEL = `#${WRAP_ID}, #${SETTINGS_PANEL_ID}, #${INFO_ID}, #${RESIZE_ID}, #${TOAST_ID}, #${AD_MUTE_BTN_ID}`;
+  const KFC_OWN_UI_SEL = `#${WRAP_ID}, #${SETTINGS_PANEL_ID}, #${INFO_ID}, #${RESIZE_ID}, #${TOAST_ID}`;
   const isKfcOwnedNode = (el) =>
     el instanceof Element &&
     (!!el.closest(KFC_OWN_UI_SEL) || !!(chatSlot && (el === chatSlot || chatSlot.contains(el))));
@@ -2852,7 +2812,7 @@
     restoreChatOnFullscreen = true;
     idleDelayMs = 4000;
     muteAds = false;
-    applyMuteAdsSetting();
+    updateAdMuteWatch();
     applyChatWidth();
     updateWidthChips();
     syncControlState();
@@ -4568,7 +4528,7 @@
       createSettingsSwitches(
         createSettingsCheckbox('Mute ads', muteAds, (checked) => {
           muteAds = checked;
-          applyMuteAdsSetting();
+          updateAdMuteWatch();
           syncControlState();
           persistSettings();
         }, 'kfc-settings-mute-ads-input'),
@@ -4799,7 +4759,6 @@
     fsEl.appendChild(wrap);
     syncControlState();
     updateBtnLabel();
-    updateAdMuteWatch();
   };
 
   // Reflect the current per-session preferences onto our own nodes (the wrap,
@@ -4989,8 +4948,6 @@
       clearTimeout(toast._kfcTimer);
       toast.remove();
     }
-    document.getElementById(AD_MUTE_BTN_ID)?.remove();
-    updateAdMuteWatch();
   };
 
   // Idle auto-hide: fade the toggle button out when the user stops moving the
@@ -5195,7 +5152,6 @@
           controlsArmTimer = 0;
           document.getElementById(WRAP_ID)?.classList.remove('kfc-unarmed');
           document.getElementById(INFO_ID)?.classList.remove('kfc-unarmed');
-          document.getElementById(AD_MUTE_BTN_ID)?.classList.remove('kfc-unarmed');
         }, CONTROLS_FADE_MS);
       }
     }
@@ -5206,7 +5162,6 @@
       // The overlay fades on the cluster's clock, so it arms with it too.
       info.classList.toggle('kfc-unarmed', !!wrap?.classList.contains('kfc-unarmed'));
     }
-    mirrorClusterFade(document.getElementById(AD_MUTE_BTN_ID));
     if (chatSlot) chatSlot.classList.toggle('kfc-idle', effectiveIdle);
     setKickControlsHidden(controlsIdle);
     syncControlState();
@@ -5327,22 +5282,19 @@
 
   // ── Mute ads ───────────────────────────────────────────────────────────
   // Kick's mid-roll ads are stitched into the stream and play in the normal
-  // player, so there is nothing to block or skip, but they can be muted —
-  // automatically with the Mute ads setting, or for one ad with the button
-  // that shows in fullscreen while an ad plays. While an ad runs Kick's player
-  // renders a few pieces of ad UI that carry stable, unlocalised markers (read
-  // from Kick's player bundle): the progress bar (aria-label "Ad progress",
-  // shown whenever the break has a countdown), the transparent "Visit
-  // advertiser" button (data-testid ad-click-overlay) and, on skippable ads,
-  // the ad control bar's test ids. The "Ad 1 of 1 · 25s left" label has no
-  // marker and its text is localised, so it isn't used.
+  // player, so there is nothing to block or skip, but they can be muted.
+  // While an ad runs Kick's player renders a few pieces of ad UI that carry
+  // stable, unlocalised markers (read from Kick's player bundle): the progress
+  // bar (aria-label "Ad progress", shown whenever the break has a countdown),
+  // the transparent "Visit advertiser" button (data-testid ad-click-overlay)
+  // and, on skippable ads, the ad control bar's test ids. The "Ad 1 of 1 · 25s
+  // left" label has no marker and its text is localised, so it isn't used.
   //
   // Polled, not observed: an observer on the page would wake for every chat
-  // message. The poll runs while the setting is on, while our fullscreen
-  // controls are mounted (the button needs it), and until a break it saw has
-  // ended. The player's videos are muted through `video.muted`; the volume is
-  // never touched. Only videos that were audible get muted, and only those are
-  // unmuted when the break ends — a stream muted beforehand stays muted. If a
+  // message, and the poll only runs while the setting is on. The player's
+  // videos are muted through `video.muted`; the volume is never touched. Only
+  // videos that were audible get muted, and only those are unmuted when the
+  // break ends — a stream muted beforehand stays muted. If a
   // muted video is unmuted during the break (the user pressed Kick's mute
   // button), it is left alone for the rest of that break. The end of a break
   // waits AD_END_GRACE_MS, so back-to-back ads ("Ad 1 of 2" → "Ad 2 of 2")
@@ -5359,9 +5311,6 @@
   let adPollTimer = 0;
   let adBreakActive = false;
   let adLastSeenAt = 0;
-  // Whether this break should be muted: the setting's value when it started,
-  // then whatever the ad mute button last asked for.
-  let adMuteWanted = false;
   // Videos looked at during this break (muted by us or not), and the ones we
   // muted and will unmute when it ends.
   let adSeenVideos = new Set();
@@ -5374,7 +5323,6 @@
     video.removeEventListener('volumechange', onAdMutedVolumeChange);
     adMutedVideos.delete(video);
     log('ad mute: video unmuted during the ad, leaving it audible');
-    syncAdButton();
   };
 
   // Every player video on the page, not just the one beside the marker: Kick
@@ -5393,130 +5341,40 @@
     });
   };
 
-  // Give back the sound of every video we muted.
-  const restoreAdVideos = () => {
+  const endAdBreak = () => {
     adMutedVideos.forEach((video) => {
       video.removeEventListener('volumechange', onAdMutedVolumeChange);
       if (video.muted) video.muted = false;
     });
-    if (adMutedVideos.size) log('ad mute: sound restored');
+    if (adMutedVideos.size) log('ad mute: ad over, sound restored');
     adMutedVideos = new Set();
-  };
-
-  const endAdBreak = () => {
-    restoreAdVideos();
     adSeenVideos = new Set();
     adBreakActive = false;
-    adMuteWanted = false;
-    log('ad mute: ad over');
-    syncAdButton();
-  };
-
-  const fullscreenPlayer = () =>
-    document.getElementById(WRAP_ID) ? document.fullscreenElement || document.webkitFullscreenElement : null;
-
-  // Copy the control cluster's fade state onto a node that fades with it.
-  const mirrorClusterFade = (el) => {
-    if (!el) return;
-    const wrap = document.getElementById(WRAP_ID);
-    el.classList.toggle('kfc-idle', !!wrap?.classList.contains('kfc-idle'));
-    el.classList.toggle('kfc-unarmed', !!wrap?.classList.contains('kfc-unarmed'));
-  };
-
-  // The button mutes or unmutes the stream for the rest of this ad only. Its
-  // state is the stream's: muted for any reason (by the setting, by this
-  // button, by Kick's own button) reads as muted, and pressing it then gives
-  // the sound back.
-  const toggleAdMute = () => {
-    const video = queryPlayerVideo(fullscreenPlayer());
-    if (!adBreakActive || !video) return;
-    if (video.muted) {
-      adMuteWanted = false;
-      restoreAdVideos();
-      if (video.muted) video.muted = false;
-      log('ad mute: unmuted from the button');
-    } else {
-      adMuteWanted = true;
-      adSeenVideos = new Set();
-      muteAdVideos();
-      log('ad mute: muted from the button');
-    }
-    syncAdButton();
-  };
-
-  // Mount the button while an ad plays in fullscreen, remove it otherwise, and
-  // keep its icon and label on the stream's current state.
-  const syncAdButton = () => {
-    const fsEl = fullscreenPlayer();
-    let btn = document.getElementById(AD_MUTE_BTN_ID);
-    if (!adBreakActive || !fsEl) {
-      btn?.remove();
-      return;
-    }
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = AD_MUTE_BTN_ID;
-      btn.type = 'button';
-      btn.className = 'kfc-control-btn';
-      wireControlButton(btn, toggleAdMute);
-      mirrorClusterFade(btn);
-    }
-    if (btn.parentElement !== fsEl) fsEl.appendChild(btn);
-    const muted = !!queryPlayerVideo(fsEl)?.muted;
-    if (btn.dataset.kfcMuted !== String(muted)) {
-      btn.dataset.kfcMuted = String(muted);
-      btn.innerHTML = muted ? SOUND_OFF_SVG : SOUND_ON_SVG;
-      btn.classList.toggle('kfc-muted', muted);
-      btn.setAttribute('aria-label', muted ? 'Unmute ad' : 'Mute ad');
-      btn.title = muted ? 'Unmute ad' : 'Mute ad';
-    }
   };
 
   const adMuteTick = () => {
     const marker = queryKickNode(AD_MARKER_SEL);
     if (marker) {
-      if (!adBreakActive) {
-        adBreakActive = true;
-        adMuteWanted = muteAds;
-        log('ad mute: ad started');
-        // Bring the controls up so the ad mute button is seen as it appears.
-        if (fullscreenPlayer()) onFsMouseMove();
-      }
+      if (!adBreakActive) log('ad mute: ad started');
+      adBreakActive = true;
       adLastSeenAt = Date.now();
-      if (adMuteWanted) muteAdVideos();
-      syncAdButton();
+      muteAdVideos();
     } else if (adBreakActive && Date.now() - adLastSeenAt >= AD_END_GRACE_MS) {
       endAdBreak();
-      updateAdMuteWatch();
     }
   };
 
-  // Start or stop the poll: it runs while the setting is on, while our
-  // fullscreen controls are up, and until a break it saw has ended (so the
-  // sound comes back after an ad muted from the button, even once fullscreen
-  // was left).
+  // Start or stop the poll to match the setting. Turning it off mid-ad gives
+  // the sound back at once.
   const updateAdMuteWatch = () => {
-    const wanted = muteAds || !!document.getElementById(WRAP_ID) || adBreakActive;
-    if (wanted && !adPollTimer) {
+    if (muteAds && !adPollTimer) {
       adPollTimer = setInterval(adMuteTick, AD_POLL_MS);
       adMuteTick();
-    } else if (!wanted && adPollTimer) {
+    } else if (!muteAds && adPollTimer) {
       clearInterval(adPollTimer);
       adPollTimer = 0;
+      if (adBreakActive) endAdBreak();
     }
-    syncAdButton();
-  };
-
-  // The setting changed (the switch, Reset settings, another tab). During an
-  // ad it applies at once: turned off, the sound comes back; turned on, the
-  // next tick mutes.
-  const applyMuteAdsSetting = () => {
-    if (adBreakActive) {
-      adMuteWanted = muteAds;
-      if (muteAds) adSeenVideos = new Set();
-      else restoreAdVideos();
-    }
-    updateAdMuteWatch();
   };
 
   // Restore persisted preferences before any fullscreen interaction, then push
@@ -5551,7 +5409,7 @@
     if (!Object.keys(changed).length) return;
     log('settings changed in another tab:', changed);
     applySettings(changed);
-    applyMuteAdsSetting();
+    updateAdMuteWatch();
     applyChatWidth();
     updateWidthChips();
     syncControlState();
