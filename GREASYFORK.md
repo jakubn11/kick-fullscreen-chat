@@ -4,12 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.24.10** — Ads stay off the chat in every layout, and seeking a VOD or clip keeps the chat open
+**0.26.1** — Mute Kick's ads, automatically or one ad at a time
 
-- **Seeking a VOD or clip keeps the side chat open** — every click on the timeline of a past broadcast or a clip used to close the chat; now it stays docked and the chat replay follows. Seeking a live stream still closes it first, to avoid Kick's error page.
-- **Ads in overlay mode** — during an ad, Kick's invisible "Visit advertiser" area, the ⓘ and the progress bar sat on top of the floating chat, so clicking the chat opened the advertiser. They now stop at the chat's edge.
-- **Ad label with chat docked left** — the "Ad 1 of 1 · 25s left" label could still land on the chat on some layouts. It now sits in the video area.
-- **Drag-to-close keeps your width** — closing the chat by dragging the divider past the minimum no longer shrinks it to 260px for next time.
+- **Mute ads** — a new switch in fullscreen settings (**Ads → Mute ads**, off by default) silences the player while Kick plays an ad and brings the sound back when it ends. It works on the regular channel page too. Kick's ads are part of the stream, so they can't be skipped.
+- **Ad mute button** — in fullscreen, a speaker button appears in the bottom-left corner of the video while an ad plays, above Kick's own controls. Press it to mute or unmute that one ad; it's green while the ad has sound and red while it's muted.
+- **Your sound settings are respected** — a stream you muted before the ad stays muted, unmuting during an ad is kept, and the volume level is never changed.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -41,6 +40,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Info toggle | Hides or shows the stream-info overlay |
 | Kick's buttons in the stream info | Work as on Kick's page, without leaving fullscreen |
 | Settings gear | Opens fullscreen settings |
+| Speaker button (bottom-left, during an ad) | Mutes or unmutes that ad |
 | Kick's **Hide chat** | Closes the side chat and restores the fullscreen video |
 
 ## Privacy & permissions
