@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-11-21
+
+### Added
+- **Ad mute button in fullscreen.** While Kick plays an ad in fullscreen, a speaker button appears in the bottom-left corner of the video. One press mutes the ad; pressing again gives the sound back. A muted ad gets its sound back when it ends, so the button covers one ad at a time, with no setting needed. The button shows the stream's actual state: with **Mute ads** on it starts as muted, and pressing it lets that ad be heard. It sits 1.75rem in from the left edge, the same inset as the control cluster at the top right, and 1.75rem above Kick's controls (their button row and seekbar reach 76px up), so it never covers Kick's play or volume buttons. Beside a left-docked chat it moves with the video. When the ad starts, the controls come up so the button is seen, and it fades with them when the mouse is idle. Ad detection now also runs whenever the fullscreen controls are up, not only with **Mute ads** on. If you leave fullscreen during an ad you muted with the button, the sound still comes back when the ad ends. Tested in a mock fullscreen player with replicas of Kick's ad progress bar and controls: the button appears with the ad, toggles both ways, fades with the cluster, and the sound returns after the ad.
+
 ## [0.25.0] - 2026-11-21
 
 ### Added
