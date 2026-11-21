@@ -4,11 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.27.0** — Mute Kick's ads automatically
+**0.27.1** — Player controls work during ads with the chat open
 
-- **Mute ads** — a new switch in fullscreen settings (**Ads → Mute ads**, off by default) silences the player while Kick plays an ad and brings the sound back when it ends. It works on the regular channel page too. Kick's ads are part of the stream, so they can't be skipped.
-- **Your sound settings are respected** — a stream you muted before the ad stays muted, unmuting during an ad is kept, and the volume level is never changed.
-- **No ad mute button** — the speaker button 0.26 showed in the corner of the video during an ad has been removed; the setting covers muting.
+- **Play, mute and the seekbar work during an ad** — with the chat open in fullscreen, clicking Kick's controls while an ad played opened the advertiser instead. They now work as usual, in both the side and overlay layouts.
+- **The "Why am I seeing this ad" ⓘ still works**, and clicking the bare video no longer opens the advertiser.
+- **Plain fullscreen without the chat** was never affected.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
