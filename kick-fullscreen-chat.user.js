@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.0
+// @version      0.27.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.0';
+  const VERSION = '0.27.1';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1479,6 +1479,22 @@
       [${VIDEO_STRIP_ATTR}="static"] {
         position: absolute !important;
         top: 0 !important;
+      }
+      /* Kick's transparent "Visit advertiser" button (z-player, 201) stays
+         under its controls (z-controls, 202) only while both share fsEl's
+         stacking context. The video-root transform gives the controls layer
+         a stacking context of its own at z-index auto, which drops them below
+         the button: during an ad, play, mute, the seekbar and every other
+         control opened the advertiser instead. The button now lets clicks
+         through, so the controls work and a click on the bare video does
+         what it does outside an ad (onFsClick: resume a paused stream). No
+         one can click through to the advertiser from the side layout; the
+         ⓘ "Why am I seeing this ad" button still works. Only while the side
+         chat is up — the markers exist only then; plain fullscreen keeps
+         Kick's own stacking, where the controls already win. */
+      [${VIDEO_STRIP_ATTR}][data-testid="ad-click-overlay"],
+      [${VIDEO_OVERLAY_ATTR}][data-testid="ad-click-overlay"] {
+        pointer-events: none !important;
       }
       /* Kick can keep the actual <video> inside one or more inner wrappers that
          are sized from the viewport rather than from the marked player layer.

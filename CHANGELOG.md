@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.1] - 2026-11-21
+
+### Fixed
+- **Kick's player controls didn't work during an ad while the chat was open in fullscreen.** Clicking play, mute, the seekbar or any other control opened the advertiser instead. During an ad, Kick lays a transparent full-size "Visit advertiser" button over the video and keeps its controls above that button. The side layout gives Kick's controls layer its own stacking context, and that dropped the whole controls bar under the button. While the side or overlay chat is up, the button now lets clicks through: the controls work, and a click on the bare video does what it does outside an ad. The "Why am I seeing this ad" ⓘ still works. Plain fullscreen without the chat was never affected. Reproduced on a live Kick page with a replica of the ad button: the mute button was covered with the side layout's transform and reachable without it. Then tested the full script in a mock player built like Kick's, with the chat docked: real clicks reached Kick's mute button during the ad, and clicks on the bare video no longer hit the advertiser button.
+
 ## [0.27.0] - 2026-11-21
 
 ### Removed
