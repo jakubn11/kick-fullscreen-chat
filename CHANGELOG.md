@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.1] - 2026-11-21
+
+### Changed
+- **The ad mute button shows its state in the icon only.** Muted, it used the green pressed tint and border of the layout and gear toggles, which made it look unlike the rest of the cluster. It now keeps the same plain surface as every other button: a green speaker while the ad has sound, a red crossed-out speaker (`#f87171`, the family's danger red) while it's muted. Hovering the muted button gives it the red hover of the reset and close buttons instead of the green one.
+
 ## [0.26.0] - 2026-11-21
 
 ### Added

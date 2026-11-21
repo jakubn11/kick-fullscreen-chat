@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.26.0
+// @version      0.26.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.26.0';
+  const VERSION = '0.26.1';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1003,10 +1003,17 @@
       #${AD_MUTE_BTN_ID}.kfc-unarmed {
         pointer-events: none;
       }
-      /* Muted reads as "on": the pressed tint, like the mode and gear toggles. */
-      #${AD_MUTE_BTN_ID}.kfc-on {
-        background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
-        border-color: rgba(34,197,94,.5);
+      /* Same surface as every cluster button; only the icon carries the
+         state: the green speaker while the ad has sound, a red crossed-out
+         speaker while it's muted. The red is the family's danger red
+         (#f87171, the reset / close hover border). */
+      #${AD_MUTE_BTN_ID}.kfc-muted svg { fill: #f87171; }
+      /* Muted, the hover is red too: the family's danger hover (the reset and
+         close buttons'), the red tint composited over the opaque surface. */
+      #${AD_MUTE_BTN_ID}.kfc-muted:hover,
+      #${AD_MUTE_BTN_ID}.kfc-muted:focus-visible {
+        background: linear-gradient(rgba(239,68,68,.14), rgba(239,68,68,.14)), #101013;
+        border-color: rgba(248,113,113,.5);
       }
       /* The settings panel shares kick-quality-saver's panel design: a
          14px-radius card, a titled header with a red-on-hover close button,
@@ -5459,7 +5466,7 @@
     if (btn.dataset.kfcMuted !== String(muted)) {
       btn.dataset.kfcMuted = String(muted);
       btn.innerHTML = muted ? SOUND_OFF_SVG : SOUND_ON_SVG;
-      btn.classList.toggle('kfc-on', muted);
+      btn.classList.toggle('kfc-muted', muted);
       btn.setAttribute('aria-label', muted ? 'Unmute ad' : 'Mute ad');
       btn.title = muted ? 'Unmute ad' : 'Mute ad';
     }
