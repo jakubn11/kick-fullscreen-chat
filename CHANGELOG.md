@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-11-21
+
+### Added
+- **Mute ads.** A new **Ads → Mute ads** switch in fullscreen settings, off by default. Kick's mid-roll ads are part of the stream and play in the normal player, so they can't be blocked or skipped, but they can be muted. While Kick shows an ad, the player goes silent; when the ad ends the sound comes back. It works on the regular channel page too, not only in fullscreen. The ad is recognised by Kick's own ad UI, using markers that don't change with the site language: the progress bar (`aria-label="Ad progress"`), the "Visit advertiser" button (`data-testid="ad-click-overlay"`) and, on skippable ads, the ad bar's `ad-skip`, `ad-skip-countdown` and `ad-learn-more` buttons. Every player video on the page is muted, including the hidden ones Kick keeps for its own ad playback. Only videos that were audible are muted and later unmuted, so a stream you had muted stays muted. Unmuting during an ad is respected for the rest of that ad. The volume level is never changed. The end of an ad waits 1.2s before the sound returns, so the gap between back-to-back ads stays silent. Turning the switch off during an ad brings the sound back at once. The check runs every 0.4s and only while the switch is on. Tested on a live channel with a replica of Kick's ad progress bar: muted during the ad, sound back after it, a pre-muted stream left muted, an unmute during the ad kept, and Kick didn't override the mute. Not yet seen against a real ad.
+
 ## [0.24.10] - 2026-11-21
 
 ### Changed

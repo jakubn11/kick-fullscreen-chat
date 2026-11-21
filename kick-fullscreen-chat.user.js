@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.24.10
+// @version      0.25.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.24.10';
+  const VERSION = '0.25.0';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -103,6 +103,7 @@
   let openChatAsOverlay = false;            // default layout when the Chat button opens chat
   let restoreChatOnFullscreen = true;       // auto-open side chat whenever entering fullscreen
   let idleDelayMs = 4000;                   // delay before our fullscreen UI fades
+  let muteAds = false;                      // mute the player while Kick plays an ad (opt-in)
   let settingsOpen = false;
 
   // ── Persistence ────────────────────────────────────────────────────────
@@ -124,6 +125,7 @@
           openChatAsOverlay,
           restoreChatOnFullscreen,
           idleDelayMs,
+          muteAds,
           infoHidden,
           infoBgOpacity,
           infoShowActions,
@@ -182,6 +184,7 @@
     if (typeof s.idleDelayMs === 'number') {
       idleDelayMs = Math.max(2000, Math.min(8000, s.idleDelayMs));
     }
+    if (typeof s.muteAds === 'boolean') muteAds = s.muteAds;
     if (typeof s.infoHidden === 'boolean') infoHidden = s.infoHidden;
     if (typeof s.infoBgOpacity === 'number') {
       infoBgOpacity = Math.max(0, Math.min(90, s.infoBgOpacity));
@@ -2808,6 +2811,8 @@
     openChatAsOverlay = false;
     restoreChatOnFullscreen = true;
     idleDelayMs = 4000;
+    muteAds = false;
+    updateAdMuteWatch();
     applyChatWidth();
     updateWidthChips();
     syncControlState();
@@ -4518,6 +4523,18 @@
       ),
     ));
 
+    panel.appendChild(createSettingsGroup(
+      'Ads',
+      createSettingsSwitches(
+        createSettingsCheckbox('Mute ads', muteAds, (checked) => {
+          muteAds = checked;
+          updateAdMuteWatch();
+          syncControlState();
+          persistSettings();
+        }, 'kfc-settings-mute-ads-input'),
+      ),
+    ));
+
     const resetButton = document.createElement('button');
     resetButton.type = 'button';
     resetButton.className = 'kfc-settings-chip kfc-settings-reset';
@@ -4877,6 +4894,8 @@
     if (infoActionsInput) infoActionsInput.checked = infoShowActions;
     const infoTagsInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-info-tags-input`);
     if (infoTagsInput) infoTagsInput.checked = infoShowTags;
+    const muteAdsInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-mute-ads-input`);
+    if (muteAdsInput) muteAdsInput.checked = muteAds;
   };
 
   const toggleSettingsPanel = () => {
@@ -5261,10 +5280,108 @@
     }
   };
 
+  // ── Mute ads ───────────────────────────────────────────────────────────
+  // Kick's mid-roll ads are stitched into the stream and play in the normal
+  // player, so there is nothing to block or skip, but they can be muted.
+  // While an ad runs Kick's player renders a few pieces of ad UI that carry
+  // stable, unlocalised markers (read from Kick's player bundle): the progress
+  // bar (aria-label "Ad progress", shown whenever the break has a countdown),
+  // the transparent "Visit advertiser" button (data-testid ad-click-overlay)
+  // and, on skippable ads, the ad control bar's test ids. The "Ad 1 of 1 · 25s
+  // left" label has no marker and its text is localised, so it isn't used.
+  //
+  // Polled, not observed: an observer on the page would wake for every chat
+  // message, and the poll only runs while the setting is on. The player's
+  // videos are muted through `video.muted`; the volume is never touched. Only
+  // videos that were audible get muted, and only those are unmuted when the
+  // break ends — a stream muted beforehand stays muted. If a
+  // muted video is unmuted during the break (the user pressed Kick's mute
+  // button), it is left alone for the rest of that break. The end of a break
+  // waits AD_END_GRACE_MS, so back-to-back ads ("Ad 1 of 2" → "Ad 2 of 2")
+  // don't let a moment of ad audio through between them.
+  const AD_MARKER_SEL = [
+    '[aria-label="Ad progress"]',
+    '[data-testid="ad-click-overlay"]',
+    '[data-testid="ad-skip"]',
+    '[data-testid="ad-skip-countdown"]',
+    '[data-testid="ad-learn-more"]',
+  ].join(', ');
+  const AD_POLL_MS = 400;
+  const AD_END_GRACE_MS = 1200;
+  let adPollTimer = 0;
+  let adBreakActive = false;
+  let adLastSeenAt = 0;
+  // Videos looked at during this break (muted by us or not), and the ones we
+  // muted and will unmute when it ends.
+  let adSeenVideos = new Set();
+  let adMutedVideos = new Set();
+
+  const onAdMutedVolumeChange = (e) => {
+    const video = e.currentTarget;
+    if (video.muted || !adMutedVideos.has(video)) return;
+    // Unmuted mid-break: the user wants the sound. Stop tracking it.
+    video.removeEventListener('volumechange', onAdMutedVolumeChange);
+    adMutedVideos.delete(video);
+    log('ad mute: video unmuted during the ad, leaving it audible');
+  };
+
+  // Every player video on the page, not just the one beside the marker: Kick
+  // keeps separate, hidden ad-player videos (one plays
+  // static.kick.com/ads/black_2s.mp4) outside the main player's container.
+  // Sub-badge animations and chat video emotes are left out (isPlayerVideo).
+  const muteAdVideos = () => {
+    Array.from(document.querySelectorAll('video')).filter(isPlayerVideo).forEach((video) => {
+      if (adSeenVideos.has(video)) return;
+      adSeenVideos.add(video);
+      if (video.muted) return;
+      video.muted = true;
+      adMutedVideos.add(video);
+      video.addEventListener('volumechange', onAdMutedVolumeChange);
+      log('ad mute: muted the player for the ad');
+    });
+  };
+
+  const endAdBreak = () => {
+    adMutedVideos.forEach((video) => {
+      video.removeEventListener('volumechange', onAdMutedVolumeChange);
+      if (video.muted) video.muted = false;
+    });
+    if (adMutedVideos.size) log('ad mute: ad over, sound restored');
+    adMutedVideos = new Set();
+    adSeenVideos = new Set();
+    adBreakActive = false;
+  };
+
+  const adMuteTick = () => {
+    const marker = queryKickNode(AD_MARKER_SEL);
+    if (marker) {
+      if (!adBreakActive) log('ad mute: ad started');
+      adBreakActive = true;
+      adLastSeenAt = Date.now();
+      muteAdVideos();
+    } else if (adBreakActive && Date.now() - adLastSeenAt >= AD_END_GRACE_MS) {
+      endAdBreak();
+    }
+  };
+
+  // Start or stop the poll to match the setting. Turning it off mid-ad gives
+  // the sound back at once.
+  const updateAdMuteWatch = () => {
+    if (muteAds && !adPollTimer) {
+      adPollTimer = setInterval(adMuteTick, AD_POLL_MS);
+      adMuteTick();
+    } else if (!muteAds && adPollTimer) {
+      clearInterval(adPollTimer);
+      adPollTimer = 0;
+      if (adBreakActive) endAdBreak();
+    }
+  };
+
   // Restore persisted preferences before any fullscreen interaction, then push
   // the saved chat width onto the CSS variable so the first open uses it.
   loadSettings();
   applyChatWidth();
+  updateAdMuteWatch();
 
   // Keep every open Kick tab on the same settings. Each tab holds them in
   // memory and saves the whole blob, so without this a tab that never heard
@@ -5292,6 +5409,7 @@
     if (!Object.keys(changed).length) return;
     log('settings changed in another tab:', changed);
     applySettings(changed);
+    updateAdMuteWatch();
     applyChatWidth();
     updateWidthChips();
     syncControlState();
