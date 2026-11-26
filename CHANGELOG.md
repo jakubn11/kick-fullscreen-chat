@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.2] - 2026-11-26
+
+### Fixed
+- **Parts of the docked chat were squeezed or broken, worst at narrow widths.** The green **Chat** send button was narrowed until its label spilled out of it and, logged in at narrow widths, past the panel's edge. The settings gear shrank. The pinned message's ⌄ arrow shrank to half its width and sat on the card's border. In the active-chatters panel the count split across two lines as "(254" / ")". Even at the default 340px, the send button was 10px narrower than in Kick's own layout. The cause was two blanket rules the side chat applied to every element in Kick's chat: one let any flex item shrink below its content, the other let any word break anywhere. They date from when Kick's message rows overflowed at narrow widths. Kick's chat now handles that itself, so the rules only crushed buttons and split short labels. Both are gone. Long words, URLs and usernames still stay inside the panel, and the panel still clips anything that pokes past its edge.
+- **The action bar now wraps when it doesn't fit.** Logged in, the row of points, Kicks, drops, gear and **Chat** needs about 340px. Below that, the gear and **Chat** now move to a second row, at full size and flush right, instead of being squeezed or pushed out of sight. From about 340px up it is Kick's usual single row.
+- Tested by moving Kick's live chat into a panel built like the side chat and comparing every element against Kick's own layout. Each check ran with the script's rules on and off, at every width from 260 to 640px and at heights from 400 to 1080px. It covered the chat and active-chatters views on four live channels: Czech, Japanese, Arabic (right-to-left) and English. Nothing differed from Kick's own layout except the intended wrap. The same checks then ran on the whole script in an emulated fullscreen, with the chat docked right and left, in overlay mode, and at screen sizes 1280×600, 1366×768, 1920×1080 and 2560×1440. The logged-in action bar was a replica built from Kick's own button markup. Real browser fullscreen and a real logged-in session weren't available in the test browser.
+
 ## [0.27.1] - 2026-11-21
 
 ### Fixed

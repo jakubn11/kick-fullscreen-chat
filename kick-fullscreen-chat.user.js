@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.1
+// @version      0.27.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.1';
+  const VERSION = '0.27.2';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1574,92 +1574,67 @@
         width: 100% !important;
         visibility: visible !important;
       }
-      /* At narrow chat widths (down to 260px), Kick's inner message rows
-         can overflow horizontally — flex children default to
-         min-width: auto so they can't shrink below their content size,
-         and the message scroll container has overflow-y: auto which the
-         spec coerces overflow-x: visible into overflow-x: auto, surfacing
-         a horizontal scrollbar at the bottom of the chat. Letting flex
-         descendants shrink to fit + clipping any leftover horizontal
-         overflow on Kick's chat root removes the scrollbar without
-         breaking vertical message scroll. */
-      .kfc-chat-slot * {
-        min-width: 0 !important;
-      }
+      /* Kick's chat lays itself out at every width the slot allows (260px
+         up): its message rows carry their own min-w-0 and break-words, so
+         long words, URLs and usernames wrap or truncate inside the panel.
+         Clip any leftover horizontal overflow on Kick's chat root (its
+         reply-to line can poke a few px past the edge) and keep emotes /
+         images within the panel width; nothing else is needed.
+
+         Never force min-width: 0 or overflow-wrap: anywhere on every
+         descendant (0.27.2). Both used to be here, from when Kick's rows
+         overflowed at narrow widths, and both broke more than they fixed
+         once Kick's markup handled it. min-width: 0 let flex rows crush
+         their buttons: the send button lost 10px and the gear 10px at the
+         default 340px, and the pinned message's chevron shrank to 7px and
+         spilled out of its card. overflow-wrap: anywhere split short
+         tokens like the chatter count, "(254" / ")", in a 260px header.
+         Measured against Kick's own layout in the same box at 260–640px:
+         without them the chat, pinned message and chatter list match it
+         node for node. */
       .kfc-chat-slot > * {
         overflow-x: hidden !important;
-      }
-      /* Prevent horizontal overflow at its source so no scroll container
-         deeper in Kick's chat tree surfaces a horizontal scrollbar: wrap
-         long words / URLs (overflow-wrap: anywhere also lets flex items
-         shrink to fit) and keep emotes / images within the panel width.
-         Done at the source rather than forcing overflow-x: hidden on every
-         element, which would coerce overflow-y and could clip legit content. */
-      .kfc-chat-slot,
-      .kfc-chat-slot * {
-        overflow-wrap: anywhere !important;
-        word-break: break-word !important;
       }
       .kfc-chat-slot img,
       .kfc-chat-slot video,
       .kfc-chat-slot canvas {
         max-width: 100% !important;
       }
-      /* Kick's chat input action bar — channel-points, gift-shop, settings,
-         and the green "Chat" send button (#send-message-button) — is laid out
-         as a single flex row sized for a wide chat: its left group takes
-         lg:w-full at fullscreen viewport widths, which pushes the send button
-         off the row at the minimum panel width, where it was clipped by the
-         slot's overflow-x: hidden above. Dropping that forced full width is
-         the entire fix: the left group then takes only the space it needs and
-         can still shrink, while the right group's own ml-auto keeps the send
-         button flush against the right edge.
+      /* Kick's chat input action bar — channel points, Kicks (gift shop),
+         drops, the settings gear and the green "Chat" send button
+         (#send-message-button). Kick sizes it for a wide chat: its left group
+         takes lg:w-full, keyed off the viewport, which stays wide in
+         fullscreen however narrow the slot is.
 
-         Everything here is layout only, deliberately. This block used to also
-         tighten both buttons' horizontal padding to .375rem and every gap in
-         the row to .25rem, which is what made the fullscreen bar look cramped
-         next to the windowed one — the channel-points value sat almost against
-         the Kicks icon. Measured against Kick's real markup at the 260px
-         minimum width, that squeeze was buying 29px of slack the row never
-         needed; with Kick's own padding and gaps left alone there is still
-         ~9px spare and the send button keeps its natural width. So the bar now
-         reads identically docked and windowed: measured against Kick's markup,
-         the value-to-icon gap (24px), the button-to-button gap (8px) and the
-         gear-to-send gap (8px) are the same docked as windowed, at every chat
-         width and points value.
-
-         Not even the row gap is ours — an earlier pass set .5rem here as a
-         floor so the two button groups could never touch, but the right group's
-         ml-auto already keeps them apart, and the gap was charged unconditionally:
-         at the 260px minimum with a five-digit points value it was the 3px that
-         pushed the send button below its natural width. Kick's own value at this
-         breakpoint is lg:gap-0, so that is what this is.
-
-         The one gap that legitimately differs from windowed is the elastic one
-         between the Kicks button and the gear. That is pure leftover space, so
-         it tracks the chat width — ~30px at the 260px minimum against ~89px for
-         a windowed sidebar — and it is not something to "fix".
+         Logged in, the row doesn't fit below ~340px: the left group alone is
+         ~190px with a value like "52,1 tis.", and the gear + send pair needs
+         88px more. Natively the send button would then be pushed off the
+         panel. Squeezing doesn't work either — that is what 0.21–0.27 did by
+         accident (see the min-width note above): the send button's label
+         spilled out of it and the gear shrank. So the row wraps: when both
+         groups fit, it is Kick's single row; when they don't, the right
+         group (gear + send, kept at full size) drops to a second line, where
+         its own ml-auto keeps it flush right. column-gap 0 is Kick's own
+         lg:gap-0; the row gap matches the composer's gap-2 above it.
 
          Targeted via the stable #send-message-button id and Kick's
          data-testids so it survives class-name churn. */
       .kfc-chat-slot :has(> div > #send-message-button) {
-        flex-wrap: nowrap !important;
-        gap: 0 !important;
+        flex-wrap: wrap !important;
+        column-gap: 0 !important;
+        row-gap: .5rem !important;
       }
-      /* Every wrapper between the row and the two buttons has to be released,
-         not just the outer group. Kick nests a second w-full div between the
-         channel-points button and the gift-shop's span, and it demands 100% of
-         its parent. Natively the points button survives that because flex items
-         floor at min-width: auto — but the min-width: 0 above (which the chat
-         message rows need in order to shrink) strips that floor, so the wrapper
-         crushed the button instead: its 16px icon rendered at 8.5px and the
-         points value overflowed ~10px past the button's own right edge. Missing
-         this one selector was the whole of the "fullscreen doesn't match
-         windowed" difference; the gaps were already correct. Matched a level at
-         a time via > * > rather than naming the span, so a wrapper swap in
-         Kick's markup doesn't silently reopen it. Flooring the icons with
-         flex: none instead looks like a fix and is not one — it un-squashes the
-         icon while making the value's overflow worse. */
+      .kfc-chat-slot :has(> #send-message-button) {
+        flex-shrink: 0 !important;
+      }
+      /* Release the left group's forced width at every wrapper level, so it
+         takes only what its buttons need and the wrap above happens only when
+         they really don't fit. Kick nests a second w-full div between the
+         channel-points button and the gift-shop's span; with lg:w-full the
+         group would claim the whole row and always push the right group to
+         the second line. Matched a level at a time via > * > rather than
+         naming the span, so a wrapper swap in Kick's markup doesn't silently
+         reopen it. */
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
       .kfc-chat-slot :has(> [data-testid="gift-shop-button"]),
       .kfc-chat-slot :has(> * > [data-testid="gift-shop-button"]) {
