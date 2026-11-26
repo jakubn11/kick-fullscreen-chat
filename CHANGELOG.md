@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.4] - 2026-11-26
+
+### Fixed
+- **The emote picker's emotes overlapped and were cut off in a narrow chat.** Kick lays each emote set out in 8 columns of 36px tiles, which needs about 344px. Below Kick's default 340px chat width, tiles overlapped by up to 8px and the last column stuck up to 17px out of the picker, cut off at its edge. Its hover "Add to favourites" star scrolled the picker sideways, even at 340px. The picker now fits as many columns as there is room for: 6 at 260px, 7 from about 300px, and Kick's usual 8 from 340px up, where it looks exactly as before. It no longer scrolls sideways.
+- **Chat Appearance's options split mid-word in a narrow chat.** Below about 300px, the chat-width and message-spacing buttons broke their labels across two lines ("280p/x", "Medi/um"). It also happened at Kick's own 280px setting. The labels now stay whole and centred at every width.
+- Tested in Chrome, logged in, with the chat docked in an emulated fullscreen on two live channels. Each width from 260 to 640px was measured with the rules on and off. The layout for screens narrower than 1024px, where Kick uses 40px emote tiles, wasn't tested.
+
 ## [0.27.3] - 2026-11-26
 
 ### Fixed

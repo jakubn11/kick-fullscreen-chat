@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.3
+// @version      0.27.4
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.3';
+  const VERSION = '0.27.4';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1649,6 +1649,39 @@
       .kfc-chat-slot :has(> * > [data-testid="gift-shop-button"]) {
         width: auto !important;
         flex: 0 1 auto !important;
+      }
+
+      /* Chat Appearance's segmented choices (chat width 280px/340px/420px,
+         message spacing Tight/Medium/Loose) are Radix radios in a 3-column
+         grid inside a break-all panel. Below ~300px their 12px side padding
+         leaves less room than "Medium" needs, so Kick broke the labels
+         mid-word ("Medi/um", "280p/x"). Keep each label whole and trim the
+         padding — the label is centred, so nothing moves while it fits.
+         Scoped to the settings panel so poll/prediction options keep
+         wrapping. */
+      .kfc-chat-slot #chat-settings-panel [role="radiogroup"] > [role="radio"] {
+        word-break: normal !important;
+        white-space: nowrap !important;
+        padding-inline: .25rem !important;
+      }
+
+      /* Emote picker: each emote set is one grid-cols-8 grid of fixed 36px
+         tiles (40px below Kick's lg breakpoint) with 8px gaps — 344px of
+         room that a narrower chat doesn't have, so tiles overlapped and the
+         last column (plus its hover "Add to favourites" star) stuck out and
+         scrolled the picker sideways. Fit as many columns as there is room
+         for, capped at Kick's 8; a column may be up to 7px narrower than
+         its tile (eating into the gap), which keeps Kick's 8 columns at its
+         own 340px default. Wider than that it is Kick's layout unchanged. */
+      .kfc-chat-slot #chat-emotes-picker-panel .grid-cols-8 {
+        --kfc-emote-tile: 2.25rem;
+        grid-template-columns: repeat(auto-fill, minmax(max(calc(var(--kfc-emote-tile) - 7px), calc((100% - 3.5rem) / 8)), 1fr)) !important;
+      }
+      @media (max-width: 63.999rem) {
+        .kfc-chat-slot #chat-emotes-picker-panel .grid-cols-8 { --kfc-emote-tile: 2.5rem; }
+      }
+      .kfc-chat-slot #chat-emotes-picker-panel .overflow-y-auto {
+        overflow-x: hidden !important;
       }
 
       /* Keep Kick's full-width bottom controls out from under the floating chat
