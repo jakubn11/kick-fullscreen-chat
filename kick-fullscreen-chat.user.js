@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.4
+// @version      0.27.5
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.4';
+  const VERSION = '0.27.5';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1727,8 +1727,13 @@
          fill (e.g. Kick's green "Chat" send button) keep their normal look. So
          are bg-green-* accents and 1px separator lines (h-px / w-px): Kick draws
          dividers like the "New messages" rule and the gifters-bar lines as thin
-         coloured divs (e.g. div.h-px.grow.bg-green-500), which must stay visible. */
-      .kfc-chat-slot.kfc-overlay *:not(button):not([class*="bg-green" i]):not([class*="h-px" i]):not([class*="w-px" i]) {
+         coloured divs (e.g. div.h-px.grow.bg-green-500), which must stay visible.
+         Kick's footer pop-ups (emote picker, chat settings, gift shop, mention /
+         command / emote suggestions: each a z-popover in #chatroom-footer over a
+         bg-surface-bg-default box) are left out too (0.27.5). Stripped, they
+         were see-through, with chat messages showing behind the emotes and
+         settings rows. */
+      .kfc-chat-slot.kfc-overlay *:not(button):not([class*="bg-green" i]):not([class*="h-px" i]):not([class*="w-px" i]):not(#chatroom-footer [class*="z-popover"] *) {
         background-color: transparent !important;
       }
       /* Restore a dark backing on the message composer so the input stays

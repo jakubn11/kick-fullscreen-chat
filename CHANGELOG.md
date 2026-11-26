@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.5] - 2026-11-26
+
+### Fixed
+- **In overlay mode, Kick's chat pop-ups were see-through.** The emote picker, Chat Settings (including Chat Appearance), the Kicks gift shop and the mention, command and emote suggestion lists all opened with a transparent background. Chat messages showed through behind the emotes and settings rows, which made them hard to read. Overlay mode clears Kick's chat backgrounds so the video shows through, and it cleared these pop-ups' solid panels too. They now keep Kick's own dark panel in overlay mode; the messages, header and bar stay see-through as before. Found and tested in real browser fullscreen in Chrome, logged in, on a 1512×893 screen. The emote picker and Chat Appearance were checked in overlay mode with the chat at full and idle opacity.
+- Also checked in real fullscreen with 0.27.4: the emote picker shows 6 columns at 260–290px, 7 at 300–330px and Kick's 8 from 340 to 640px. That held docked right and left and in overlay mode, with no overlapping or cut-off emotes and no sideways scroll. Chat Appearance kept every label whole, and the chat bar stayed one row, at every width from 260 to 640px.
+
 ## [0.27.4] - 2026-11-26
 
 ### Fixed
