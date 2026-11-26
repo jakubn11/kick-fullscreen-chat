@@ -4,10 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.27.4** — Emotes and chat settings fit a narrow chat
+**0.27.6** — Overlay chat: solid pop-ups, message box and pinned messages
 
-- **The emote picker fits a narrow chat** — below Kick's 340px default, emotes no longer overlap or get cut off at the picker's edge. The picker shows 6 columns at 260px, 7 from about 300px, and Kick's usual 8 from 340px up. It no longer scrolls sideways.
-- **Chat Appearance labels stay whole** — in a chat under about 300px, the chat-width and message-spacing options no longer split mid-word ("280p/x", "Medi/um").
+- **Pop-ups are no longer see-through in overlay mode** — the emote picker, Chat Settings, the Kicks gift shop and the mention / command / emote suggestions keep Kick's solid dark panel, so chat messages no longer show through them.
+- **The message box has a dark backing in overlay mode** — the box you type in is now one near-solid dark fill inside Kick's border, readable over the video. The locked "Followers only" box gets it too.
+- **Pinned messages stay readable in overlay mode** — the pinned card keeps its background, so messages scrolling underneath no longer run through its text.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
