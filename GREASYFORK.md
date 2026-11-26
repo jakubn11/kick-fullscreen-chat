@@ -4,11 +4,13 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.27.1** — Player controls work during ads with the chat open
+**0.27.2** — The docked chat keeps its buttons at full size
 
-- **Play, mute and the seekbar work during an ad** — with the chat open in fullscreen, clicking Kick's controls while an ad played opened the advertiser instead. They now work as usual, in both the side and overlay layouts.
-- **The "Why am I seeing this ad" ⓘ still works**, and clicking the bare video no longer opens the advertiser.
-- **Plain fullscreen without the chat** was never affected.
+- **The green Chat button is no longer cut off or squeezed** — logged in at narrow chat widths it was clipped at the edge, and even at the default width it was narrower than on Kick's page.
+- **The action bar wraps when it doesn't fit** — below about 340px, the settings gear and **Chat** move to a second row at full size instead of being squeezed.
+- **The pinned message's ⌄ arrow stays inside its card** instead of sitting on the border.
+- **The active-chatters count stays on one line** instead of splitting as "(254" / ")".
+- **The settings gear keeps its size** at every chat width.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
