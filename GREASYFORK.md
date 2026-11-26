@@ -4,10 +4,10 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.27.3** — The chat bar stays on one row when logged out
+**0.27.4** — Emotes and chat settings fit a narrow chat
 
-- **Logged out, the settings gear and Chat button no longer sit on a row of their own** — 0.27.2 pushed them below the rest of the bar at every chat width. The bar is back to a single row.
-- **Logged in, nothing changes from 0.27.2** — the gear and **Chat** move to a second row, at full size, only when the chat is too narrow for one row.
+- **The emote picker fits a narrow chat** — below Kick's 340px default, emotes no longer overlap or get cut off at the picker's edge. The picker shows 6 columns at 260px, 7 from about 300px, and Kick's usual 8 from 340px up. It no longer scrolls sideways.
+- **Chat Appearance labels stay whole** — in a chat under about 300px, the chat-width and message-spacing options no longer split mid-word ("280p/x", "Medi/um").
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
