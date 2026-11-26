@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.3] - 2026-11-26
+
+### Fixed
+- **Logged out, the settings gear and Chat button sat on a second row at every chat width.** 0.27.2 let the action bar wrap when it can't fit, but logged out Kick's left half of the bar still claimed the whole row. On channels with a drops button, the gear and **Chat** always dropped below it, making the bar twice as tall. On channels without one, they sat 8px lower than on Kick's page. The left half now takes only the room its buttons need, so logged out the bar is Kick's usual single row at every width from 260 to 640px. Logged in, nothing changes from 0.27.2: the gear and **Chat** move to a second row only below about 330px. Found and tested in real browser fullscreen in Chrome on a 1512×806 screen with 0.27.2 running. The chat was sized by dragging the divider and by stepping through every width from 260 to 640px, in side and overlay mode, docked right and left, with a pinned message and in the active-chatters view. The logged-in bar was a replica built from Kick's button markup.
+
 ## [0.27.2] - 2026-11-26
 
 ### Fixed

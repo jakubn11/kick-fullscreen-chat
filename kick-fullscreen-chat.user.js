@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.2
+// @version      0.27.3
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.2';
+  const VERSION = '0.27.3';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1634,7 +1634,16 @@
          group would claim the whole row and always push the right group to
          the second line. Matched a level at a time via > * > rather than
          naming the span, so a wrapper swap in Kick's markup doesn't silently
-         reopen it. */
+         reopen it.
+
+         The left group itself is released by position, not by what it holds
+         (0.27.3): logged out it has no points or gift-shop button — it is
+         empty, or holds only the drops button — so the testid selectors
+         don't match it, and its lg:w-full sent the gear + send to a second
+         row at every width (an 8px-lower row when empty, a whole extra row
+         under the drops button). Anything in the row that isn't the send
+         button's own group is the left group. */
+      .kfc-chat-slot :has(> div > #send-message-button) > :not(:has(#send-message-button)),
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
       .kfc-chat-slot :has(> [data-testid="gift-shop-button"]),
       .kfc-chat-slot :has(> * > [data-testid="gift-shop-button"]) {
