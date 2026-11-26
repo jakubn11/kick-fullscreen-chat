@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.6] - 2026-11-26
+
+### Fixed
+- **In overlay mode, the message box was see-through.** The box where you type had no backing, so the video showed through behind your text. The script meant to give it a near-solid dark fill like outside overlay mode, but since overlay mode was added that rule never took effect. Overlay mode's rule that clears Kick's backgrounds outranked it. The whole box inside Kick's border, including the badge and emote-button areas, now has one dark fill. The locked "Followers only" box gets it too, as does the emote picker's search field.
+- **In overlay mode, a pinned message was see-through.** Its card lost its background, so chat messages scrolling under it ran through the pinned text. The card now keeps Kick's own background.
+- The rest of the overlay chat (messages, header and gifters bar) stays see-through as before, and side-by-side mode is unchanged. Tested in real browser fullscreen in Chrome, logged in, on a 1512×893 screen, with the message box of a channel with open chat. The pinned message was tested with a replica card built from a real pinned card's markup, since no live channel had a pinned message at the time.
+
 ## [0.27.5] - 2026-11-26
 
 ### Fixed

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.5
+// @version      0.27.6
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.5';
+  const VERSION = '0.27.6';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1721,33 +1721,40 @@
       /* Strip Kick's opaque chat backgrounds in overlay mode so the slot's
          frosted backdrop (and the video behind it) shows through instead of a
          solid dark panel. Backgrounds only — text, emotes (<img>), and badges
-         are untouched. The composer is left transparent too (no separate
-         backing) so Kick's own input border outlines it cleanly without a
-         nested box-in-a-box. Buttons are excluded so controls that rely on a
-         fill (e.g. Kick's green "Chat" send button) keep their normal look. So
-         are bg-green-* accents and 1px separator lines (h-px / w-px): Kick draws
-         dividers like the "New messages" rule and the gifters-bar lines as thin
-         coloured divs (e.g. div.h-px.grow.bg-green-500), which must stay visible.
-         Kick's footer pop-ups (emote picker, chat settings, gift shop, mention /
-         command / emote suggestions: each a z-popover in #chatroom-footer over a
-         bg-surface-bg-default box) are left out too (0.27.5). Stripped, they
-         were see-through, with chat messages showing behind the emotes and
-         settings rows. */
-      .kfc-chat-slot.kfc-overlay *:not(button):not([class*="bg-green" i]):not([class*="h-px" i]):not([class*="w-px" i]):not(#chatroom-footer [class*="z-popover"] *) {
+         are untouched. Left out:
+         - buttons, so controls that rely on a fill (e.g. Kick's green "Chat"
+           send button) keep their normal look;
+         - bg-green-* accents and 1px separator lines (h-px / w-px): Kick draws
+           dividers like the "New messages" rule and the gifters-bar lines as
+           thin coloured divs (e.g. div.h-px.grow.bg-green-500);
+         - Kick's footer pop-ups (0.27.5): emote picker, chat settings, gift
+           shop, mention / command / emote suggestions, each a z-popover in
+           #chatroom-footer over a bg-surface-bg-default box;
+         - the pinned-message card (0.27.6), matched by its own structure
+           (card > row > [data-testid=pinned-message-content]).
+         The pop-ups and the pinned card sit over the messages, so stripped
+         they were see-through, with chat text running through them.
+         The exclusions sit in :where() so they add no specificity: the rule
+         stays at (0,2,0) and the restore rules below (composer backing,
+         separator lines) win. As a plain :not() list it weighed (0,5,1), so
+         before 0.27.6 the composer's dark backing never applied. */
+      .kfc-chat-slot.kfc-overlay *:where(:not(button):not([class*="bg-green" i]):not([class*="h-px" i]):not([class*="w-px" i]):not(#chatroom-footer [class*="z-popover"] *):not(:has(> div > [data-testid="pinned-message-content"]))) {
         background-color: transparent !important;
       }
       /* Restore a dark backing on the message composer so the input stays
-         readable over video (like normal mode). Both the editable field and its
-         immediate wrapper get the same colour, so there's no box-in-a-box; the
-         wrapper's native border/rounding (not stripped above) still outlines it. */
+         readable over video (like normal mode). It goes on Kick's bordered,
+         rounded box around the field (the div two levels above the
+         contenteditable, which also holds the identity badge and the emote
+         button), and the field itself stays clear, so the whole box is one
+         dark fill inside Kick's border with no box-in-a-box. [contenteditable]
+         with any value also covers the locked "Followers only" composer.
+         Plain inputs and textareas (e.g. the emote picker's search) get the
+         same backing on themselves and their wrapper. */
       .kfc-chat-slot.kfc-overlay textarea,
       .kfc-chat-slot.kfc-overlay input:not([type="checkbox"]):not([type="radio"]),
-      .kfc-chat-slot.kfc-overlay [contenteditable="true"],
-      .kfc-chat-slot.kfc-overlay [contenteditable=""],
       .kfc-chat-slot.kfc-overlay div:has(> textarea),
       .kfc-chat-slot.kfc-overlay div:has(> input:not([type="checkbox"]):not([type="radio"])),
-      .kfc-chat-slot.kfc-overlay div:has(> [contenteditable="true"]),
-      .kfc-chat-slot.kfc-overlay div:has(> [contenteditable=""]) {
+      .kfc-chat-slot.kfc-overlay div:has(> * > [contenteditable]) {
         /* Near-solid dark so the input reads clearly over video, matching the
            normal-mode composer rather than the translucent panel. */
         background-color: rgba(12,12,14,.94) !important;

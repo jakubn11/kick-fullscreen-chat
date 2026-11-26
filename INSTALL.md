@@ -132,3 +132,4 @@ Each of these was a bug in an earlier version. If your symptom is listed, check 
 | Logged out, the settings gear and **Chat** button sit on their own row below the rest of the chat bar | Update to **0.27.3+** — logged out, the bar is back to a single row at every chat width. |
 | In a narrow chat, emotes in the emote picker overlap or are cut off at the edge, or Chat Appearance splits "Medium" across two lines | Update to **0.27.4+** — the picker fits fewer columns in a narrow chat, and the option labels stay whole. |
 | In overlay chat mode, the emote picker or chat settings are see-through, with chat messages showing behind them | Update to **0.27.5+** — Kick's chat pop-ups keep their solid panel in overlay mode. |
+| In overlay chat mode, the message box or a pinned message is see-through, with the video or chat text showing through | Update to **0.27.6+** — the message box gets a dark backing and a pinned message keeps its card background. |
