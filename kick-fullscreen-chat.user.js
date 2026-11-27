@@ -1665,10 +1665,10 @@
         width: auto !important;
         flex: 0 1 auto !important;
       }
-      /* Folded action bar: when the row would wrap, everything but the green
-         Chat send button goes behind one "Show more" button of ours, so the bar
-         stays a single row; pressing it brings back the wrapped two-row
-         layout above. fitChatBar() decides by measuring the unfolded row,
+      /* Folded action bar: when the row would wrap, the left group (points,
+         Kicks, drops) goes behind one "Show more" button of ours, and the
+         gear + green Chat send button stay, so the bar stays a single row;
+         pressing it brings back the wrapped two-row layout above. fitChatBar() decides by measuring the unfolded row,
          since the width it needs depends on what Kick shows (logged out it
          always fits; logged in it depends on the points value). The state
          lives on our slot, not on Kick's bar, which React re-renders. */
@@ -1731,8 +1731,7 @@
       .kfc-chat-slot.kfc-bar-open :has(> #send-message-button) {
         order: 2;
       }
-      .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}),
-      .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> #send-message-button) > :not(#send-message-button) {
+      .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}) {
         display: none !important;
       }
 
@@ -3195,8 +3194,9 @@
   // ── Chat action bar fold ─────────────────────────────────────────────
   // In a narrow chat, Kick's action bar (points, Kicks, drops, gear, the
   // green Chat send button) doesn't fit one row and wraps to two. Fold it
-  // instead: everything but Chat goes behind one "Show more" button, which
-  // unfolds the wrapped layout on demand. The bar is found from the send
+  // instead: points, Kicks and drops go behind one "Show more" button (the
+  // gear and Chat stay), which unfolds the wrapped layout on demand. The
+  // bar is found from the send
   // button and re-found whenever the chat slot's subtree changes, since
   // React replaces it on remounts (log-in, chatroom switch).
   let chatBar = null;
