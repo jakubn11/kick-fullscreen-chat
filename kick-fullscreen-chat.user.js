@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.28.0
+// @version      0.28.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.28.0';
+  const VERSION = '0.28.1';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -1797,6 +1797,17 @@
       .kfc-chat-slot.kfc-messages-only :has(> div > [data-testid="pinned-message-content"]),
       .kfc-chat-slot.kfc-messages-only #chatroom-footer {
         display: none !important;
+      }
+      /* Each message row ([data-index] > .group) is [message, hover toolbar];
+         the toolbar holds Kick's Reply button and appears on hover. Hide the
+         toolbar and the button itself, and drop the row's hover highlight,
+         so hovering a message changes nothing. */
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > * > :has(> button[aria-label="Reply"]),
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages button[aria-label="Reply"] {
+        display: none !important;
+      }
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > :hover > :first-child {
+        background-color: transparent !important;
       }
 
       /* Draggable divider between video and chat. A thin fixed strip straddling

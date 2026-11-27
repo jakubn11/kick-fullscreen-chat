@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.1] - 2026-11-27
+
+### Changed
+- **Messages only now also hides the Reply button and the hover highlight.** When you're logged in, hovering a message showed Kick's ↰ Reply button at its right edge and gave the row a grey background. With **Messages only** on, hovering a message now changes nothing. A username's own hover highlight stays, since clicking the name still opens the chatter's card. With **Messages only** off, Kick's Reply button and highlight work as before.
+- Tested in real browser fullscreen in Chrome, logged in, on a live channel: with the pointer on a message, its row stayed transparent and no Reply button was visible anywhere in the chat.
+
 ## [0.28.0] - 2026-11-27
 
 ### Added
