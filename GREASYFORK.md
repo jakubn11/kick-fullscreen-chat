@@ -4,11 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.28.2** — A narrow chat keeps its message bar on one row
+**0.29.0** — Fullscreen Chat speaks Kick's language
 
-- **Show more** — in a narrow chat (logged in, below about 330px), channel points, Kicks and drops now fold behind a **Show more** button instead of pushing the settings gear and **Chat** onto a second row. The gear and **Chat** stay on the same row.
-- **Show less** — click **Show more** to see the whole bar, and **Show less** to fold it again.
-- **Wider chat** — widen the chat and the bar goes back to Kick's single row by itself. Logged out, the bar always fits, so nothing changes.
+- **Kick's language** — the **Chat** button, the settings panel, the labels on the control buttons, the error toasts and the console now follow the language Kick is shown in, for 28 languages, and English otherwise.
+- **Fits on one line** — longer labels are worded so every switch and slider fits the settings panel on one line in every language.
+- **Same name** — the panel keeps its name, **Fullscreen Chat**, in every language.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -26,6 +26,7 @@ Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/bl
 - **Safe around reloads** — the Chat button is disabled while the player reloads (quality change, live-stream seek, "go to live"), so a click can't trigger Kick's 404 page; seeking a VOD or clip keeps the chat open
 - **Clean exit** — leaving fullscreen puts chat back exactly where it was
 - **Chat crash recovery** — if Kick's chat breaks while docked, the side chat closes so you can reopen it with one click, and the console lists the errors that led up to the crash
+- **In Kick's language** — the button, the settings panel, the control labels and the console follow the language Kick is shown in (28 languages), English otherwise
 - A dark control set with green accents that matches the other kick-* userscripts
 
 ## How to use
