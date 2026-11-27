@@ -216,10 +216,9 @@
   const INFO_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>`;
   // Gear icon for the settings popover.
   const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58-1.92-3.32-2.39.96a7.33 7.33 0 0 0-1.63-.94L14.86 3h-3.72l-.36 3.18c-.58.23-1.13.54-1.63.94l-2.39-.96-1.92 3.32 2.03 1.58a7.6 7.6 0 0 0-.06.94c0 .31.02.63.06.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.4 1.05.71 1.63.94l.36 3.18h3.72l.36-3.18c.58-.23 1.13-.54 1.63-.94l2.39.96 1.92-3.32-2.03-1.58zM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5z"></path></svg>`;
-  // Horizontal ellipsis for the folded chat action bar's "more" button, drawn
-  // on Kick's 20px icon grid in currentColor and wrapped in Kick's adornment
-  // span, as its own icon buttons are, so Kick's button styles size it.
-  const BAR_MORE_SVG = `<span data-scope="button" data-part="adornment" data-slot="button-adornment" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="inline-block shrink-0"><path fill="currentColor" d="M5 10a1.67 1.67 0 1 1-3.33 0A1.67 1.67 0 0 1 5 10m6.67 0a1.67 1.67 0 1 1-3.34 0 1.67 1.67 0 0 1 3.34 0m6.66 0A1.67 1.67 0 1 1 15 10a1.67 1.67 0 0 1 3.33 0"></path></svg></span>`;
+  // Chevron for the folded chat action bar's "Show more" button (Material
+  // expand_more); it turns over while the bar is open.
+  const BAR_MORE_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"></path></svg>`;
 
   // Selectors — Kick changes its markup occasionally, so we try a few.
   const VIDEO_WRAPPER_SELECTORS = [
@@ -1657,8 +1656,8 @@
          don't match it, and its lg:w-full sent the gear + send to a second
          row at every width (an 8px-lower row when empty, a whole extra row
          under the drops button). Anything in the row that isn't the send
-         button's own group is the left group — except our folded-bar
-         "more" button, which keeps its full 32px. */
+         button's own group is the left group — except our folded bar's
+         "Show more" button, which must not shrink. */
       .kfc-chat-slot :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}),
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
       .kfc-chat-slot :has(> [data-testid="gift-shop-button"]),
@@ -1667,7 +1666,7 @@
         flex: 0 1 auto !important;
       }
       /* Folded action bar: when the row would wrap, everything but the green
-         Chat send button goes behind one "more" button of ours, so the bar
+         Chat send button goes behind one "Show more" button of ours, so the bar
          stays a single row; pressing it brings back the wrapped two-row
          layout above. fitChatBar() decides by measuring the unfolded row,
          since the width it needs depends on what Kick shows (logged out it
@@ -1679,6 +1678,58 @@
       .kfc-chat-slot.kfc-bar-folded #${BAR_MORE_ID} {
         display: inline-flex !important;
         flex-shrink: 0 !important;
+      }
+      /* Our button, so the kick-* family look of the Chat button (surface,
+         border, shadow, radius, type, green icon), at 32px tall to sit in
+         Kick's 32px row beside its send button. No blur: the surface is
+         opaque. While the bar is open it takes the family pressed tint. */
+      #${BAR_MORE_ID} {
+        align-items: center;
+        gap: 6px;
+        box-sizing: border-box;
+        height: 32px;
+        margin: 0;
+        padding: 0 11px 0 7px;
+        font: 500 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #fff;
+        white-space: nowrap;
+        background: #101013;
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+        cursor: pointer;
+        transition: background .08s;
+        outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      #${BAR_MORE_ID}:hover,
+      #${BAR_MORE_ID}:focus-visible {
+        background: linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013;
+      }
+      .kfc-chat-slot.kfc-bar-open #${BAR_MORE_ID} {
+        background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
+        border-color: rgba(34,197,94,.5);
+      }
+      #${BAR_MORE_ID} svg {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        fill: #22c55e;
+        transition: transform .15s ease;
+      }
+      .kfc-chat-slot.kfc-bar-open #${BAR_MORE_ID} svg {
+        transform: rotate(180deg);
+      }
+      /* Open, the button moves after the points/Kicks/drops group, so the
+         shown items take the first row and "Show less" opens the second,
+         left of the gear + Chat (a first-row button beside the ~190px group
+         would push it onto a row of its own). */
+      .kfc-chat-slot.kfc-bar-open #${BAR_MORE_ID} {
+        order: 1;
+      }
+      .kfc-chat-slot.kfc-bar-open :has(> #send-message-button) {
+        order: 2;
       }
       .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}),
       .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> #send-message-button) > :not(#send-message-button) {
@@ -3144,7 +3195,7 @@
   // ── Chat action bar fold ─────────────────────────────────────────────
   // In a narrow chat, Kick's action bar (points, Kicks, drops, gear, the
   // green Chat send button) doesn't fit one row and wraps to two. Fold it
-  // instead: everything but Chat goes behind one "more" button, which
+  // instead: everything but Chat goes behind one "Show more" button, which
   // unfolds the wrapped layout on demand. The bar is found from the send
   // button and re-found whenever the chat slot's subtree changes, since
   // React replaces it on remounts (log-in, chatroom switch).
@@ -3178,9 +3229,9 @@
     const btn = document.getElementById(BAR_MORE_ID);
     if (!btn) return;
     btn.setAttribute('aria-expanded', String(open));
-    // Kick's design system draws its selected-button look for this.
-    if (open) btn.setAttribute('data-selected', 'true');
-    else btn.removeAttribute('data-selected');
+    btn.setAttribute('aria-label', open ? 'Show fewer chat actions' : 'Show more chat actions');
+    const label = btn.querySelector('span');
+    if (label) label.textContent = open ? 'Show less' : 'Show more';
   };
 
   const fitChatBar = () => {
@@ -3212,16 +3263,11 @@
       btn = document.createElement('button');
       btn.id = BAR_MORE_ID;
       btn.type = 'button';
-      // Kick's design-system attributes, so Kick styles it like its gear.
-      btn.setAttribute('data-scope', 'button');
-      btn.setAttribute('data-part', 'root');
-      btn.setAttribute('data-slot', 'button');
-      btn.setAttribute('data-variant', 'transparent');
-      btn.setAttribute('data-size', 'sm');
-      btn.setAttribute('data-icon-only', 'true');
-      btn.setAttribute('aria-label', 'More chat actions');
+      // The label goes in the aria-label too, with "chat" in it (see the
+      // aria-label contract on the cluster's controls).
+      btn.setAttribute('aria-label', 'Show more chat actions');
       btn.setAttribute('aria-expanded', 'false');
-      btn.innerHTML = BAR_MORE_SVG;
+      btn.innerHTML = `${BAR_MORE_SVG}<span>Show more</span>`;
       btn.addEventListener('click', onChatBarMoreClick);
     }
     if (bar.firstElementChild !== btn) bar.prepend(btn);
