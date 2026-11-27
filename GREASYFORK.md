@@ -4,11 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.29.0** — Fullscreen Chat speaks Kick's language
+**0.29.1** — Messages only keeps replies
 
-- **Kick's language** — the **Chat** button, the settings panel, the labels on the control buttons, the error toasts and the console now follow the language Kick is shown in, for 28 languages, and English otherwise.
-- **Fits on one line** — longer labels are worded so every switch and slider fits the settings panel on one line in every language.
-- **Same name** — the panel keeps its name, **Fullscreen Chat**, in every language.
+- **Replies stay** — with **Messages only** on, reply messages and their *Replying to …* line disappeared from the chat. They now stay, and hovering a message still shows no Reply button.
+- **Every language** — the hover toolbar is hidden the same way whatever language Kick is shown in.
+- **Moderators** — the whole hover toolbar, Pin and Delete included, stays hidden on every message.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
