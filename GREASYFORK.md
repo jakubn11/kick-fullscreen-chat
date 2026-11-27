@@ -4,11 +4,12 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.27.6** — Overlay chat: solid pop-ups, message box and pinned messages
+**0.28.0** — Messages only: just the chat next to the stream
 
-- **Pop-ups are no longer see-through in overlay mode** — the emote picker, Chat Settings, the Kicks gift shop and the mention / command / emote suggestions keep Kick's solid dark panel, so chat messages no longer show through them.
-- **The message box has a dark backing in overlay mode** — the box you type in is now one near-solid dark fill inside Kick's border, readable over the video. The locked "Followers only" box gets it too.
-- **Pinned messages stay readable in overlay mode** — the pinned card keeps its background, so messages scrolling underneath no longer run through its text.
+- **New "Messages only" setting** — under settings → **Chat**, it shows just the chat messages next to the fullscreen stream. Kick's chat header, leaderboard, pinned messages and message box with its buttons are hidden, and the messages fill the full height.
+- **Works in every layout** — side-by-side or overlay, docked left or right. Off by default.
+- **Closing stays one click** — Kick's **Hide chat** button is in the hidden header, so the **Chat** button stays in the controls, shown pressed, and closes the chat. Dragging the divider past the minimum still works too.
+- **Scrolling up still works** — Kick's "Chat paused for scrolling" prompt still appears and takes you back to the newest messages.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
@@ -42,6 +43,7 @@ Open any Kick channel and enter fullscreen with the player's fullscreen icon. Th
 | Kick's buttons in the stream info | Work as on Kick's page, without leaving fullscreen |
 | Settings gear | Opens fullscreen settings |
 | Kick's **Hide chat** | Closes the side chat and restores the fullscreen video |
+| **Chat** with **Messages only** on | Closes the side chat (Kick's header with **Hide chat** is hidden) |
 
 ## Privacy & permissions
 
