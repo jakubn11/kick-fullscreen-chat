@@ -4,10 +4,10 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.29.2** — Crash recovery and Go to live in every Kick language
+**0.30.0** — Ukrainian
 
-- **Chat crash recovery** — when Kick's chat crashes, the side chat closes so you can reopen it with **Chat**. This only worked with Kick in English; it now works in every language.
-- **Go to live** — clicking Kick's *Go to live* button in fullscreen closes the side chat first, so Kick doesn't show its 404 page. This also only worked in English; it now works in every language.
+- **Ukrainian** — Kick offers Ukrainian, and the script showed English there. The button, the settings panel, the control labels and the notices now have their own Ukrainian text, so all 28 of Kick's languages are covered.
+- **Viewer count** — the backup way of finding Kick's viewer count now recognises its Ukrainian text too.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
