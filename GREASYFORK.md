@@ -4,12 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.28.0** — Messages only: just the chat next to the stream
+**0.28.1** — Messages only: nothing changes when you hover a message
 
-- **New "Messages only" setting** — under settings → **Chat**, it shows just the chat messages next to the fullscreen stream. Kick's chat header, leaderboard, pinned messages and message box with its buttons are hidden, and the messages fill the full height.
-- **Works in every layout** — side-by-side or overlay, docked left or right. Off by default.
-- **Closing stays one click** — Kick's **Hide chat** button is in the hidden header, so the **Chat** button stays in the controls, shown pressed, and closes the chat. Dragging the divider past the minimum still works too.
-- **Scrolling up still works** — Kick's "Chat paused for scrolling" prompt still appears and takes you back to the newest messages.
+- **No Reply button on hover** — with **Messages only** on, Kick's ↰ Reply button no longer appears when you hover a message, whatever language your Kick is set to.
+- **No hover highlight** — hovering a message no longer gives it a grey background. A username's own highlight stays, since clicking the name still opens the chatter's card.
+- **Messages only off** — Kick's Reply button and highlight work as before.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
