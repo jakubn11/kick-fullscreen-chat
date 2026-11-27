@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - **Messages only now also hides the Reply button and the hover highlight.** When you're logged in, hovering a message showed Kick's ↰ Reply button at its right edge and gave the row a grey background. With **Messages only** on, hovering a message now changes nothing. A username's own hover highlight stays, since clicking the name still opens the chatter's card. With **Messages only** off, Kick's Reply button and highlight work as before.
-- Tested in real browser fullscreen in Chrome, logged in, on a live channel: with the pointer on a message, its row stayed transparent and no Reply button was visible anywhere in the chat.
+- The Reply button is found by its icon, not its label, since Kick translates the label ("Reply" in English) into your Kick language.
+- Tested in real browser fullscreen in Chrome, logged in, on a live channel: with the pointer on a message, its row stayed transparent and no Reply button was visible anywhere in the chat. The test was repeated with every Reply button's label renamed to a non-English one, to stand in for another Kick language.
 
 ## [0.28.0] - 2026-11-27
 

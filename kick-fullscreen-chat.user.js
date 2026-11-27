@@ -1801,8 +1801,12 @@
       /* Each message row ([data-index] > .group) is [message, hover toolbar];
          the toolbar holds Kick's Reply button and appears on hover. Hide the
          toolbar and the button itself, and drop the row's hover highlight,
-         so hovering a message changes nothing. */
+         so hovering a message changes nothing. The button is matched by its
+         design-system icon, ArrowCurveLeft: its aria-label is translated with
+         Kick's language, so "Reply" alone missed it in other languages. */
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > * > :has(> button svg[data-ds-icon="ArrowCurveLeft"]),
       .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > * > :has(> button[aria-label="Reply"]),
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages button:has(svg[data-ds-icon="ArrowCurveLeft"]),
       .kfc-chat-slot.kfc-messages-only #chatroom-messages button[aria-label="Reply"] {
         display: none !important;
       }
