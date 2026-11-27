@@ -4,11 +4,10 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.29.1** — Messages only keeps replies
+**0.29.2** — Crash recovery and Go to live in every Kick language
 
-- **Replies stay** — with **Messages only** on, reply messages and their *Replying to …* line disappeared from the chat. They now stay, and hovering a message still shows no Reply button.
-- **Every language** — the hover toolbar is hidden the same way whatever language Kick is shown in.
-- **Moderators** — the whole hover toolbar, Pin and Delete included, stays hidden on every message.
+- **Chat crash recovery** — when Kick's chat crashes, the side chat closes so you can reopen it with **Chat**. This only worked with Kick in English; it now works in every language.
+- **Go to live** — clicking Kick's *Go to live* button in fullscreen closes the side chat first, so Kick doesn't show its 404 page. This also only worked in English; it now works in every language.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
