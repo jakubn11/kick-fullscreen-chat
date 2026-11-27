@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.29.1
+// @version      0.29.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.29.1';
+  const VERSION = '0.29.2';
 
   // ── Words in Kick's language (0.29.0) ──────────────────────────────────
   // Every word the script shows — the Chat button, the settings panel, the
@@ -3881,7 +3881,29 @@
   // on every scrub. A reload that does happen is still caught by loadstart.
   const isRecordingPage = () => /^\/[^/]+\/(?:videos|clips)\/[^/]+/.test(location.pathname);
   // "Go to live" / "Jump to live" — exiting DVR mode also re-mounts the player.
+  // Kick translates the label ("Přejít na LIVE" in Czech, "Zum Live" in
+  // German), so the English pattern only catches English. The language-free
+  // match (0.29.2) is the button's shape, from Kick's player code
+  // (MainPlayerControls.Status): a plain button in the player whose children
+  // are exactly an icon and one text span, with no aria-label of its own and
+  // outside any menu or dialog. At the live edge the same button reads
+  // "LIVE" — an untranslated literal — and clicking it reloads nothing, so
+  // that text is left out. Kick's other player buttons are icon buttons with
+  // an aria-label, and its menus' items sit inside role="menu".
   const GO_LIVE_RE = /^(?:go\s*to\s*live|jump\s*to\s*live|back\s*to\s*live|skip\s*to\s*live|go\s*live)$/i;
+  const LIVE_STATUS_MENU_SELECTOR =
+    '[role="menu"], [role="menuitem"], [role="menuitemradio"], [role="dialog"], [role="listbox"], [role="radiogroup"]';
+  const liveStatusText = (btn) => {
+    if (!btn || btn.getAttribute('aria-label')) return null;
+    const kids = btn.children;
+    if (!kids || kids.length !== 2) return null;
+    if (String(kids[0].tagName).toLowerCase() !== 'svg') return null;
+    if (String(kids[1].tagName).toLowerCase() !== 'span') return null;
+    const text = (kids[1].textContent || '').trim();
+    if (!text || text.length > 24 || text === 'LIVE') return null;
+    if (btn.closest(LIVE_STATUS_MENU_SELECTOR)) return null;
+    return text;
+  };
   const isGoLiveClick = (target) => {
     let node = target;
     for (let i = 0; i < 4 && node && node !== document.body; i++) {
@@ -3889,7 +3911,13 @@
       if (text && text.length <= 24 && GO_LIVE_RE.test(text)) return text;
       node = node.parentElement;
     }
-    return null;
+    const btn = target.closest('button');
+    const player = document.querySelector('#injected-channel-player, [data-testid="player"]');
+    if (!btn || !player?.contains(btn)) return null;
+    // Kick's chat pill is an icon and a word too; it is a chat toggle,
+    // handled as one, never a reload.
+    if (looksLikeChatToggleBtn(btn)) return null;
+    return liveStatusText(btn);
   };
   // Raise videoReloading synchronously on known reload triggers so the Chat
   // button disables before the user can click it. When side chat is active we
@@ -4418,11 +4446,71 @@
   // a Chat button to retry with. We don't try to reset Kick's React state —
   // re-opening side chat may or may not recover depending on whether Kick
   // remounted the subtree, but the user is no longer stuck.
+  // The boundary's text is translated with Kick's language (Chatroom
+  // .error_fallback: "Něco se pokazilo. Zkus to znovu později." in Czech),
+  // so the English text alone missed every crash in another language. The
+  // language-free sign (0.29.2): the fallback replaces Kick's whole chat
+  // subtree, so #chatroom-messages leaves the slot and doesn't come back.
+  // It only counts once the list has been seen in this slot (a chat still
+  // loading has none yet) and once it has stayed gone for
+  // CHAT_LIST_GONE_MS, so a quick remount (a chatroom switch, a reconnect)
+  // never closes the side chat. A real crash is permanent; waiting costs
+  // nothing but those seconds.
   const CHAT_ERROR_RE = /we are sorry,?\s*but something went wrong/i;
+  const CHAT_LIST_GONE_MS = 3000;
+  let chatListSeen = false;
+  let chatListGoneSince = 0;
+  let chatListGoneTimer = 0;
+
+  // What the slot shows: null (a working chat, or one still loading),
+  // 'pending' (the list just went missing), or why it counts as crashed.
+  const chatCrashState = (slot, now) => {
+    if (CHAT_ERROR_RE.test(slot.textContent || '')) return 'error text';
+    if (slot.querySelector('#chatroom-messages')) {
+      chatListSeen = true;
+      chatListGoneSince = 0;
+      return null;
+    }
+    if (!chatListSeen) return null;
+    if (!chatListGoneSince) chatListGoneSince = now;
+    return now - chatListGoneSince >= CHAT_LIST_GONE_MS ? 'message list gone' : 'pending';
+  };
+
+  const resetChatCrashState = () => {
+    chatListSeen = false;
+    chatListGoneSince = 0;
+    clearTimeout(chatListGoneTimer);
+    chatListGoneTimer = 0;
+  };
+
+  const checkChatCrash = (fsEl) => {
+    if (chatErrorRecovering || !chatSlot) return;
+    const state = chatCrashState(chatSlot, Date.now());
+    if (state === 'pending') {
+      // The fallback is static, so no mutation may come to re-check it:
+      // look again once the wait is over.
+      if (!chatListGoneTimer) {
+        chatListGoneTimer = setTimeout(() => {
+          chatListGoneTimer = 0;
+          checkChatCrash(fsEl);
+        }, CHAT_LIST_GONE_MS + 50);
+      }
+      return;
+    }
+    if (!state) return;
+    chatErrorRecovering = true;
+    log('Kick chat error boundary detected (' + state + '); tearing down side chat');
+    dumpRecentErrors('Kick chat crashed');
+    showToast(uiText().chatErrored);
+    stopChatErrorWatcher();
+    disableSideChat(fsEl);
+    chatErrorRecovering = false;
+  };
 
   const startChatErrorWatcher = (fsEl) => {
     if (!chatSlot || chatErrorObserver) return;
     startConsoleErrorCapture();
+    resetChatCrashState();
     chatErrorObserver = new MutationObserver(() => {
       // Coalesce a burst of message mutations into one textContent read per
       // frame; on a busy stream we'd otherwise re-scan the slot once per
@@ -4432,14 +4520,7 @@
         chatErrorCheckScheduled = 0;
         if (chatErrorRecovering || !chatSlot) return;
         refreshChatBar();
-        if (!CHAT_ERROR_RE.test(chatSlot.textContent || '')) return;
-        chatErrorRecovering = true;
-        log('Kick chat error boundary detected; tearing down side chat');
-        dumpRecentErrors('Kick chat crashed');
-        showToast(uiText().chatErrored);
-        stopChatErrorWatcher();
-        disableSideChat(fsEl);
-        chatErrorRecovering = false;
+        checkChatCrash(fsEl);
       });
     });
     chatErrorObserver.observe(chatSlot, {
@@ -4459,6 +4540,7 @@
       cancelAnimationFrame(chatErrorCheckScheduled);
       chatErrorCheckScheduled = 0;
     }
+    resetChatCrashState();
   };
 
   // ── Chat action bar fold ─────────────────────────────────────────────

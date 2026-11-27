@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.2] - 2026-11-27
+
+### Fixed
+- **Chat crash recovery works in every Kick language.** When Kick's chat crashes, the script closes the side chat and offers **Chat** to reopen it. It only recognised Kick's English crash message, *We are sorry, but something went wrong*, and Kick translates it (*Něco se pokazilo. Zkus to znovu později.* in Czech), so in any other language a crashed chat stayed stuck until a page reload. The script now also notices the chat's message list disappearing and staying gone for 3 seconds, which happens in any language. A chat that is still loading, or that Kick rebuilds within those seconds, isn't treated as crashed.
+- **"Go to live" closes the side chat first in every Kick language.** Clicking Kick's *Go to live* button in fullscreen reloads the player, so the script closes the side chat just before, to keep Kick from showing its 404 page. It only knew the English label, and Kick translates it (*Přejít na LIVE* in Czech, *Zum Live* in German). It now also finds the button by its shape in Kick's player, the same in every language.
+- Checked against Kick's own code and a live Czech Kick page: the crash message and the *Go to live* label both come from Kick's translations. Not yet checked live in fullscreen: Kick shows an 18+ confirmation over the player when signed out, so the *Go to live* button couldn't be clicked, and a chat crash can't be caused on demand.
+
 ## [0.29.1] - 2026-11-27
 
 ### Fixed

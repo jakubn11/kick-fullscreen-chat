@@ -409,6 +409,56 @@ check('recordError never throws', recordThrew, false);
   delete document.documentElement.lang;
 }
 
+// ── chat crash, in any language (0.29.2) ───────────────────────────────────
+
+{
+  const slot = (text, hasList) => ({
+    textContent: text,
+    querySelector: (sel) => (sel === '#chatroom-messages' && hasList ? {} : null),
+  });
+  resetChatCrashState();
+  check('a chat still loading (no list seen yet) is not a crash', chatCrashState(slot('', false), 1000), null);
+  check('a working chat is not a crash', chatCrashState(slot('hello', true), 2000), null);
+  check('the list just went missing: wait', chatCrashState(slot('', false), 3000), 'pending');
+  check('still missing before the wait is over', chatCrashState(slot('', false), 3000 + CHAT_LIST_GONE_MS - 1), 'pending');
+  check('back within the wait (a quick remount): not a crash', chatCrashState(slot('hi', true), 3000 + CHAT_LIST_GONE_MS - 1), null);
+  chatCrashState(slot('Něco se pokazilo. Zkus to znovu později.', false), 10000);
+  check('gone for the whole wait, in Czech: a crash',
+    chatCrashState(slot('Něco se pokazilo. Zkus to znovu později.', false), 10000 + CHAT_LIST_GONE_MS), 'message list gone');
+  resetChatCrashState();
+  check('the English text counts at once', chatCrashState(slot('We are sorry, but something went wrong. Please try again later.', false), 1), 'error text');
+  resetChatCrashState();
+}
+
+// ── "Go to live", in any language (0.29.2) ─────────────────────────────────
+
+{
+  const el = (tag, text = '') => ({ tagName: tag.toUpperCase(), textContent: text });
+  const btn = (kids, { aria = null, inMenu = false } = {}) => ({
+    children: kids,
+    getAttribute: (n) => (n === 'aria-label' ? aria : null),
+    closest: () => (inMenu ? {} : null),
+  });
+  table('liveStatusText', liveStatusText, [
+    [[btn([el('svg'), el('span', 'Přejít na LIVE')])], 'Přejít na LIVE'],
+    [[btn([el('svg'), el('span', 'Zum Live')])], 'Zum Live'],
+    [[btn([el('svg'), el('span', '前往直播')])], '前往直播'],
+    // At the live edge it reads the literal "LIVE": nothing reloads.
+    [[btn([el('svg'), el('span', 'LIVE')])], null],
+    // Kick's other player buttons carry an aria-label…
+    [[btn([el('svg'), el('span', 'Kvalita')], { aria: 'Nastavení' })], null],
+    // …and its menus' rows sit inside role="menu".
+    [[btn([el('svg'), el('span', '720p60')], { inMenu: true })], null],
+    // Any other shape is not the status button.
+    [[btn([el('svg')])], null],
+    [[btn([el('span', 'Je mi 18+')])], null],
+    [[btn([el('svg'), el('span', 'x'), el('span', 'y')])], null],
+    [[btn([el('svg'), el('span', '')])], null],
+    [[btn([el('svg'), el('span', 'a much longer label than any status')])], null],
+    [[null], null],
+  ]);
+}
+
 say(`${passed} passed, ${failures} failed`);
 if (failures) throw new Error(`${failures} logic test(s) failed`);
 say('all logic tests passed');
