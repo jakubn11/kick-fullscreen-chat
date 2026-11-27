@@ -52,5 +52,9 @@ trap 'rm -f "$bundle"' EXIT
 } > "$bundle"
 "$JSC" "$bundle" || status=1
 
+# Family style: colours from the shared palette (test/family-style.js).
+echo "== test/family-style.js"
+"$JSC" test/family-style.js || status=1
+
 [ "$status" -eq 0 ] && echo "== all checks passed" || echo "== FAILURES"
 exit "$status"
