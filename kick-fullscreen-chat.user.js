@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.27.6
+// @version      0.28.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.27.6';
+  const VERSION = '0.28.0';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -102,6 +102,7 @@
   let autoHideControls = true;              // fade the top control cluster / info overlay
   let openChatAsOverlay = false;            // default layout when the Chat button opens chat
   let restoreChatOnFullscreen = true;       // auto-open side chat whenever entering fullscreen
+  let messagesOnly = false;                 // hide Kick's chat header, banners, pinned messages and composer
   let idleDelayMs = 4000;                   // delay before our fullscreen UI fades
   let muteAds = false;                      // mute the player while Kick plays an ad (opt-in)
   let settingsOpen = false;
@@ -124,6 +125,7 @@
           autoHideControls,
           openChatAsOverlay,
           restoreChatOnFullscreen,
+          messagesOnly,
           idleDelayMs,
           muteAds,
           infoHidden,
@@ -181,6 +183,7 @@
     if (typeof s.restoreChatOnFullscreen === 'boolean') {
       restoreChatOnFullscreen = s.restoreChatOnFullscreen;
     }
+    if (typeof s.messagesOnly === 'boolean') messagesOnly = s.messagesOnly;
     if (typeof s.idleDelayMs === 'number') {
       idleDelayMs = Math.max(2000, Math.min(8000, s.idleDelayMs));
     }
@@ -966,6 +969,13 @@
       #${MODE_BTN_ID} { display: none; }
       #${WRAP_ID}.kfc-chat-open #${MODE_BTN_ID} { display: inline-flex; }
       #${WRAP_ID}.kfc-chat-open #${BTN_ID} { display: none; }
+      /* Messages only hides Kick's chat header and with it Kick's Hide chat
+         button, so Chat stays in the cluster, pressed, as the way to close. */
+      #${WRAP_ID}.kfc-chat-open.kfc-messages-only #${BTN_ID} {
+        display: inline-flex;
+        background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
+        border-color: rgba(34,197,94,.5);
+      }
       /* Pressed/active look when overlay mode is on, so the toggle's state is
          legible without a second icon. */
       #${MODE_BTN_ID}.kfc-on {
@@ -1765,6 +1775,28 @@
       .kfc-chat-slot.kfc-overlay [class*="h-px" i]:not([class*="bg-green" i]),
       .kfc-chat-slot.kfc-overlay [class*="w-px" i]:not([class*="bg-green" i]) {
         background-color: rgba(255,255,255,.4) !important;
+      }
+
+      /* Messages only: just the message list, nothing around it. Kick's chat
+         column is header, then a body of [banners…, message box, footer]:
+         - the header (title, Hide chat, active chatters) is the body's
+           previous sibling;
+         - banners (the leaderboard marquee, anything else Kick stacks above
+           the messages) are the body's children other than the footer and
+           the message box;
+         - the pinned-message stack is the absolute layer just before
+           #chatroom-messages; the card rule is a backstop if that moves;
+         - #chatroom-footer holds the composer and the action bar.
+         The bottom "more messages" layer after #chatroom-messages stays: it
+         only shows while scrolled up. Selected by ids, test ids and sibling
+         structure, never Tailwind classes. :has() can't nest, hence
+         "+ * > #chatroom-footer" rather than a :has() inside a :has(). */
+      .kfc-chat-slot.kfc-messages-only :has(+ * > #chatroom-footer),
+      .kfc-chat-slot.kfc-messages-only :has(> #chatroom-footer) > :not(#chatroom-footer):not(:has(#chatroom-messages)),
+      .kfc-chat-slot.kfc-messages-only :has(+ #chatroom-messages),
+      .kfc-chat-slot.kfc-messages-only :has(> div > [data-testid="pinned-message-content"]),
+      .kfc-chat-slot.kfc-messages-only #chatroom-footer {
+        display: none !important;
       }
 
       /* Draggable divider between video and chat. A thin fixed strip straddling
@@ -2855,6 +2887,7 @@
     autoHideControls = true;
     openChatAsOverlay = false;
     restoreChatOnFullscreen = true;
+    messagesOnly = false;
     idleDelayMs = 4000;
     muteAds = false;
     updateAdMuteWatch();
@@ -3287,7 +3320,7 @@
       const video = queryPlayerVideo(fs);
       const isLoaded = !videoReloading && video && video.readyState >= 2;
       btn.disabled = !isLoaded;
-      btn.setAttribute('aria-label', isLoaded ? 'Show chat' : 'Loading video...');
+      btn.setAttribute('aria-label', active ? 'Hide chat' : isLoaded ? 'Show chat' : 'Loading video...');
     } else {
       btn.setAttribute('aria-label', 'Show chat');
     }
@@ -4522,6 +4555,12 @@
           syncControlState();
           persistSettings();
         }, 'kfc-settings-restore-input'),
+        createSettingsCheckbox('Messages only', messagesOnly, (checked) => {
+          messagesOnly = checked;
+          syncControlState();
+          updateBtnLabel();
+          persistSettings();
+        }, 'kfc-settings-messages-only-input'),
       ),
     ));
 
@@ -4864,6 +4903,7 @@
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) {
       wrap.classList.toggle('kfc-chat-open', active);
+      wrap.classList.toggle('kfc-messages-only', messagesOnly);
       wrap.classList.toggle('kfc-settings-open', settingsOpen);
     }
 
@@ -4871,6 +4911,7 @@
       const overlayIdle =
         overlayActive && autoHideOverlayChat && chatSlot.classList.contains('kfc-idle');
       chatSlot.classList.toggle('kfc-overlay', overlayActive);
+      chatSlot.classList.toggle('kfc-messages-only', messagesOnly);
       chatSlot.classList.toggle('kfc-overlay-idle', overlayIdle);
       if (resizeHandle) resizeHandle.classList.toggle('kfc-overlay-idle', overlayIdle);
     } else if (resizeHandle) {
@@ -4933,6 +4974,8 @@
     if (openOverlayInput) openOverlayInput.checked = openChatAsOverlay;
     const restoreInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-restore-input`);
     if (restoreInput) restoreInput.checked = restoreChatOnFullscreen;
+    const messagesOnlyInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-messages-only-input`);
+    if (messagesOnlyInput) messagesOnlyInput.checked = messagesOnly;
     const dockLeftInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-dock-left-input`);
     if (dockLeftInput) dockLeftInput.checked = chatSide === 'left';
     const infoActionsInput = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-info-actions-input`);

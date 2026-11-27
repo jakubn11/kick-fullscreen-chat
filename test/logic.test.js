@@ -30,14 +30,14 @@ function table(fnName, fn, cases) {
 // Every persisted setting, by the name saveSettings writes it under.
 const settings = () => ({
   chatWidth, chatSide, overlayOpacity, autoHideOverlayChat, autoHideControls,
-  openChatAsOverlay, restoreChatOnFullscreen, idleDelayMs, muteAds, infoHidden,
-  infoBgOpacity, infoShowActions, infoShowTags, debug: debugOn,
+  openChatAsOverlay, restoreChatOnFullscreen, messagesOnly, idleDelayMs, muteAds,
+  infoHidden, infoBgOpacity, infoShowActions, infoShowTags, debug: debugOn,
 });
 const DEFAULTS = settings();
 const NON_DEFAULTS = {
   chatWidth: 520, chatSide: 'left', overlayOpacity: 80, autoHideOverlayChat: false,
   autoHideControls: false, openChatAsOverlay: true, restoreChatOnFullscreen: false,
-  idleDelayMs: 7000, muteAds: true, infoHidden: true, infoBgOpacity: 20,
+  messagesOnly: true, idleDelayMs: 7000, muteAds: true, infoHidden: true, infoBgOpacity: 20,
   infoShowActions: false, infoShowTags: false, debug: true,
 };
 const reset = () => {
@@ -48,6 +48,7 @@ const reset = () => {
   autoHideControls = DEFAULTS.autoHideControls;
   openChatAsOverlay = DEFAULTS.openChatAsOverlay;
   restoreChatOnFullscreen = DEFAULTS.restoreChatOnFullscreen;
+  messagesOnly = DEFAULTS.messagesOnly;
   idleDelayMs = DEFAULTS.idleDelayMs;
   muteAds = DEFAULTS.muteAds;
   infoHidden = DEFAULTS.infoHidden;
@@ -69,7 +70,7 @@ const field = (key) => (patch) => after(patch)[key];
 check('defaults', DEFAULTS, {
   chatWidth: 340, chatSide: 'right', overlayOpacity: 55, autoHideOverlayChat: true,
   autoHideControls: true, openChatAsOverlay: false, restoreChatOnFullscreen: true,
-  idleDelayMs: 4000, muteAds: false, infoHidden: false, infoBgOpacity: 60,
+  messagesOnly: false, idleDelayMs: 4000, muteAds: false, infoHidden: false, infoBgOpacity: 60,
   infoShowActions: true, infoShowTags: true, debug: false,
 });
 
@@ -85,7 +86,7 @@ check('a partial object changes only its fields',
 // Wrong types leave the current value alone.
 check('wrong types change nothing', after({
   chatWidth: '520', chatSide: 'top', overlayOpacity: '80', autoHideOverlayChat: 'false',
-  autoHideControls: 0, openChatAsOverlay: 1, restoreChatOnFullscreen: null,
+  autoHideControls: 0, openChatAsOverlay: 1, restoreChatOnFullscreen: null, messagesOnly: 'on',
   idleDelayMs: '7000', muteAds: 'yes', infoHidden: {}, infoBgOpacity: [20],
   infoShowActions: 'no', infoShowTags: null, debug: 'on',
 }), DEFAULTS);

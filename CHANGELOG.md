@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0] - 2026-11-27
+
+### Added
+- **Messages only.** A new switch under settings → **Chat** shows just the chat messages next to the stream, and nothing else from Kick's chat. The chat header (title, **Hide chat**, active chatters), the leaderboard strip, pinned messages and the whole message box with its buttons are hidden, and the messages fill the full height. It works in side-by-side and overlay mode, and on either side. Off by default.
+- Since Kick's **Hide chat** button is in the hidden header, the **Chat** button stays in the control cluster while **Messages only** is on, shown pressed, and clicking it closes the chat. Dragging the divider past the minimum still closes it too.
+- The "more messages" prompt that appears while you're scrolled up stays, so you can jump back to the newest messages.
+- Tested in real browser fullscreen in Chrome, logged in, on a 1512×806 screen, on a live channel with a pinned message. The switch was turned on from the settings panel. The message list then filled the whole 340×806 slot, with the header, leaderboard, pinned message and message box gone. Overlay mode showed the same, and Kick's "Chat paused for scrolling" prompt still appeared when scrolled up. **Chat** closed and reopened the chat. Leaving fullscreen put Kick's chat back with its header, pinned message and message box. Docking on the left wasn't tested; the rules don't depend on the side.
+
 ## [0.27.6] - 2026-11-26
 
 ### Fixed
