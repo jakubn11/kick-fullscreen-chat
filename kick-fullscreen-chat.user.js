@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.29.2
+// @version      0.30.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.29.2';
+  const VERSION = '0.30.0';
 
   // ── Words in Kick's language (0.29.0) ──────────────────────────────────
   // Every word the script shows — the Chat button, the settings panel, the
@@ -1187,6 +1187,52 @@
       muteAds: 'Reklamları sessize al',
       reset: 'Ayarları sıfırla',
     }),
+    uk: Object.freeze({
+      duplicate: 'v{v} вимикається: на цій сторінці вже працює v{running}. Дві копії ділять ті самі id у DOM і змагаються за кнопки — вимкніть або видаліть дублікат.',
+      active: 'v{v} працює',
+      debugOn: 'журнал налагодження увімкнено',
+      debugOff: 'журнал налагодження вимкнено',
+      chatErrored: 'Чат Kick впав. Натисніть «Чат», щоб відкрити його знову.',
+      chatNotFound: 'Kick Fullscreen Chat: панель чату не знайдено. Можливо, Kick змінив розмітку; перегляньте діагностику в консолі.',
+      moreActions: 'Більше дій чату',
+      fewerActions: 'Менше дій чату',
+      showMore: 'Ще',
+      showLess: 'Менше',
+      chat: 'Чат',
+      showChat: 'Показати чат',
+      hideChat: 'Сховати чат',
+      loadingVideo: 'Відео завантажується…',
+      close: 'Закрити',
+      closeSettings: 'Закрити налаштування повноекранного чату',
+      openSettings: 'Відкрити налаштування повноекранного чату',
+      toSide: 'Перемкнути на чат збоку',
+      toOverlay: 'Перемкнути на чат поверх відео',
+      showInfo: 'Показати інфо про стрим',
+      hideInfo: 'Сховати інфо про стрим',
+      overlayOpacity: 'Прозорість оверлею',
+      backdrop: 'Фон',
+      hideDelay: 'Затримка приховування',
+      chatWidth: 'Ширина чату',
+      compact: 'Вузький',
+      default: 'Звичайний',
+      wide: 'Широкий',
+      max: 'Макс.',
+      groupChat: 'Чат',
+      dockLeft: 'Чат ліворуч',
+      openAsOverlay: 'Відкривати чати поверх відео',
+      openOnFullscreen: 'Чат у повноекранному режимі',
+      messagesOnly: 'Лише повідомлення',
+      groupOverlay: 'Оверлей',
+      autoHideOverlay: 'Автоприховування чату',
+      groupInfo: 'Інфо про стрим',
+      showActions: 'Підписка, саб і «поділитися»',
+      showTags: 'Показати теги',
+      groupControls: 'Керування',
+      autoHideControls: 'Автоприховування керування',
+      groupAds: 'Реклама',
+      muteAds: 'Вимикати звук реклами',
+      reset: 'Скинути налаштування',
+    }),
     vi: Object.freeze({
       duplicate: 'v{v} dừng lại: v{running} đã chạy trên trang này. Hai bản dùng chung id DOM và tranh nhau nút điều khiển — tắt hoặc gỡ bản trùng.',
       active: 'v{v} đang chạy',
@@ -1542,7 +1588,7 @@
   // alternative is dead. The negative lookahead also beats `\b` on the ASCII
   // tokens — it rejects "770 viewership", which `\b` would have accepted.
   const VIEWER_COUNT_RE =
-    /\b\d[\d, . ]*\s*(?:viewers?|sledujících|diváků|spectateurs|zuschauer|widzów|зрителей|просмотров|espectadores|spettatori|視聴者|시청자|مشاهد)(?!\p{L})/iu;
+    /\b\d[\d, . ]*\s*(?:viewers?|sledujících|diváků|spectateurs|zuschauer|widzów|зрителей|просмотров|глядач(?:ів|і)?|переглядів|espectadores|spettatori|視聴者|시청자|مشاهد)(?!\p{L})/iu;
 
   const log = (...args) => {
     if (debugOn) console.log('[KickFullscreenChat]', ...args);

@@ -284,6 +284,8 @@ table('VIEWER_COUNT_RE', (t) => VIEWER_COUNT_RE.test(t), [
   [['1 234 sledujících'], true],
   [['12 diváků'], true],
   [['3 412 зрителей'], true],
+  [['3 412 глядачів'], true],
+  [['2 глядачі'], true],
   [['88 spectateurs'], true],
   [['770 viewership'], false],
   [['Viewers'], false],
@@ -368,7 +370,7 @@ check('recordError never throws', recordThrew, false);
 {
   const langs = Object.keys(UI_TEXT);
   const keys = Object.keys(UI_TEXT.en);
-  check('28 Kick languages have a table (uk falls back to English)', langs.length, 27);
+  check('all 28 Kick languages have a table (Ukrainian since the 2026-11-27 pass)', langs.length, 28);
   const gaps = [];
   for (const lang of langs) {
     for (const k of keys) {
