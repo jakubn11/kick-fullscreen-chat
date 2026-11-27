@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.28.1
+// @version      0.28.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.28.1';
+  const VERSION = '0.28.2';
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -69,6 +69,7 @@
   const TOAST_ID = 'kfc-toast';
   const STYLE_ID = 'kfc-style';
   const INFO_ID = 'kfc-info-overlay';
+  const BAR_MORE_ID = 'kfc-bar-more';
   const VIDEO_ROOT_ATTR = 'data-kfc-video-root';
   const VIDEO_FRAME_ATTR = 'data-kfc-video-frame';
   const VIDEO_EL_ATTR = 'data-kfc-video-el';
@@ -215,6 +216,10 @@
   const INFO_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>`;
   // Gear icon for the settings popover.
   const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58-1.92-3.32-2.39.96a7.33 7.33 0 0 0-1.63-.94L14.86 3h-3.72l-.36 3.18c-.58.23-1.13.54-1.63.94l-2.39-.96-1.92 3.32 2.03 1.58a7.6 7.6 0 0 0-.06.94c0 .31.02.63.06.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.4 1.05.71 1.63.94l.36 3.18h3.72l.36-3.18c.58-.23 1.13-.54 1.63-.94l2.39.96 1.92-3.32-2.03-1.58zM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5z"></path></svg>`;
+  // Horizontal ellipsis for the folded chat action bar's "more" button, drawn
+  // on Kick's 20px icon grid in currentColor and wrapped in Kick's adornment
+  // span, as its own icon buttons are, so Kick's button styles size it.
+  const BAR_MORE_SVG = `<span data-scope="button" data-part="adornment" data-slot="button-adornment" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="inline-block shrink-0"><path fill="currentColor" d="M5 10a1.67 1.67 0 1 1-3.33 0A1.67 1.67 0 0 1 5 10m6.67 0a1.67 1.67 0 1 1-3.34 0 1.67 1.67 0 0 1 3.34 0m6.66 0A1.67 1.67 0 1 1 15 10a1.67 1.67 0 0 1 3.33 0"></path></svg></span>`;
 
   // Selectors — Kick changes its markup occasionally, so we try a few.
   const VIDEO_WRAPPER_SELECTORS = [
@@ -1652,13 +1657,32 @@
          don't match it, and its lg:w-full sent the gear + send to a second
          row at every width (an 8px-lower row when empty, a whole extra row
          under the drops button). Anything in the row that isn't the send
-         button's own group is the left group. */
-      .kfc-chat-slot :has(> div > #send-message-button) > :not(:has(#send-message-button)),
+         button's own group is the left group — except our folded-bar
+         "more" button, which keeps its full 32px. */
+      .kfc-chat-slot :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}),
       .kfc-chat-slot :has(> [data-testid="channel-points-button"]),
       .kfc-chat-slot :has(> [data-testid="gift-shop-button"]),
       .kfc-chat-slot :has(> * > [data-testid="gift-shop-button"]) {
         width: auto !important;
         flex: 0 1 auto !important;
+      }
+      /* Folded action bar: when the row would wrap, everything but the green
+         Chat send button goes behind one "more" button of ours, so the bar
+         stays a single row; pressing it brings back the wrapped two-row
+         layout above. fitChatBar() decides by measuring the unfolded row,
+         since the width it needs depends on what Kick shows (logged out it
+         always fits; logged in it depends on the points value). The state
+         lives on our slot, not on Kick's bar, which React re-renders. */
+      #${BAR_MORE_ID} {
+        display: none !important;
+      }
+      .kfc-chat-slot.kfc-bar-folded #${BAR_MORE_ID} {
+        display: inline-flex !important;
+        flex-shrink: 0 !important;
+      }
+      .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}),
+      .kfc-chat-slot.kfc-bar-folded:not(.kfc-bar-open) :has(> #send-message-button) > :not(#send-message-button) {
+        display: none !important;
       }
 
       /* Chat Appearance's segmented choices (chat width 280px/340px/420px,
@@ -3087,6 +3111,7 @@
       chatErrorCheckScheduled = requestAnimationFrame(() => {
         chatErrorCheckScheduled = 0;
         if (chatErrorRecovering || !chatSlot) return;
+        refreshChatBar();
         if (!CHAT_ERROR_RE.test(chatSlot.textContent || '')) return;
         chatErrorRecovering = true;
         log('Kick chat error boundary detected; tearing down side chat');
@@ -3114,6 +3139,125 @@
       cancelAnimationFrame(chatErrorCheckScheduled);
       chatErrorCheckScheduled = 0;
     }
+  };
+
+  // ── Chat action bar fold ─────────────────────────────────────────────
+  // In a narrow chat, Kick's action bar (points, Kicks, drops, gear, the
+  // green Chat send button) doesn't fit one row and wraps to two. Fold it
+  // instead: everything but Chat goes behind one "more" button, which
+  // unfolds the wrapped layout on demand. The bar is found from the send
+  // button and re-found whenever the chat slot's subtree changes, since
+  // React replaces it on remounts (log-in, chatroom switch).
+  let chatBar = null;
+  let chatBarObserver = null;
+  // Width the unfolded row needed the last time it wrapped. Logged in this
+  // depends on the points value, so it is measured, not assumed.
+  let chatBarFitWidth = 0;
+
+  const chatBarRightGroup = (bar) => bar.querySelector(':scope > * > #send-message-button')?.parentElement || null;
+
+  // Whether the unfolded row wraps, and the width it would need on one row
+  // (column-gap is 0 in the slot, so the items' widths add up exactly).
+  const measureChatBar = (bar, right) => {
+    const rightRect = right.getBoundingClientRect();
+    let needed = rightRect.width;
+    let wrapped = false;
+    for (const el of bar.children) {
+      if (el === right || el.id === BAR_MORE_ID) continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width) continue;
+      needed += r.width;
+      if (rightRect.top > r.top + r.height / 2) wrapped = true;
+    }
+    return { wrapped, needed };
+  };
+
+  const setChatBarOpen = (open) => {
+    if (!chatSlot) return;
+    chatSlot.classList.toggle('kfc-bar-open', open);
+    const btn = document.getElementById(BAR_MORE_ID);
+    if (!btn) return;
+    btn.setAttribute('aria-expanded', String(open));
+    // Kick's design system draws its selected-button look for this.
+    if (open) btn.setAttribute('data-selected', 'true');
+    else btn.removeAttribute('data-selected');
+  };
+
+  const fitChatBar = () => {
+    if (!chatSlot || !chatBar) return;
+    const right = chatBarRightGroup(chatBar);
+    if (!right) return;
+    if (chatSlot.classList.contains('kfc-bar-folded')) {
+      // Hidden (Messages only) measures 0 wide — leave it as it is.
+      if (!chatBar.clientWidth || chatBar.clientWidth < chatBarFitWidth + 1) return;
+      chatSlot.classList.remove('kfc-bar-folded');
+      setChatBarOpen(false);
+    }
+    const { wrapped, needed } = measureChatBar(chatBar, right);
+    if (!wrapped) return;
+    chatBarFitWidth = Math.ceil(needed);
+    chatSlot.classList.add('kfc-bar-folded');
+    log('chat action bar folded; one row needs', chatBarFitWidth, 'px');
+  };
+
+  const onChatBarMoreClick = (e) => {
+    if (!e.isTrusted) return;
+    if (e.detail) e.currentTarget.blur();
+    setChatBarOpen(!chatSlot?.classList.contains('kfc-bar-open'));
+  };
+
+  const ensureChatBarMoreButton = (bar) => {
+    let btn = document.getElementById(BAR_MORE_ID);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = BAR_MORE_ID;
+      btn.type = 'button';
+      // Kick's design-system attributes, so Kick styles it like its gear.
+      btn.setAttribute('data-scope', 'button');
+      btn.setAttribute('data-part', 'root');
+      btn.setAttribute('data-slot', 'button');
+      btn.setAttribute('data-variant', 'transparent');
+      btn.setAttribute('data-size', 'sm');
+      btn.setAttribute('data-icon-only', 'true');
+      btn.setAttribute('aria-label', 'More chat actions');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.innerHTML = BAR_MORE_SVG;
+      btn.addEventListener('click', onChatBarMoreClick);
+    }
+    if (bar.firstElementChild !== btn) bar.prepend(btn);
+  };
+
+  const unbindChatBar = () => {
+    chatBarObserver?.disconnect();
+    chatBarObserver = null;
+    chatBar = null;
+    chatBarFitWidth = 0;
+    if (chatSlot) {
+      setChatBarOpen(false);
+      chatSlot.classList.remove('kfc-bar-folded');
+    }
+    document.getElementById(BAR_MORE_ID)?.remove();
+  };
+
+  // Cheap enough to run on every coalesced chat mutation: one id lookup
+  // unless the bar was replaced.
+  const refreshChatBar = () => {
+    if (!chatSlot) return;
+    const send = chatSlot.querySelector('#send-message-button');
+    const bar = send?.parentElement?.parentElement || null;
+    if (bar === chatBar) {
+      if (bar) ensureChatBarMoreButton(bar);
+      return;
+    }
+    unbindChatBar();
+    if (!bar || typeof ResizeObserver !== 'function') return;
+    chatBar = bar;
+    ensureChatBarMoreButton(bar);
+    // A wrap changes the bar's height and a wider chat its width, so the
+    // bar's own size is all that needs watching; the first callback does the
+    // initial fit, before the next paint.
+    chatBarObserver = new ResizeObserver(fitChatBar);
+    chatBarObserver.observe(bar);
   };
 
   const enableSideChat = (fsEl) => {
@@ -3231,6 +3375,7 @@
     // Watch for Kick's chat error boundary fallback so the user isn't stuck
     // having to reload the page when Kick's chat subtree throws.
     startChatErrorWatcher(fsEl);
+    refreshChatBar();
 
     const wrap = document.getElementById(WRAP_ID);
     if (wrap) fsEl.appendChild(wrap);
@@ -3257,6 +3402,7 @@
     // while we're already cleaning up) short-circuit out.
     active = false;
     stopChatErrorWatcher();
+    unbindChatBar();
     stopVideoRootObserver();
     stopPopoverPortal();
     if (videoEl) {

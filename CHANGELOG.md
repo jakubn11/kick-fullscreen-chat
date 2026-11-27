@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.2] - 2026-11-27
+
+### Changed
+- **In a narrow chat, the chat bar folds instead of wrapping to two rows.** Logged in, below about 330px, the bar under the message box couldn't fit channel points, Kicks, drops, the settings gear and the green **Chat** button on one row, so the gear and **Chat** dropped to a second row. Now only **Chat** stays, and everything else goes behind a new **⋯** button at the bar's left. Click **⋯** to show the full bar (the two-row layout, with **⋯** shown pressed) and click it again to fold it. Make the chat wider and the bar goes back to Kick's single row by itself. Logged out, the bar always fits, so nothing changes.
+- The **⋯** button uses Kick's own button styling, so it looks like the gear next to it.
+- Tested in Chrome on a live Kick channel page, logged out, with Kick's chat moved into a fixed chat slot carrying the script's rules. Replicas of the logged-in points ("52,1 tis.") and Kicks buttons stood in for a logged-in bar. The bar folded below 340px and unfolded at 340px and up, staying one 32px row, with **⋯** the gear's 32px size. **⋯** opened and closed the full bar on real clicks and ignored a script-dispatched one. Not yet tested in real fullscreen or logged in.
+
 ## [0.28.1] - 2026-11-27
 
 ### Changed
