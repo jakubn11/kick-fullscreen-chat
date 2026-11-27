@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.1] - 2026-11-27
+
+### Fixed
+- **Messages only no longer hides replies.** With **Messages only** on, every reply message vanished from the chat, along with its *Replying to …* line. The rule that hid Kick's ↰ Reply button looked for its arrow icon, and the *Replying to …* line above a reply carries the same icon. The hover toolbar is now found by where it sits in the row and the Reply button only where it carries a label, so replies stay and the hover toolbar still disappears.
+- **The hover toolbar is hidden in every Kick language, without relying on its words.** The English-only "Reply" match is gone; nothing in the rule depends on a label's text. For moderators the whole toolbar, Pin and Delete included, now stays hidden on their own messages too, so hovering any message changes nothing.
+- Checked live on a Czech Kick chat: all four reply messages on screen stayed visible with their *Replying to …* lines, while stand-in toolbars built to Kick's markup, labelled in Czech, were hidden. The old rule hid all four replies. Not yet checked signed in, with Kick's real toolbar.
+
 ## [0.29.0] - 2026-11-27
 
 ### Added

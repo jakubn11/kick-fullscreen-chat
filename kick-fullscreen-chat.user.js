@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.29.0
+// @version      0.29.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.29.0';
+  const VERSION = '0.29.1';
 
   // ── Words in Kick's language (0.29.0) ──────────────────────────────────
   // Every word the script shows — the Chat button, the settings panel, the
@@ -3138,15 +3138,20 @@
         display: none !important;
       }
       /* Each message row ([data-index] > .group) is [message, hover toolbar];
-         the toolbar holds Kick's Reply button and appears on hover. Hide the
-         toolbar and the button itself, and drop the row's hover highlight,
-         so hovering a message changes nothing. The button is matched by its
-         design-system icon, ArrowCurveLeft: its aria-label is translated with
-         Kick's language, so "Reply" alone missed it in other languages. */
-      .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > * > :has(> button svg[data-ds-icon="ArrowCurveLeft"]),
-      .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > * > :has(> button[aria-label="Reply"]),
-      .kfc-chat-slot.kfc-messages-only #chatroom-messages button:has(svg[data-ds-icon="ArrowCurveLeft"]),
-      .kfc-chat-slot.kfc-messages-only #chatroom-messages button[aria-label="Reply"] {
+         the toolbar (signed-in viewers only) holds Kick's Reply button, and
+         Pin / Delete for moderators, and appears on hover. Hide the toolbar
+         and the Reply button itself, and drop the row's hover highlight, so
+         hovering a message changes nothing.
+         Nothing here may depend on a label's words: Kick translates every
+         aria-label ("Reply" is "Odpovědět" in Czech). The toolbar is matched
+         by where it sits — any child of the row after the message that holds
+         labelled buttons — and the Reply button by its design-system icon,
+         ArrowCurveLeft, on a labelled button. The "Replying to …" line above
+         a reply carries the SAME icon, but on a button with no aria-label
+         inside the message itself: matching the icon alone (0.28.1) hid
+         every reply message whole (0.29.1). */
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > * > :not(:first-child):has(> button[aria-label]),
+      .kfc-chat-slot.kfc-messages-only #chatroom-messages button[aria-label]:has(> svg[data-ds-icon="ArrowCurveLeft"]) {
         display: none !important;
       }
       .kfc-chat-slot.kfc-messages-only #chatroom-messages [data-index] > :hover > :first-child {
