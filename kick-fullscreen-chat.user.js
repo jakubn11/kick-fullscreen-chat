@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.28.2
+// @version      0.29.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,1273 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.28.2';
+  const VERSION = '0.29.0';
+
+  // ── Words in Kick's language (0.29.0) ──────────────────────────────────
+  // Every word the script shows — the Chat button, the settings panel, the
+  // control and action-bar labels, toasts and the console — in Kick's
+  // language, English for any other: the same 28 languages as the other kick-*
+  // scripts. Kick sets <html lang> from the viewer's language ("cs", "pt", …);
+  // the primary subtag picks the table. Up here, before the single-instance
+  // guard, whose warning uses it. Read each time something is drawn, so a
+  // language change shows on the next pass. {v} and {running} are filled in by
+  // the caller. The debug log and error warnings stay English, for bug reports.
+  // No translated button label may read like Kick's own chat toggle
+  // (CHAT_TOGGLE_RE / SHOW_CHAT_RE test other buttons' labels) or contain
+  // "settings" / "quality" without "chat" (Kick Quality Saver finds Kick's
+  // gear by those words) — the tests check every table.
+  const UI_TEXT = Object.freeze({
+    en: Object.freeze({
+      duplicate: 'v{v} is standing down: v{running} is already running on this page. Two copies share the same DOM ids and fight over the controls — disable or uninstall the duplicate.',
+      active: 'v{v} active',
+      debugOn: 'debug logging on',
+      debugOff: 'debug logging off',
+      chatErrored: 'Kick chat errored. Click Chat to reopen.',
+      chatNotFound: 'Kick Fullscreen Chat: chat panel not found. Kick may have changed its layout; check the console diagnostics.',
+      moreActions: 'Show more chat actions',
+      fewerActions: 'Show fewer chat actions',
+      showMore: 'Show more',
+      showLess: 'Show less',
+      chat: 'Chat',
+      showChat: 'Show chat',
+      hideChat: 'Hide chat',
+      loadingVideo: 'Loading video...',
+      close: 'Close',
+      closeSettings: 'Close fullscreen chat settings',
+      openSettings: 'Open fullscreen chat settings',
+      toSide: 'Switch to side-by-side chat',
+      toOverlay: 'Switch to overlay chat',
+      showInfo: 'Show stream info',
+      hideInfo: 'Hide stream info',
+      overlayOpacity: 'Overlay opacity',
+      backdrop: 'Backdrop',
+      hideDelay: 'Hide delay',
+      chatWidth: 'Chat width',
+      compact: 'Compact',
+      default: 'Default',
+      wide: 'Wide',
+      max: 'Max',
+      groupChat: 'Chat',
+      dockLeft: 'Dock chat on left',
+      openAsOverlay: 'Open chats as overlay',
+      openOnFullscreen: 'Open chat on fullscreen',
+      messagesOnly: 'Messages only',
+      groupOverlay: 'Overlay',
+      autoHideOverlay: 'Auto-hide overlay chat',
+      groupInfo: 'Stream info',
+      showActions: 'Show follow, sub & share',
+      showTags: 'Show tags',
+      groupControls: 'Controls',
+      autoHideControls: 'Auto-hide controls',
+      groupAds: 'Ads',
+      muteAds: 'Mute ads',
+      reset: 'Reset settings',
+    }),
+    ar: Object.freeze({
+      duplicate: 'v{v} يتوقف: v{running} يعمل بالفعل في هذه الصفحة. النسختان تتشاركان المعرّفات نفسها وتتنازعان على الأزرار — عطّل النسخة المكررة أو أزلها.',
+      active: 'v{v} يعمل',
+      debugOn: 'سجل التصحيح مفعّل',
+      debugOff: 'سجل التصحيح متوقف',
+      chatErrored: 'حدث خطأ في دردشة Kick. انقر «الدردشة» لإعادة فتحها.',
+      chatNotFound: 'Kick Fullscreen Chat: لم يُعثر على لوحة الدردشة. ربما غيّر Kick تصميمه؛ راجع التشخيص في وحدة التحكم.',
+      moreActions: 'عرض المزيد من أدوات الدردشة',
+      fewerActions: 'عرض أدوات دردشة أقل',
+      showMore: 'عرض المزيد',
+      showLess: 'عرض أقل',
+      chat: 'الدردشة',
+      showChat: 'إظهار الدردشة',
+      hideChat: 'إخفاء الدردشة',
+      loadingVideo: 'جارٍ تحميل الفيديو…',
+      close: 'إغلاق',
+      closeSettings: 'إغلاق إعدادات الدردشة بملء الشاشة',
+      openSettings: 'فتح إعدادات الدردشة بملء الشاشة',
+      toSide: 'التبديل إلى الدردشة الجانبية',
+      toOverlay: 'التبديل إلى الدردشة فوق الفيديو',
+      showInfo: 'إظهار معلومات البث',
+      hideInfo: 'إخفاء معلومات البث',
+      overlayOpacity: 'شفافية الطبقة',
+      backdrop: 'الخلفية',
+      hideDelay: 'مهلة الإخفاء',
+      chatWidth: 'عرض الدردشة',
+      compact: 'مضغوط',
+      default: 'افتراضي',
+      wide: 'عريض',
+      max: 'أقصى',
+      groupChat: 'الدردشة',
+      dockLeft: 'تثبيت الدردشة على اليسار',
+      openAsOverlay: 'فتح الدردشات كطبقة',
+      openOnFullscreen: 'فتح الدردشة عند ملء الشاشة',
+      messagesOnly: 'الرسائل فقط',
+      groupOverlay: 'الطبقة',
+      autoHideOverlay: 'إخفاء دردشة الطبقة تلقائيًا',
+      groupInfo: 'معلومات البث',
+      showActions: 'إظهار المتابعة والاشتراك والمشاركة',
+      showTags: 'إظهار الوسوم',
+      groupControls: 'أدوات التحكم',
+      autoHideControls: 'إخفاء أدوات التحكم تلقائيًا',
+      groupAds: 'الإعلانات',
+      muteAds: 'كتم الإعلانات',
+      reset: 'إعادة ضبط الإعدادات',
+    }),
+    bg: Object.freeze({
+      duplicate: 'v{v} се спира: v{running} вече работи на тази страница. Двете копия споделят едни и същи DOM id-та и се борят за бутоните — изключи или премахни дубликата.',
+      active: 'v{v} е активен',
+      debugOn: 'отладъчният лог е включен',
+      debugOff: 'отладъчният лог е изключен',
+      chatErrored: 'Чатът на Kick даде грешка. Натисни „Чат“, за да го отвориш отново.',
+      chatNotFound: 'Kick Fullscreen Chat: панелът на чата не е намерен. Kick може да е сменил оформлението си; виж диагностиката в конзолата.',
+      moreActions: 'Още действия в чата',
+      fewerActions: 'По-малко действия в чата',
+      showMore: 'Още',
+      showLess: 'По-малко',
+      chat: 'Чат',
+      showChat: 'Покажи чата',
+      hideChat: 'Скрий чата',
+      loadingVideo: 'Видеото се зарежда…',
+      close: 'Затвори',
+      closeSettings: 'Затвори настройките на чата на цял екран',
+      openSettings: 'Отвори настройките на чата на цял екран',
+      toSide: 'Превключи към чат отстрани',
+      toOverlay: 'Превключи към чат върху видеото',
+      showInfo: 'Покажи информацията за стрийма',
+      hideInfo: 'Скрий информацията за стрийма',
+      overlayOpacity: 'Прозрачност на слоя',
+      backdrop: 'Фон',
+      hideDelay: 'Забавяне на скриването',
+      chatWidth: 'Ширина на чата',
+      compact: 'Тесен',
+      default: 'Стандартен',
+      wide: 'Широк',
+      max: 'Макс.',
+      groupChat: 'Чат',
+      dockLeft: 'Чат отляво',
+      openAsOverlay: 'Отваряй чата върху видеото',
+      openOnFullscreen: 'Отваряй чата на цял екран',
+      messagesOnly: 'Само съобщения',
+      groupOverlay: 'Слой',
+      autoHideOverlay: 'Автоскриване на чата',
+      groupInfo: 'Информация за стрийма',
+      showActions: 'Следване и абонамент',
+      showTags: 'Покажи таговете',
+      groupControls: 'Контроли',
+      autoHideControls: 'Автоскриване на контролите',
+      groupAds: 'Реклами',
+      muteAds: 'Заглуши рекламите',
+      reset: 'Нулирай настройките',
+    }),
+    cs: Object.freeze({
+      duplicate: 'v{v} se vypíná: na této stránce už běží v{running}. Dvě kopie sdílejí stejná DOM id a přetahují se o ovládání — vypni nebo odinstaluj duplikát.',
+      active: 'v{v} běží',
+      debugOn: 'ladicí výpis zapnut',
+      debugOff: 'ladicí výpis vypnut',
+      chatErrored: 'Chat Kicku spadl. Klikni na Chat a otevři ho znovu.',
+      chatNotFound: 'Kick Fullscreen Chat: panel chatu nenalezen. Kick možná změnil rozložení; podívej se do diagnostiky v konzoli.',
+      moreActions: 'Další akce chatu',
+      fewerActions: 'Méně akcí chatu',
+      showMore: 'Více',
+      showLess: 'Méně',
+      chat: 'Chat',
+      showChat: 'Zobrazit chat',
+      hideChat: 'Skrýt chat',
+      loadingVideo: 'Načítání videa…',
+      close: 'Zavřít',
+      closeSettings: 'Zavřít nastavení chatu na celé obrazovce',
+      openSettings: 'Otevřít nastavení chatu na celé obrazovce',
+      toSide: 'Přepnout na chat vedle videa',
+      toOverlay: 'Přepnout na chat přes video',
+      showInfo: 'Zobrazit info o streamu',
+      hideInfo: 'Skrýt info o streamu',
+      overlayOpacity: 'Průhlednost překryvu',
+      backdrop: 'Pozadí',
+      hideDelay: 'Prodleva skrytí',
+      chatWidth: 'Šířka chatu',
+      compact: 'Úzký',
+      default: 'Výchozí',
+      wide: 'Široký',
+      max: 'Max.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat vlevo',
+      openAsOverlay: 'Otevírat chaty přes video',
+      openOnFullscreen: 'Otevřít chat na celé obrazovce',
+      messagesOnly: 'Jen zprávy',
+      groupOverlay: 'Překryv',
+      autoHideOverlay: 'Automaticky skrývat chat',
+      groupInfo: 'Info o streamu',
+      showActions: 'Zobrazit sledovat, odběr a sdílet',
+      showTags: 'Zobrazit štítky',
+      groupControls: 'Ovládání',
+      autoHideControls: 'Automaticky skrývat ovládání',
+      groupAds: 'Reklamy',
+      muteAds: 'Ztlumit reklamy',
+      reset: 'Obnovit nastavení',
+    }),
+    da: Object.freeze({
+      duplicate: 'v{v} trækker sig: v{running} kører allerede på siden. To kopier deler de samme DOM-id’er og kæmper om knapperne — slå dubletten fra eller afinstaller den.',
+      active: 'v{v} aktiv',
+      debugOn: 'fejlfindingslog til',
+      debugOff: 'fejlfindingslog fra',
+      chatErrored: 'Kick-chatten fejlede. Klik på Chat for at åbne den igen.',
+      chatNotFound: 'Kick Fullscreen Chat: chatpanelet blev ikke fundet. Kick har måske ændret sit layout; se diagnosen i konsollen.',
+      moreActions: 'Vis flere chathandlinger',
+      fewerActions: 'Vis færre chathandlinger',
+      showMore: 'Vis mere',
+      showLess: 'Vis mindre',
+      chat: 'Chat',
+      showChat: 'Vis chat',
+      hideChat: 'Skjul chat',
+      loadingVideo: 'Indlæser video…',
+      close: 'Luk',
+      closeSettings: 'Luk indstillinger for fuldskærmschat',
+      openSettings: 'Åbn indstillinger for fuldskærmschat',
+      toSide: 'Skift til chat ved siden af',
+      toOverlay: 'Skift til chat over videoen',
+      showInfo: 'Vis streaminfo',
+      hideInfo: 'Skjul streaminfo',
+      overlayOpacity: 'Gennemsigtighed',
+      backdrop: 'Baggrund',
+      hideDelay: 'Skjul efter',
+      chatWidth: 'Chatbredde',
+      compact: 'Smal',
+      default: 'Standard',
+      wide: 'Bred',
+      max: 'Maks.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat til venstre',
+      openAsOverlay: 'Åbn chats som overlejring',
+      openOnFullscreen: 'Åbn chat i fuld skærm',
+      messagesOnly: 'Kun beskeder',
+      groupOverlay: 'Overlejring',
+      autoHideOverlay: 'Skjul chatten automatisk',
+      groupInfo: 'Streaminfo',
+      showActions: 'Vis følg, abonnér og del',
+      showTags: 'Vis tags',
+      groupControls: 'Knapper',
+      autoHideControls: 'Skjul knapper automatisk',
+      groupAds: 'Reklamer',
+      muteAds: 'Slå lyden fra under reklamer',
+      reset: 'Nulstil indstillinger',
+    }),
+    de: Object.freeze({
+      duplicate: 'v{v} hält an: v{running} läuft bereits auf dieser Seite. Zwei Kopien teilen dieselben DOM-IDs und streiten um die Bedienelemente — deaktiviere oder deinstalliere das Duplikat.',
+      active: 'v{v} aktiv',
+      debugOn: 'Debug-Log an',
+      debugOff: 'Debug-Log aus',
+      chatErrored: 'Der Kick-Chat hat einen Fehler. Klicke auf Chat, um ihn neu zu öffnen.',
+      chatNotFound: 'Kick Fullscreen Chat: Chat-Bereich nicht gefunden. Kick hat vielleicht sein Layout geändert; sieh dir die Diagnose in der Konsole an.',
+      moreActions: 'Mehr Chat-Aktionen zeigen',
+      fewerActions: 'Weniger Chat-Aktionen zeigen',
+      showMore: 'Mehr',
+      showLess: 'Weniger',
+      chat: 'Chat',
+      showChat: 'Chat zeigen',
+      hideChat: 'Chat ausblenden',
+      loadingVideo: 'Video lädt…',
+      close: 'Schließen',
+      closeSettings: 'Vollbild-Chat-Einstellungen schließen',
+      openSettings: 'Vollbild-Chat-Einstellungen öffnen',
+      toSide: 'Zum Chat neben dem Video wechseln',
+      toOverlay: 'Zum Chat über dem Video wechseln',
+      showInfo: 'Stream-Infos zeigen',
+      hideInfo: 'Stream-Infos ausblenden',
+      overlayOpacity: 'Overlay-Deckkraft',
+      backdrop: 'Hintergrund',
+      hideDelay: 'Ausblenden nach',
+      chatWidth: 'Chat-Breite',
+      compact: 'Schmal',
+      default: 'Standard',
+      wide: 'Breit',
+      max: 'Max.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat links andocken',
+      openAsOverlay: 'Chats als Overlay öffnen',
+      openOnFullscreen: 'Chat im Vollbild öffnen',
+      messagesOnly: 'Nur Nachrichten',
+      groupOverlay: 'Overlay',
+      autoHideOverlay: 'Chat automatisch ausblenden',
+      groupInfo: 'Stream-Infos',
+      showActions: 'Folgen, Abo & Teilen zeigen',
+      showTags: 'Tags zeigen',
+      groupControls: 'Steuerung',
+      autoHideControls: 'Automatisch ausblenden',
+      groupAds: 'Werbung',
+      muteAds: 'Werbung stummschalten',
+      reset: 'Einstellungen zurücksetzen',
+    }),
+    el: Object.freeze({
+      duplicate: 'Το v{v} σταματά: το v{running} τρέχει ήδη σε αυτή τη σελίδα. Δύο αντίγραφα μοιράζονται τα ίδια DOM id και μάχονται για τα κουμπιά — απενεργοποίησε ή απεγκατέστησε το διπλό.',
+      active: 'v{v} ενεργό',
+      debugOn: 'καταγραφή αποσφαλμάτωσης ενεργή',
+      debugOff: 'καταγραφή αποσφαλμάτωσης ανενεργή',
+      chatErrored: 'Η συνομιλία του Kick παρουσίασε σφάλμα. Πάτησε Συνομιλία για να ανοίξει ξανά.',
+      chatNotFound: 'Kick Fullscreen Chat: δεν βρέθηκε το πλαίσιο συνομιλίας. Ίσως το Kick άλλαξε τη διάταξή του· δες τη διάγνωση στην κονσόλα.',
+      moreActions: 'Περισσότερες ενέργειες συνομιλίας',
+      fewerActions: 'Λιγότερες ενέργειες συνομιλίας',
+      showMore: 'Περισσότερα',
+      showLess: 'Λιγότερα',
+      chat: 'Συνομιλία',
+      showChat: 'Εμφάνιση συνομιλίας',
+      hideChat: 'Απόκρυψη συνομιλίας',
+      loadingVideo: 'Φόρτωση βίντεο…',
+      close: 'Κλείσιμο',
+      closeSettings: 'Κλείσιμο ρυθμίσεων συνομιλίας πλήρους οθόνης',
+      openSettings: 'Άνοιγμα ρυθμίσεων συνομιλίας πλήρους οθόνης',
+      toSide: 'Συνομιλία δίπλα στο βίντεο',
+      toOverlay: 'Συνομιλία πάνω στο βίντεο',
+      showInfo: 'Εμφάνιση πληροφοριών ροής',
+      hideInfo: 'Απόκρυψη πληροφοριών ροής',
+      overlayOpacity: 'Αδιαφάνεια επικάλυψης',
+      backdrop: 'Φόντο',
+      hideDelay: 'Καθυστέρηση απόκρυψης',
+      chatWidth: 'Πλάτος συνομιλίας',
+      compact: 'Στενό',
+      default: 'Προεπιλογή',
+      wide: 'Φαρδύ',
+      max: 'Μέγ.',
+      groupChat: 'Συνομιλία',
+      dockLeft: 'Συνομιλία αριστερά',
+      openAsOverlay: 'Συνομιλίες ως επικάλυψη',
+      openOnFullscreen: 'Συνομιλία σε πλήρη οθόνη',
+      messagesOnly: 'Μόνο μηνύματα',
+      groupOverlay: 'Επικάλυψη',
+      autoHideOverlay: 'Αυτόματη απόκρυψη συνομιλίας',
+      groupInfo: 'Πληροφορίες ροής',
+      showActions: 'Ακολούθηση & συνδρομή',
+      showTags: 'Εμφάνιση ετικετών',
+      groupControls: 'Χειριστήρια',
+      autoHideControls: 'Αυτόματη απόκρυψη',
+      groupAds: 'Διαφημίσεις',
+      muteAds: 'Σίγαση διαφημίσεων',
+      reset: 'Επαναφορά ρυθμίσεων',
+    }),
+    es: Object.freeze({
+      duplicate: 'v{v} se detiene: v{running} ya se está ejecutando en esta página. Dos copias comparten los mismos id del DOM y se pelean por los controles: desactiva o desinstala el duplicado.',
+      active: 'v{v} activo',
+      debugOn: 'registro de depuración activado',
+      debugOff: 'registro de depuración desactivado',
+      chatErrored: 'El chat de Kick falló. Haz clic en Chat para volver a abrirlo.',
+      chatNotFound: 'Kick Fullscreen Chat: no se encontró el panel del chat. Puede que Kick haya cambiado su diseño; revisa el diagnóstico en la consola.',
+      moreActions: 'Más acciones del chat',
+      fewerActions: 'Menos acciones del chat',
+      showMore: 'Ver más',
+      showLess: 'Ver menos',
+      chat: 'Chat',
+      showChat: 'Mostrar chat',
+      hideChat: 'Ocultar chat',
+      loadingVideo: 'Cargando vídeo…',
+      close: 'Cerrar',
+      closeSettings: 'Cerrar ajustes del chat en pantalla completa',
+      openSettings: 'Abrir ajustes del chat en pantalla completa',
+      toSide: 'Cambiar a chat al lado',
+      toOverlay: 'Cambiar a chat sobre el vídeo',
+      showInfo: 'Mostrar info del directo',
+      hideInfo: 'Ocultar info del directo',
+      overlayOpacity: 'Opacidad de la capa',
+      backdrop: 'Fondo',
+      hideDelay: 'Retraso al ocultar',
+      chatWidth: 'Ancho del chat',
+      compact: 'Compacto',
+      default: 'Normal',
+      wide: 'Ancho',
+      max: 'Máx.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat a la izquierda',
+      openAsOverlay: 'Abrir chats como capa',
+      openOnFullscreen: 'Abrir chat en pantalla completa',
+      messagesOnly: 'Solo mensajes',
+      groupOverlay: 'Capa',
+      autoHideOverlay: 'Ocultar el chat en capa',
+      groupInfo: 'Info del directo',
+      showActions: 'Seguir, suscribirse y compartir',
+      showTags: 'Mostrar etiquetas',
+      groupControls: 'Controles',
+      autoHideControls: 'Ocultar los controles',
+      groupAds: 'Anuncios',
+      muteAds: 'Silenciar anuncios',
+      reset: 'Restablecer ajustes',
+    }),
+    fi: Object.freeze({
+      duplicate: 'v{v} väistyy: v{running} on jo käynnissä tällä sivulla. Kaksi kopiota käyttää samoja DOM-tunnisteita ja kilpailee painikkeista — poista kaksoiskappale käytöstä tai asennuksesta.',
+      active: 'v{v} käytössä',
+      debugOn: 'virheenjäljitysloki päällä',
+      debugOff: 'virheenjäljitysloki pois',
+      chatErrored: 'Kickin chat kaatui. Avaa se uudelleen Chat-painikkeesta.',
+      chatNotFound: 'Kick Fullscreen Chat: chat-paneelia ei löytynyt. Kick on ehkä muuttanut asetteluaan; katso diagnostiikka konsolista.',
+      moreActions: 'Lisää chat-toimintoja',
+      fewerActions: 'Vähemmän chat-toimintoja',
+      showMore: 'Lisää',
+      showLess: 'Vähemmän',
+      chat: 'Chat',
+      showChat: 'Näytä chat',
+      hideChat: 'Piilota chat',
+      loadingVideo: 'Video latautuu…',
+      close: 'Sulje',
+      closeSettings: 'Sulje koko näytön chatin asetukset',
+      openSettings: 'Avaa koko näytön chatin asetukset',
+      toSide: 'Vaihda chattiin videon vieressä',
+      toOverlay: 'Vaihda chattiin videon päällä',
+      showInfo: 'Näytä striimin tiedot',
+      hideInfo: 'Piilota striimin tiedot',
+      overlayOpacity: 'Peittokuvan läpinäkyvyys',
+      backdrop: 'Tausta',
+      hideDelay: 'Piilotusviive',
+      chatWidth: 'Chatin leveys',
+      compact: 'Kapea',
+      default: 'Oletus',
+      wide: 'Leveä',
+      max: 'Maks.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat vasemmalla',
+      openAsOverlay: 'Avaa chatit videon päälle',
+      openOnFullscreen: 'Avaa chat koko näytössä',
+      messagesOnly: 'Vain viestit',
+      groupOverlay: 'Peittokuva',
+      autoHideOverlay: 'Piilota videon päällä oleva chat',
+      groupInfo: 'Striimin tiedot',
+      showActions: 'Näytä seuraa, tilaa ja jaa',
+      showTags: 'Näytä tunnisteet',
+      groupControls: 'Säätimet',
+      autoHideControls: 'Piilota säätimet automaattisesti',
+      groupAds: 'Mainokset',
+      muteAds: 'Mykistä mainokset',
+      reset: 'Palauta asetukset',
+    }),
+    fr: Object.freeze({
+      duplicate: 'v{v} s’arrête : v{running} tourne déjà sur cette page. Deux copies partagent les mêmes id du DOM et se disputent les contrôles — désactivez ou désinstallez le doublon.',
+      active: 'v{v} actif',
+      debugOn: 'journal de débogage activé',
+      debugOff: 'journal de débogage désactivé',
+      chatErrored: 'Le chat de Kick a planté. Cliquez sur Chat pour le rouvrir.',
+      chatNotFound: 'Kick Fullscreen Chat : panneau du chat introuvable. Kick a peut-être changé sa mise en page ; consultez le diagnostic dans la console.',
+      moreActions: 'Plus d’actions du chat',
+      fewerActions: 'Moins d’actions du chat',
+      showMore: 'Plus',
+      showLess: 'Moins',
+      chat: 'Chat',
+      showChat: 'Afficher le chat',
+      hideChat: 'Masquer le chat',
+      loadingVideo: 'Chargement de la vidéo…',
+      close: 'Fermer',
+      closeSettings: 'Fermer les réglages du chat plein écran',
+      openSettings: 'Ouvrir les réglages du chat plein écran',
+      toSide: 'Passer au chat à côté',
+      toOverlay: 'Passer au chat sur la vidéo',
+      showInfo: 'Afficher les infos du stream',
+      hideInfo: 'Masquer les infos du stream',
+      overlayOpacity: 'Opacité de la superposition',
+      backdrop: 'Fond',
+      hideDelay: 'Délai de masquage',
+      chatWidth: 'Largeur du chat',
+      compact: 'Compact',
+      default: 'Normal',
+      wide: 'Large',
+      max: 'Max',
+      groupChat: 'Chat',
+      dockLeft: 'Chat à gauche',
+      openAsOverlay: 'Ouvrir les chats en superposition',
+      openOnFullscreen: 'Ouvrir le chat en plein écran',
+      messagesOnly: 'Messages seuls',
+      groupOverlay: 'Superposition',
+      autoHideOverlay: 'Masquer le chat superposé',
+      groupInfo: 'Infos du stream',
+      showActions: 'Suivre, s’abonner et partager',
+      showTags: 'Afficher les tags',
+      groupControls: 'Contrôles',
+      autoHideControls: 'Masquer les contrôles',
+      groupAds: 'Pubs',
+      muteAds: 'Couper le son des pubs',
+      reset: 'Réinitialiser les réglages',
+    }),
+    hu: Object.freeze({
+      duplicate: 'A v{v} leáll: a v{running} már fut ezen az oldalon. A két példány ugyanazokat a DOM-azonosítókat használja és a vezérlőkön veszekszik — kapcsold ki vagy távolítsd el a duplikátumot.',
+      active: 'v{v} aktív',
+      debugOn: 'hibakereső napló be',
+      debugOff: 'hibakereső napló ki',
+      chatErrored: 'A Kick chat hibára futott. Kattints a Chat gombra az újranyitáshoz.',
+      chatNotFound: 'Kick Fullscreen Chat: a chatpanel nem található. A Kick talán megváltoztatta az elrendezést; nézd meg a diagnosztikát a konzolban.',
+      moreActions: 'Több chatművelet',
+      fewerActions: 'Kevesebb chatművelet',
+      showMore: 'Több',
+      showLess: 'Kevesebb',
+      chat: 'Chat',
+      showChat: 'Chat megjelenítése',
+      hideChat: 'Chat elrejtése',
+      loadingVideo: 'Videó betöltése…',
+      close: 'Bezárás',
+      closeSettings: 'Teljes képernyős chat beállításainak bezárása',
+      openSettings: 'Teljes képernyős chat beállításainak megnyitása',
+      toSide: 'Váltás a videó melletti chatre',
+      toOverlay: 'Váltás a videó feletti chatre',
+      showInfo: 'Streaminfó megjelenítése',
+      hideInfo: 'Streaminfó elrejtése',
+      overlayOpacity: 'Fedőréteg átlátszósága',
+      backdrop: 'Háttér',
+      hideDelay: 'Elrejtés késleltetése',
+      chatWidth: 'Chat szélessége',
+      compact: 'Keskeny',
+      default: 'Alap',
+      wide: 'Széles',
+      max: 'Max.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat balra',
+      openAsOverlay: 'Chatek fedőrétegként',
+      openOnFullscreen: 'Chat teljes képernyőn',
+      messagesOnly: 'Csak üzenetek',
+      groupOverlay: 'Fedőréteg',
+      autoHideOverlay: 'Fedő chat automatikus elrejtése',
+      groupInfo: 'Streaminfó',
+      showActions: 'Követés, feliratkozás, megosztás',
+      showTags: 'Címkék megjelenítése',
+      groupControls: 'Vezérlők',
+      autoHideControls: 'Vezérlők automatikus elrejtése',
+      groupAds: 'Reklámok',
+      muteAds: 'Reklámok némítása',
+      reset: 'Beállítások visszaállítása',
+    }),
+    id: Object.freeze({
+      duplicate: 'v{v} berhenti: v{running} sudah berjalan di halaman ini. Dua salinan memakai id DOM yang sama dan berebut kontrol — nonaktifkan atau hapus duplikatnya.',
+      active: 'v{v} aktif',
+      debugOn: 'log debug aktif',
+      debugOff: 'log debug mati',
+      chatErrored: 'Chat Kick error. Klik Chat untuk membukanya lagi.',
+      chatNotFound: 'Kick Fullscreen Chat: panel chat tidak ditemukan. Mungkin Kick mengubah tata letaknya; lihat diagnostik di konsol.',
+      moreActions: 'Lebih banyak aksi chat',
+      fewerActions: 'Lebih sedikit aksi chat',
+      showMore: 'Lebih banyak',
+      showLess: 'Lebih sedikit',
+      chat: 'Chat',
+      showChat: 'Tampilkan chat',
+      hideChat: 'Sembunyikan chat',
+      loadingVideo: 'Memuat video…',
+      close: 'Tutup',
+      closeSettings: 'Tutup pengaturan chat layar penuh',
+      openSettings: 'Buka pengaturan chat layar penuh',
+      toSide: 'Beralih ke chat di samping',
+      toOverlay: 'Beralih ke chat di atas video',
+      showInfo: 'Tampilkan info stream',
+      hideInfo: 'Sembunyikan info stream',
+      overlayOpacity: 'Opasitas overlay',
+      backdrop: 'Latar',
+      hideDelay: 'Jeda sembunyi',
+      chatWidth: 'Lebar chat',
+      compact: 'Ringkas',
+      default: 'Default',
+      wide: 'Lebar',
+      max: 'Maks',
+      groupChat: 'Chat',
+      dockLeft: 'Chat di kiri',
+      openAsOverlay: 'Buka chat sebagai overlay',
+      openOnFullscreen: 'Buka chat saat layar penuh',
+      messagesOnly: 'Hanya pesan',
+      groupOverlay: 'Overlay',
+      autoHideOverlay: 'Sembunyikan chat otomatis',
+      groupInfo: 'Info stream',
+      showActions: 'Ikuti, langganan & bagikan',
+      showTags: 'Tampilkan tag',
+      groupControls: 'Kontrol',
+      autoHideControls: 'Sembunyikan kontrol otomatis',
+      groupAds: 'Iklan',
+      muteAds: 'Bisukan iklan',
+      reset: 'Atur ulang pengaturan',
+    }),
+    it: Object.freeze({
+      duplicate: 'v{v} si ferma: v{running} è già in esecuzione su questa pagina. Due copie condividono gli stessi id del DOM e si contendono i controlli: disattiva o disinstalla il duplicato.',
+      active: 'v{v} attivo',
+      debugOn: 'log di debug attivo',
+      debugOff: 'log di debug disattivato',
+      chatErrored: 'La chat di Kick si è bloccata. Fai clic su Chat per riaprirla.',
+      chatNotFound: 'Kick Fullscreen Chat: pannello della chat non trovato. Kick potrebbe aver cambiato layout; controlla la diagnostica nella console.',
+      moreActions: 'Altre azioni della chat',
+      fewerActions: 'Meno azioni della chat',
+      showMore: 'Altro',
+      showLess: 'Meno',
+      chat: 'Chat',
+      showChat: 'Mostra chat',
+      hideChat: 'Nascondi chat',
+      loadingVideo: 'Caricamento video…',
+      close: 'Chiudi',
+      closeSettings: 'Chiudi impostazioni della chat a schermo intero',
+      openSettings: 'Apri impostazioni della chat a schermo intero',
+      toSide: 'Passa alla chat affiancata',
+      toOverlay: 'Passa alla chat sopra il video',
+      showInfo: 'Mostra info della live',
+      hideInfo: 'Nascondi info della live',
+      overlayOpacity: 'Opacità sovrapposizione',
+      backdrop: 'Sfondo',
+      hideDelay: 'Ritardo di scomparsa',
+      chatWidth: 'Larghezza chat',
+      compact: 'Compatta',
+      default: 'Predefinita',
+      wide: 'Larga',
+      max: 'Max',
+      groupChat: 'Chat',
+      dockLeft: 'Chat a sinistra',
+      openAsOverlay: 'Apri le chat in sovrimpressione',
+      openOnFullscreen: 'Apri la chat a schermo intero',
+      messagesOnly: 'Solo messaggi',
+      groupOverlay: 'Sovrapposizione',
+      autoHideOverlay: 'Chat a scomparsa',
+      groupInfo: 'Info della live',
+      showActions: 'Segui, abbonati e condividi',
+      showTags: 'Mostra tag',
+      groupControls: 'Controlli',
+      autoHideControls: 'Nascondi i controlli',
+      groupAds: 'Pubblicità',
+      muteAds: 'Silenzia pubblicità',
+      reset: 'Ripristina impostazioni',
+    }),
+    ja: Object.freeze({
+      duplicate: 'v{v} は停止します: このページではすでに v{running} が動作しています。2 つのコピーが同じ DOM id を使い操作を奪い合うので、重複を無効にするか削除してください。',
+      active: 'v{v} 動作中',
+      debugOn: 'デバッグログ オン',
+      debugOff: 'デバッグログ オフ',
+      chatErrored: 'Kick のチャットでエラーが発生しました。「チャット」をクリックして開き直してください。',
+      chatNotFound: 'Kick Fullscreen Chat: チャットパネルが見つかりません。Kick のレイアウトが変わった可能性があります。コンソールの診断を確認してください。',
+      moreActions: 'チャット操作をもっと表示',
+      fewerActions: 'チャット操作を減らす',
+      showMore: 'もっと見る',
+      showLess: '閉じる',
+      chat: 'チャット',
+      showChat: 'チャットを表示',
+      hideChat: 'チャットを隠す',
+      loadingVideo: '動画を読み込み中…',
+      close: '閉じる',
+      closeSettings: '全画面チャットの設定を閉じる',
+      openSettings: '全画面チャットの設定を開く',
+      toSide: '横並びチャットに切り替え',
+      toOverlay: 'オーバーレイチャットに切り替え',
+      showInfo: '配信情報を表示',
+      hideInfo: '配信情報を隠す',
+      overlayOpacity: 'オーバーレイの不透明度',
+      backdrop: '背景',
+      hideDelay: '非表示までの時間',
+      chatWidth: 'チャットの幅',
+      compact: '狭い',
+      default: '標準',
+      wide: '広い',
+      max: '最大',
+      groupChat: 'チャット',
+      dockLeft: 'チャットを左に配置',
+      openAsOverlay: 'チャットをオーバーレイで開く',
+      openOnFullscreen: '全画面でチャットを開く',
+      messagesOnly: 'メッセージのみ',
+      groupOverlay: 'オーバーレイ',
+      autoHideOverlay: 'オーバーレイチャットを自動で隠す',
+      groupInfo: '配信情報',
+      showActions: 'フォロー・サブスク・共有を表示',
+      showTags: 'タグを表示',
+      groupControls: 'コントロール',
+      autoHideControls: 'コントロールを自動で隠す',
+      groupAds: '広告',
+      muteAds: '広告をミュート',
+      reset: '設定をリセット',
+    }),
+    ko: Object.freeze({
+      duplicate: 'v{v} 중지: 이 페이지에서 이미 v{running}이(가) 실행 중입니다. 두 사본이 같은 DOM id를 쓰며 컨트롤을 두고 다투므로 중복을 끄거나 제거하세요.',
+      active: 'v{v} 실행 중',
+      debugOn: '디버그 로그 켜짐',
+      debugOff: '디버그 로그 꺼짐',
+      chatErrored: 'Kick 채팅에 오류가 났습니다. 채팅을 눌러 다시 여세요.',
+      chatNotFound: 'Kick Fullscreen Chat: 채팅 패널을 찾을 수 없습니다. Kick 레이아웃이 바뀌었을 수 있으니 콘솔 진단을 확인하세요.',
+      moreActions: '채팅 동작 더 보기',
+      fewerActions: '채팅 동작 줄이기',
+      showMore: '더 보기',
+      showLess: '접기',
+      chat: '채팅',
+      showChat: '채팅 보기',
+      hideChat: '채팅 숨기기',
+      loadingVideo: '동영상 불러오는 중…',
+      close: '닫기',
+      closeSettings: '전체 화면 채팅 설정 닫기',
+      openSettings: '전체 화면 채팅 설정 열기',
+      toSide: '옆 채팅으로 전환',
+      toOverlay: '오버레이 채팅으로 전환',
+      showInfo: '방송 정보 보기',
+      hideInfo: '방송 정보 숨기기',
+      overlayOpacity: '오버레이 불투명도',
+      backdrop: '배경',
+      hideDelay: '숨김 지연',
+      chatWidth: '채팅 너비',
+      compact: '좁게',
+      default: '기본',
+      wide: '넓게',
+      max: '최대',
+      groupChat: '채팅',
+      dockLeft: '채팅을 왼쪽에',
+      openAsOverlay: '채팅을 오버레이로 열기',
+      openOnFullscreen: '전체 화면에서 채팅 열기',
+      messagesOnly: '메시지만',
+      groupOverlay: '오버레이',
+      autoHideOverlay: '오버레이 채팅 자동 숨김',
+      groupInfo: '방송 정보',
+      showActions: '팔로우·구독·공유 보기',
+      showTags: '태그 보기',
+      groupControls: '컨트롤',
+      autoHideControls: '컨트롤 자동 숨김',
+      groupAds: '광고',
+      muteAds: '광고 음소거',
+      reset: '설정 초기화',
+    }),
+    nl: Object.freeze({
+      duplicate: 'v{v} stopt: v{running} draait al op deze pagina. Twee kopieën delen dezelfde DOM-id’s en vechten om de knoppen — schakel het duplicaat uit of verwijder het.',
+      active: 'v{v} actief',
+      debugOn: 'debuglog aan',
+      debugOff: 'debuglog uit',
+      chatErrored: 'De Kick-chat gaf een fout. Klik op Chat om hem opnieuw te openen.',
+      chatNotFound: 'Kick Fullscreen Chat: chatpaneel niet gevonden. Kick heeft misschien de lay-out veranderd; bekijk de diagnose in de console.',
+      moreActions: 'Meer chatacties',
+      fewerActions: 'Minder chatacties',
+      showMore: 'Meer',
+      showLess: 'Minder',
+      chat: 'Chat',
+      showChat: 'Chat tonen',
+      hideChat: 'Chat verbergen',
+      loadingVideo: 'Video laden…',
+      close: 'Sluiten',
+      closeSettings: 'Instellingen volledig-schermchat sluiten',
+      openSettings: 'Instellingen volledig-schermchat openen',
+      toSide: 'Naar chat naast de video',
+      toOverlay: 'Naar chat over de video',
+      showInfo: 'Streaminfo tonen',
+      hideInfo: 'Streaminfo verbergen',
+      overlayOpacity: 'Dekking overlay',
+      backdrop: 'Achtergrond',
+      hideDelay: 'Verbergen na',
+      chatWidth: 'Chatbreedte',
+      compact: 'Smal',
+      default: 'Standaard',
+      wide: 'Breed',
+      max: 'Max.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat links',
+      openAsOverlay: 'Chats openen als overlay',
+      openOnFullscreen: 'Chat openen in volledig scherm',
+      messagesOnly: 'Alleen berichten',
+      groupOverlay: 'Overlay',
+      autoHideOverlay: 'Chat automatisch verbergen',
+      groupInfo: 'Streaminfo',
+      showActions: 'Volgen, abonneren & delen tonen',
+      showTags: 'Tags tonen',
+      groupControls: 'Bediening',
+      autoHideControls: 'Automatisch verbergen',
+      groupAds: 'Advertenties',
+      muteAds: 'Advertenties dempen',
+      reset: 'Instellingen herstellen',
+    }),
+    no: Object.freeze({
+      duplicate: 'v{v} trekker seg: v{running} kjører allerede på siden. To kopier deler de samme DOM-id-ene og kjemper om knappene — slå av eller avinstaller duplikatet.',
+      active: 'v{v} aktiv',
+      debugOn: 'feilsøkingslogg på',
+      debugOff: 'feilsøkingslogg av',
+      chatErrored: 'Kick-chatten feilet. Klikk Chat for å åpne den igjen.',
+      chatNotFound: 'Kick Fullscreen Chat: fant ikke chatpanelet. Kick kan ha endret oppsettet; se diagnosen i konsollen.',
+      moreActions: 'Vis flere chathandlinger',
+      fewerActions: 'Vis færre chathandlinger',
+      showMore: 'Vis mer',
+      showLess: 'Vis mindre',
+      chat: 'Chat',
+      showChat: 'Vis chat',
+      hideChat: 'Skjul chat',
+      loadingVideo: 'Laster video…',
+      close: 'Lukk',
+      closeSettings: 'Lukk innstillinger for fullskjermchat',
+      openSettings: 'Åpne innstillinger for fullskjermchat',
+      toSide: 'Bytt til chat ved siden av',
+      toOverlay: 'Bytt til chat over videoen',
+      showInfo: 'Vis strøminfo',
+      hideInfo: 'Skjul strøminfo',
+      overlayOpacity: 'Overleggets gjennomsiktighet',
+      backdrop: 'Bakgrunn',
+      hideDelay: 'Skjul etter',
+      chatWidth: 'Chatbredde',
+      compact: 'Smal',
+      default: 'Standard',
+      wide: 'Bred',
+      max: 'Maks',
+      groupChat: 'Chat',
+      dockLeft: 'Chat til venstre',
+      openAsOverlay: 'Åpne chatter som overlegg',
+      openOnFullscreen: 'Åpne chat i fullskjerm',
+      messagesOnly: 'Bare meldinger',
+      groupOverlay: 'Overlegg',
+      autoHideOverlay: 'Skjul overleggschat automatisk',
+      groupInfo: 'Strøminfo',
+      showActions: 'Vis følg, abonner og del',
+      showTags: 'Vis tagger',
+      groupControls: 'Kontroller',
+      autoHideControls: 'Skjul kontroller automatisk',
+      groupAds: 'Reklame',
+      muteAds: 'Demp reklame',
+      reset: 'Tilbakestill innstillinger',
+    }),
+    pl: Object.freeze({
+      duplicate: 'v{v} wyłącza się: na tej stronie działa już v{running}. Dwie kopie dzielą te same id w DOM i walczą o przyciski — wyłącz lub odinstaluj duplikat.',
+      active: 'v{v} działa',
+      debugOn: 'log debugowania włączony',
+      debugOff: 'log debugowania wyłączony',
+      chatErrored: 'Czat Kick się wysypał. Kliknij Czat, aby otworzyć go ponownie.',
+      chatNotFound: 'Kick Fullscreen Chat: nie znaleziono panelu czatu. Kick mógł zmienić układ; sprawdź diagnostykę w konsoli.',
+      moreActions: 'Więcej akcji czatu',
+      fewerActions: 'Mniej akcji czatu',
+      showMore: 'Więcej',
+      showLess: 'Mniej',
+      chat: 'Czat',
+      showChat: 'Pokaż czat',
+      hideChat: 'Ukryj czat',
+      loadingVideo: 'Wczytywanie wideo…',
+      close: 'Zamknij',
+      closeSettings: 'Zamknij ustawienia czatu pełnoekranowego',
+      openSettings: 'Otwórz ustawienia czatu pełnoekranowego',
+      toSide: 'Przełącz na czat obok',
+      toOverlay: 'Przełącz na czat na wideo',
+      showInfo: 'Pokaż info o transmisji',
+      hideInfo: 'Ukryj info o transmisji',
+      overlayOpacity: 'Krycie nakładki',
+      backdrop: 'Tło',
+      hideDelay: 'Opóźnienie ukrycia',
+      chatWidth: 'Szerokość czatu',
+      compact: 'Wąski',
+      default: 'Domyślny',
+      wide: 'Szeroki',
+      max: 'Maks.',
+      groupChat: 'Czat',
+      dockLeft: 'Czat po lewej',
+      openAsOverlay: 'Otwieraj czaty jako nakładkę',
+      openOnFullscreen: 'Otwieraj czat na pełnym ekranie',
+      messagesOnly: 'Tylko wiadomości',
+      groupOverlay: 'Nakładka',
+      autoHideOverlay: 'Autoukrywanie czatu na wideo',
+      groupInfo: 'Info o transmisji',
+      showActions: 'Pokaż obserwuj, sub i udostępnij',
+      showTags: 'Pokaż tagi',
+      groupControls: 'Sterowanie',
+      autoHideControls: 'Autoukrywanie sterowania',
+      groupAds: 'Reklamy',
+      muteAds: 'Wycisz reklamy',
+      reset: 'Przywróć ustawienia',
+    }),
+    pt: Object.freeze({
+      duplicate: 'v{v} vai parar: v{running} já está rodando nesta página. Duas cópias usam os mesmos ids do DOM e disputam os controles — desative ou desinstale a duplicata.',
+      active: 'v{v} ativo',
+      debugOn: 'log de depuração ligado',
+      debugOff: 'log de depuração desligado',
+      chatErrored: 'O chat do Kick deu erro. Clique em Chat para reabrir.',
+      chatNotFound: 'Kick Fullscreen Chat: painel do chat não encontrado. O Kick pode ter mudado o layout; veja o diagnóstico no console.',
+      moreActions: 'Mais ações do chat',
+      fewerActions: 'Menos ações do chat',
+      showMore: 'Ver mais',
+      showLess: 'Ver menos',
+      chat: 'Chat',
+      showChat: 'Mostrar chat',
+      hideChat: 'Ocultar chat',
+      loadingVideo: 'Carregando vídeo…',
+      close: 'Fechar',
+      closeSettings: 'Fechar ajustes do chat em tela cheia',
+      openSettings: 'Abrir ajustes do chat em tela cheia',
+      toSide: 'Mudar para chat ao lado',
+      toOverlay: 'Mudar para chat sobre o vídeo',
+      showInfo: 'Mostrar info da live',
+      hideInfo: 'Ocultar info da live',
+      overlayOpacity: 'Opacidade da sobreposição',
+      backdrop: 'Fundo',
+      hideDelay: 'Atraso para ocultar',
+      chatWidth: 'Largura do chat',
+      compact: 'Compacto',
+      default: 'Padrão',
+      wide: 'Largo',
+      max: 'Máx.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat à esquerda',
+      openAsOverlay: 'Abrir chats sobrepostos',
+      openOnFullscreen: 'Abrir chat em tela cheia',
+      messagesOnly: 'Só mensagens',
+      groupOverlay: 'Sobreposição',
+      autoHideOverlay: 'Ocultar chat sobreposto',
+      groupInfo: 'Info da live',
+      showActions: 'Seguir, inscrever e compartilhar',
+      showTags: 'Mostrar tags',
+      groupControls: 'Controles',
+      autoHideControls: 'Ocultar controles',
+      groupAds: 'Anúncios',
+      muteAds: 'Silenciar anúncios',
+      reset: 'Redefinir ajustes',
+    }),
+    ro: Object.freeze({
+      duplicate: 'v{v} se oprește: v{running} rulează deja pe această pagină. Două copii folosesc aceleași id-uri DOM și se luptă pe butoane — dezactivează sau dezinstalează duplicatul.',
+      active: 'v{v} activ',
+      debugOn: 'jurnal de depanare pornit',
+      debugOff: 'jurnal de depanare oprit',
+      chatErrored: 'Chatul Kick a dat eroare. Apasă Chat ca să-l redeschizi.',
+      chatNotFound: 'Kick Fullscreen Chat: panoul de chat nu a fost găsit. Poate Kick și-a schimbat aspectul; vezi diagnosticul din consolă.',
+      moreActions: 'Mai multe acțiuni de chat',
+      fewerActions: 'Mai puține acțiuni de chat',
+      showMore: 'Mai mult',
+      showLess: 'Mai puțin',
+      chat: 'Chat',
+      showChat: 'Arată chatul',
+      hideChat: 'Ascunde chatul',
+      loadingVideo: 'Se încarcă video…',
+      close: 'Închide',
+      closeSettings: 'Închide setările chatului pe ecran complet',
+      openSettings: 'Deschide setările chatului pe ecran complet',
+      toSide: 'Comută la chat alături',
+      toOverlay: 'Comută la chat peste video',
+      showInfo: 'Arată info despre stream',
+      hideInfo: 'Ascunde info despre stream',
+      overlayOpacity: 'Opacitatea suprapunerii',
+      backdrop: 'Fundal',
+      hideDelay: 'Întârziere ascundere',
+      chatWidth: 'Lățime chat',
+      compact: 'Îngust',
+      default: 'Implicit',
+      wide: 'Lat',
+      max: 'Max.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat în stânga',
+      openAsOverlay: 'Deschide chaturile suprapus',
+      openOnFullscreen: 'Chat pe ecran complet',
+      messagesOnly: 'Doar mesaje',
+      groupOverlay: 'Suprapunere',
+      autoHideOverlay: 'Ascunde automat chatul',
+      groupInfo: 'Info despre stream',
+      showActions: 'Urmărire, abonare, distribuire',
+      showTags: 'Arată etichetele',
+      groupControls: 'Controale',
+      autoHideControls: 'Ascunde automat controalele',
+      groupAds: 'Reclame',
+      muteAds: 'Dezactivează sunetul reclamelor',
+      reset: 'Resetează setările',
+    }),
+    ru: Object.freeze({
+      duplicate: 'v{v} отключается: на этой странице уже работает v{running}. Две копии делят одни и те же id в DOM и спорят за кнопки — отключите или удалите дубликат.',
+      active: 'v{v} работает',
+      debugOn: 'отладочный лог включён',
+      debugOff: 'отладочный лог выключен',
+      chatErrored: 'Чат Kick упал. Нажмите «Чат», чтобы открыть его снова.',
+      chatNotFound: 'Kick Fullscreen Chat: панель чата не найдена. Возможно, Kick изменил разметку; смотрите диагностику в консоли.',
+      moreActions: 'Больше действий чата',
+      fewerActions: 'Меньше действий чата',
+      showMore: 'Ещё',
+      showLess: 'Меньше',
+      chat: 'Чат',
+      showChat: 'Показать чат',
+      hideChat: 'Скрыть чат',
+      loadingVideo: 'Видео загружается…',
+      close: 'Закрыть',
+      closeSettings: 'Закрыть настройки полноэкранного чата',
+      openSettings: 'Открыть настройки полноэкранного чата',
+      toSide: 'Переключить на чат сбоку',
+      toOverlay: 'Переключить на чат поверх видео',
+      showInfo: 'Показать инфо о стриме',
+      hideInfo: 'Скрыть инфо о стриме',
+      overlayOpacity: 'Прозрачность оверлея',
+      backdrop: 'Фон',
+      hideDelay: 'Задержка скрытия',
+      chatWidth: 'Ширина чата',
+      compact: 'Узкий',
+      default: 'Обычный',
+      wide: 'Широкий',
+      max: 'Макс.',
+      groupChat: 'Чат',
+      dockLeft: 'Чат слева',
+      openAsOverlay: 'Открывать чаты поверх видео',
+      openOnFullscreen: 'Чат в полноэкранном режиме',
+      messagesOnly: 'Только сообщения',
+      groupOverlay: 'Оверлей',
+      autoHideOverlay: 'Автоскрытие чата',
+      groupInfo: 'Инфо о стриме',
+      showActions: 'Подписка, саб и «поделиться»',
+      showTags: 'Показать теги',
+      groupControls: 'Управление',
+      autoHideControls: 'Автоскрытие управления',
+      groupAds: 'Реклама',
+      muteAds: 'Выключать звук рекламы',
+      reset: 'Сбросить настройки',
+    }),
+    sk: Object.freeze({
+      duplicate: 'v{v} sa vypína: na tejto stránke už beží v{running}. Dve kópie zdieľajú rovnaké DOM id a preťahujú sa o ovládanie — vypni alebo odinštaluj duplikát.',
+      active: 'v{v} beží',
+      debugOn: 'ladiaci výpis zapnutý',
+      debugOff: 'ladiaci výpis vypnutý',
+      chatErrored: 'Chat Kicku spadol. Klikni na Chat a otvor ho znova.',
+      chatNotFound: 'Kick Fullscreen Chat: panel chatu sa nenašiel. Kick možno zmenil rozloženie; pozri diagnostiku v konzole.',
+      moreActions: 'Ďalšie akcie chatu',
+      fewerActions: 'Menej akcií chatu',
+      showMore: 'Viac',
+      showLess: 'Menej',
+      chat: 'Chat',
+      showChat: 'Zobraziť chat',
+      hideChat: 'Skryť chat',
+      loadingVideo: 'Načítava sa video…',
+      close: 'Zavrieť',
+      closeSettings: 'Zavrieť nastavenia chatu na celej obrazovke',
+      openSettings: 'Otvoriť nastavenia chatu na celej obrazovke',
+      toSide: 'Prepnúť na chat vedľa videa',
+      toOverlay: 'Prepnúť na chat cez video',
+      showInfo: 'Zobraziť info o streame',
+      hideInfo: 'Skryť info o streame',
+      overlayOpacity: 'Priehľadnosť prekrytia',
+      backdrop: 'Pozadie',
+      hideDelay: 'Oneskorenie skrytia',
+      chatWidth: 'Šírka chatu',
+      compact: 'Úzky',
+      default: 'Predvolený',
+      wide: 'Široký',
+      max: 'Max.',
+      groupChat: 'Chat',
+      dockLeft: 'Chat vľavo',
+      openAsOverlay: 'Otvárať chaty cez video',
+      openOnFullscreen: 'Otvoriť chat na celej obrazovke',
+      messagesOnly: 'Iba správy',
+      groupOverlay: 'Prekrytie',
+      autoHideOverlay: 'Automaticky skrývať chat',
+      groupInfo: 'Info o streame',
+      showActions: 'Sledovať, odber a zdieľať',
+      showTags: 'Zobraziť štítky',
+      groupControls: 'Ovládanie',
+      autoHideControls: 'Automaticky skrývať ovládanie',
+      groupAds: 'Reklamy',
+      muteAds: 'Stlmiť reklamy',
+      reset: 'Obnoviť nastavenia',
+    }),
+    sv: Object.freeze({
+      duplicate: 'v{v} kliver åt sidan: v{running} körs redan på sidan. Två kopior delar samma DOM-id och slåss om knapparna — stäng av eller avinstallera dubbletten.',
+      active: 'v{v} aktiv',
+      debugOn: 'felsökningslogg på',
+      debugOff: 'felsökningslogg av',
+      chatErrored: 'Kick-chatten kraschade. Klicka på Chat för att öppna den igen.',
+      chatNotFound: 'Kick Fullscreen Chat: chattpanelen hittades inte. Kick kan ha ändrat layouten; se diagnosen i konsolen.',
+      moreActions: 'Visa fler chattåtgärder',
+      fewerActions: 'Visa färre chattåtgärder',
+      showMore: 'Visa mer',
+      showLess: 'Visa mindre',
+      chat: 'Chat',
+      showChat: 'Visa chatt',
+      hideChat: 'Dölj chatt',
+      loadingVideo: 'Läser in video…',
+      close: 'Stäng',
+      closeSettings: 'Stäng inställningar för helskärmschatt',
+      openSettings: 'Öppna inställningar för helskärmschatt',
+      toSide: 'Byt till chatt bredvid',
+      toOverlay: 'Byt till chatt över videon',
+      showInfo: 'Visa streaminfo',
+      hideInfo: 'Dölj streaminfo',
+      overlayOpacity: 'Överläggets opacitet',
+      backdrop: 'Bakgrund',
+      hideDelay: 'Dölj efter',
+      chatWidth: 'Chattbredd',
+      compact: 'Smal',
+      default: 'Standard',
+      wide: 'Bred',
+      max: 'Max',
+      groupChat: 'Chatt',
+      dockLeft: 'Chatt till vänster',
+      openAsOverlay: 'Öppna chattar som överlägg',
+      openOnFullscreen: 'Öppna chatt i helskärm',
+      messagesOnly: 'Bara meddelanden',
+      groupOverlay: 'Överlägg',
+      autoHideOverlay: 'Dölj överläggschatt automatiskt',
+      groupInfo: 'Streaminfo',
+      showActions: 'Visa följ, prenumerera och dela',
+      showTags: 'Visa taggar',
+      groupControls: 'Kontroller',
+      autoHideControls: 'Dölj kontroller automatiskt',
+      groupAds: 'Annonser',
+      muteAds: 'Stäng av ljud för annonser',
+      reset: 'Återställ inställningar',
+    }),
+    th: Object.freeze({
+      duplicate: 'v{v} หยุดทำงาน: หน้านี้มี v{running} ทำงานอยู่แล้ว สองสำเนาใช้ DOM id เดียวกันและแย่งปุ่มกัน ปิดหรือถอนการติดตั้งสำเนาที่ซ้ำ',
+      active: 'v{v} ทำงานอยู่',
+      debugOn: 'บันทึกดีบักเปิด',
+      debugOff: 'บันทึกดีบักปิด',
+      chatErrored: 'แชท Kick เกิดข้อผิดพลาด คลิก แชท เพื่อเปิดใหม่',
+      chatNotFound: 'Kick Fullscreen Chat: ไม่พบแผงแชท Kick อาจเปลี่ยนเลย์เอาต์ ดูการวินิจฉัยในคอนโซล',
+      moreActions: 'แสดงการทำงานของแชทเพิ่ม',
+      fewerActions: 'แสดงการทำงานของแชทน้อยลง',
+      showMore: 'เพิ่มเติม',
+      showLess: 'น้อยลง',
+      chat: 'แชท',
+      showChat: 'แสดงแชท',
+      hideChat: 'ซ่อนแชท',
+      loadingVideo: 'กำลังโหลดวิดีโอ…',
+      close: 'ปิด',
+      closeSettings: 'ปิดการตั้งค่าแชทแบบเต็มจอ',
+      openSettings: 'เปิดการตั้งค่าแชทแบบเต็มจอ',
+      toSide: 'สลับเป็นแชทด้านข้าง',
+      toOverlay: 'สลับเป็นแชทซ้อนบนวิดีโอ',
+      showInfo: 'แสดงข้อมูลสตรีม',
+      hideInfo: 'ซ่อนข้อมูลสตรีม',
+      overlayOpacity: 'ความทึบของชั้นซ้อน',
+      backdrop: 'พื้นหลัง',
+      hideDelay: 'หน่วงก่อนซ่อน',
+      chatWidth: 'ความกว้างแชท',
+      compact: 'แคบ',
+      default: 'ปกติ',
+      wide: 'กว้าง',
+      max: 'สูงสุด',
+      groupChat: 'แชท',
+      dockLeft: 'แชทชิดซ้าย',
+      openAsOverlay: 'เปิดแชทแบบซ้อนบนวิดีโอ',
+      openOnFullscreen: 'เปิดแชทเมื่อเต็มจอ',
+      messagesOnly: 'ข้อความเท่านั้น',
+      groupOverlay: 'ชั้นซ้อน',
+      autoHideOverlay: 'ซ่อนแชทซ้อนอัตโนมัติ',
+      groupInfo: 'ข้อมูลสตรีม',
+      showActions: 'แสดงติดตาม สมัคร และแชร์',
+      showTags: 'แสดงแท็ก',
+      groupControls: 'ปุ่มควบคุม',
+      autoHideControls: 'ซ่อนปุ่มควบคุมอัตโนมัติ',
+      groupAds: 'โฆษณา',
+      muteAds: 'ปิดเสียงโฆษณา',
+      reset: 'รีเซ็ตการตั้งค่า',
+    }),
+    tr: Object.freeze({
+      duplicate: 'v{v} devre dışı kalıyor: bu sayfada zaten v{running} çalışıyor. İki kopya aynı DOM kimliklerini kullanıp kontroller için çekişir — yinelenen kopyayı kapat veya kaldır.',
+      active: 'v{v} etkin',
+      debugOn: 'hata ayıklama günlüğü açık',
+      debugOff: 'hata ayıklama günlüğü kapalı',
+      chatErrored: 'Kick sohbeti hata verdi. Yeniden açmak için Sohbet’e tıkla.',
+      chatNotFound: 'Kick Fullscreen Chat: sohbet paneli bulunamadı. Kick düzenini değiştirmiş olabilir; konsoldaki tanılamaya bak.',
+      moreActions: 'Daha fazla sohbet eylemi',
+      fewerActions: 'Daha az sohbet eylemi',
+      showMore: 'Daha fazla',
+      showLess: 'Daha az',
+      chat: 'Sohbet',
+      showChat: 'Sohbeti göster',
+      hideChat: 'Sohbeti gizle',
+      loadingVideo: 'Video yükleniyor…',
+      close: 'Kapat',
+      closeSettings: 'Tam ekran sohbet ayarlarını kapat',
+      openSettings: 'Tam ekran sohbet ayarlarını aç',
+      toSide: 'Yan sohbete geç',
+      toOverlay: 'Video üstü sohbete geç',
+      showInfo: 'Yayın bilgisini göster',
+      hideInfo: 'Yayın bilgisini gizle',
+      overlayOpacity: 'Katman opaklığı',
+      backdrop: 'Arka plan',
+      hideDelay: 'Gizleme gecikmesi',
+      chatWidth: 'Sohbet genişliği',
+      compact: 'Dar',
+      default: 'Varsayılan',
+      wide: 'Geniş',
+      max: 'Maks.',
+      groupChat: 'Sohbet',
+      dockLeft: 'Sohbet solda',
+      openAsOverlay: 'Sohbetleri katman olarak aç',
+      openOnFullscreen: 'Tam ekranda sohbeti aç',
+      messagesOnly: 'Yalnızca mesajlar',
+      groupOverlay: 'Katman',
+      autoHideOverlay: 'Katman sohbetini otomatik gizle',
+      groupInfo: 'Yayın bilgisi',
+      showActions: 'Takip, abonelik ve paylaşım',
+      showTags: 'Etiketleri göster',
+      groupControls: 'Kontroller',
+      autoHideControls: 'Kontrolleri otomatik gizle',
+      groupAds: 'Reklamlar',
+      muteAds: 'Reklamları sessize al',
+      reset: 'Ayarları sıfırla',
+    }),
+    vi: Object.freeze({
+      duplicate: 'v{v} dừng lại: v{running} đã chạy trên trang này. Hai bản dùng chung id DOM và tranh nhau nút điều khiển — tắt hoặc gỡ bản trùng.',
+      active: 'v{v} đang chạy',
+      debugOn: 'nhật ký gỡ lỗi bật',
+      debugOff: 'nhật ký gỡ lỗi tắt',
+      chatErrored: 'Chat Kick bị lỗi. Bấm Chat để mở lại.',
+      chatNotFound: 'Kick Fullscreen Chat: không tìm thấy khung chat. Có thể Kick đã đổi bố cục; xem phần chẩn đoán trong console.',
+      moreActions: 'Thêm thao tác chat',
+      fewerActions: 'Bớt thao tác chat',
+      showMore: 'Xem thêm',
+      showLess: 'Thu gọn',
+      chat: 'Chat',
+      showChat: 'Hiện chat',
+      hideChat: 'Ẩn chat',
+      loadingVideo: 'Đang tải video…',
+      close: 'Đóng',
+      closeSettings: 'Đóng cài đặt chat toàn màn hình',
+      openSettings: 'Mở cài đặt chat toàn màn hình',
+      toSide: 'Chuyển sang chat bên cạnh',
+      toOverlay: 'Chuyển sang chat phủ video',
+      showInfo: 'Hiện thông tin stream',
+      hideInfo: 'Ẩn thông tin stream',
+      overlayOpacity: 'Độ mờ lớp phủ',
+      backdrop: 'Nền',
+      hideDelay: 'Độ trễ ẩn',
+      chatWidth: 'Độ rộng chat',
+      compact: 'Hẹp',
+      default: 'Mặc định',
+      wide: 'Rộng',
+      max: 'Tối đa',
+      groupChat: 'Chat',
+      dockLeft: 'Chat bên trái',
+      openAsOverlay: 'Mở chat dạng lớp phủ',
+      openOnFullscreen: 'Mở chat khi toàn màn hình',
+      messagesOnly: 'Chỉ tin nhắn',
+      groupOverlay: 'Lớp phủ',
+      autoHideOverlay: 'Tự ẩn chat lớp phủ',
+      groupInfo: 'Thông tin stream',
+      showActions: 'Hiện theo dõi, đăng ký & chia sẻ',
+      showTags: 'Hiện thẻ',
+      groupControls: 'Điều khiển',
+      autoHideControls: 'Tự ẩn điều khiển',
+      groupAds: 'Quảng cáo',
+      muteAds: 'Tắt tiếng quảng cáo',
+      reset: 'Đặt lại cài đặt',
+    }),
+    zh: Object.freeze({
+      duplicate: 'v{v} 停止运行：此页面已在运行 v{running}。两个副本共用相同的 DOM id 并争夺控件——请停用或卸载重复的副本。',
+      active: 'v{v} 已启用',
+      debugOn: '调试日志已开启',
+      debugOff: '调试日志已关闭',
+      chatErrored: 'Kick 聊天出错了。点击“聊天”重新打开。',
+      chatNotFound: 'Kick Fullscreen Chat：找不到聊天面板。Kick 可能改了页面布局；请查看控制台中的诊断信息。',
+      moreActions: '更多聊天操作',
+      fewerActions: '更少聊天操作',
+      showMore: '更多',
+      showLess: '收起',
+      chat: '聊天',
+      showChat: '显示聊天',
+      hideChat: '隐藏聊天',
+      loadingVideo: '视频加载中…',
+      close: '关闭',
+      closeSettings: '关闭全屏聊天设置',
+      openSettings: '打开全屏聊天设置',
+      toSide: '切换到侧边聊天',
+      toOverlay: '切换到浮层聊天',
+      showInfo: '显示直播信息',
+      hideInfo: '隐藏直播信息',
+      overlayOpacity: '浮层不透明度',
+      backdrop: '背景',
+      hideDelay: '隐藏延迟',
+      chatWidth: '聊天宽度',
+      compact: '紧凑',
+      default: '默认',
+      wide: '宽',
+      max: '最大',
+      groupChat: '聊天',
+      dockLeft: '聊天停靠在左侧',
+      openAsOverlay: '以浮层打开聊天',
+      openOnFullscreen: '全屏时打开聊天',
+      messagesOnly: '仅消息',
+      groupOverlay: '浮层',
+      autoHideOverlay: '自动隐藏浮层聊天',
+      groupInfo: '直播信息',
+      showActions: '显示关注、订阅和分享',
+      showTags: '显示标签',
+      groupControls: '控件',
+      autoHideControls: '自动隐藏控件',
+      groupAds: '广告',
+      muteAds: '广告静音',
+      reset: '重置设置',
+    }),
+  });
+  const kickLang = () => {
+    const lang = (document.documentElement && document.documentElement.lang) || '';
+    return String(lang).toLowerCase().split('-')[0];
+  };
+  const uiText = () => {
+    const lang = kickLang();
+    return Object.prototype.hasOwnProperty.call(UI_TEXT, lang) ? UI_TEXT[lang] : UI_TEXT.en;
+  };
 
   // ── Single instance ────────────────────────────────────────────────────
   // Two copies of the script on one page (a manual install left alongside the
@@ -44,16 +1310,15 @@
   const alreadyRunning = document.documentElement.getAttribute(INSTANCE_ATTR);
   if (alreadyRunning) {
     console.warn(
-      `[KickFullscreenChat] v${VERSION} is standing down: v${alreadyRunning} is already ` +
-        'running on this page. Two copies share the same DOM ids and fight over the ' +
-        'controls — disable or uninstall the duplicate.'
+      '[KickFullscreenChat] ' +
+        uiText().duplicate.replace('{v}', VERSION).replace('{running}', alreadyRunning)
     );
     return;
   }
   document.documentElement.setAttribute(INSTANCE_ATTR, VERSION);
   // Logged once at boot, always — not gated by debug mode — like every kick-*
   // script, so the running build shows in the console without asking for it.
-  console.info(`[KickFullscreenChat] v${VERSION} active`);
+  console.info('[KickFullscreenChat] ' + uiText().active.replace('{v}', VERSION));
 
   // Verbose console logging. Toggle at runtime with KickFullscreenChat.debug()
   // — the choice is persisted with the rest of the settings.
@@ -3166,7 +4431,7 @@
         chatErrorRecovering = true;
         log('Kick chat error boundary detected; tearing down side chat');
         dumpRecentErrors('Kick chat crashed');
-        showToast('Kick chat errored. Click Chat to reopen.');
+        showToast(uiText().chatErrored);
         stopChatErrorWatcher();
         disableSideChat(fsEl);
         chatErrorRecovering = false;
@@ -3229,9 +4494,10 @@
     const btn = document.getElementById(BAR_MORE_ID);
     if (!btn) return;
     btn.setAttribute('aria-expanded', String(open));
-    btn.setAttribute('aria-label', open ? 'Show fewer chat actions' : 'Show more chat actions');
+    const t = uiText();
+    btn.setAttribute('aria-label', open ? t.fewerActions : t.moreActions);
     const label = btn.querySelector('span');
-    if (label) label.textContent = open ? 'Show less' : 'Show more';
+    if (label) label.textContent = open ? t.showLess : t.showMore;
   };
 
   const fitChatBar = () => {
@@ -3265,9 +4531,10 @@
       btn.type = 'button';
       // The label goes in the aria-label too, with "chat" in it (see the
       // aria-label contract on the cluster's controls).
-      btn.setAttribute('aria-label', 'Show more chat actions');
+      btn.setAttribute('aria-label', uiText().moreActions);
       btn.setAttribute('aria-expanded', 'false');
-      btn.innerHTML = `${BAR_MORE_SVG}<span>Show more</span>`;
+      btn.innerHTML = `${BAR_MORE_SVG}<span></span>`;
+      btn.querySelector('span').textContent = uiText().showMore;
       btn.addEventListener('click', onChatBarMoreClick);
     }
     if (bar.firstElementChild !== btn) bar.prepend(btn);
@@ -3344,7 +4611,7 @@
     const chat = findChat();
     if (!chat) {
       warn('chat container not found. Lookup diagnostics:', getChatLookupDiagnostics());
-      showToast('Kick Fullscreen Chat: chat panel not found. Kick may have changed its layout; check the console diagnostics.');
+      showToast(uiText().chatNotFound);
       return;
     }
     log('enableSideChat: using chat node', chat);
@@ -3519,7 +4786,8 @@
     const btn = document.getElementById(BTN_ID);
     if (!btn) return;
     const label = btn.querySelector('span');
-    if (label) label.textContent = 'Chat';
+    const t = uiText();
+    if (label) label.textContent = t.chat;
 
     // Check video loading state to set correct disabled state and aria-label
     const fs = document.fullscreenElement || document.webkitFullscreenElement;
@@ -3527,9 +4795,9 @@
       const video = queryPlayerVideo(fs);
       const isLoaded = !videoReloading && video && video.readyState >= 2;
       btn.disabled = !isLoaded;
-      btn.setAttribute('aria-label', active ? 'Hide chat' : isLoaded ? 'Show chat' : 'Loading video...');
+      btn.setAttribute('aria-label', active ? t.hideChat : isLoaded ? t.showChat : t.loadingVideo);
     } else {
-      btn.setAttribute('aria-label', 'Show chat');
+      btn.setAttribute('aria-label', t.showChat);
     }
   };
 
@@ -4596,9 +5864,9 @@
     close.type = 'button';
     close.className = 'kfc-settings-close';
     close.textContent = '✕';
-    close.title = 'Close';
+    close.title = uiText().close;
     // Same reasoning as the gear's label — see syncControlState.
-    close.setAttribute('aria-label', 'Close fullscreen chat settings');
+    close.setAttribute('aria-label', uiText().closeSettings);
     // Hiding the panel already forces focus back to the body, so this is
     // belt-and-braces — but it keeps every panel control on the same rule.
     blurOnPointerActivate(close);
@@ -4616,6 +5884,7 @@
   };
 
   const buildSettingsPanel = () => {
+    const t = uiText();
     const panel = document.createElement('div');
     panel.id = SETTINGS_PANEL_ID;
     panel.addEventListener('click', (e) => e.stopPropagation());
@@ -4651,7 +5920,7 @@
     opacityInput.step = '5';
     opacityInput.value = String(overlayOpacity);
     const opacityRange = createSettingsRange(
-      'Overlay opacity',
+      t.overlayOpacity,
       `${overlayOpacity}%`,
       opacityInput,
       'kfc-settings-opacity-value'
@@ -4671,7 +5940,7 @@
     infoOpacityInput.step = '5';
     infoOpacityInput.value = String(infoBgOpacity);
     const infoOpacityRange = createSettingsRange(
-      'Backdrop',
+      t.backdrop,
       `${infoBgOpacity}%`,
       infoOpacityInput,
       'kfc-settings-info-opacity-value'
@@ -4691,7 +5960,7 @@
     idleInput.step = '1';
     idleInput.value = String(Math.round(idleDelayMs / 1000));
     const idleRange = createSettingsRange(
-      'Hide delay',
+      t.hideDelay,
       `${Math.round(idleDelayMs / 1000)}s`,
       idleInput,
       'kfc-settings-idle-value'
@@ -4708,7 +5977,7 @@
     const widthLabel = document.createElement('div');
     widthLabel.className = 'kfc-settings-label';
     const widthText = document.createElement('span');
-    widthText.textContent = 'Chat width';
+    widthText.textContent = t.chatWidth;
     const widthValue = document.createElement('span');
     widthValue.className = 'kfc-settings-width-value';
     widthValue.textContent = `${chatWidth}px`;
@@ -4719,10 +5988,10 @@
     const buttons = document.createElement('div');
     buttons.className = 'kfc-settings-buttons';
     [
-      ['Compact', 280],
-      ['Default', parseInt(CHAT_WIDTH, 10)],
-      ['Wide', 520],
-      ['Max', CHAT_WIDTH_MAX],
+      [t.compact, 280],
+      [t.default, parseInt(CHAT_WIDTH, 10)],
+      [t.wide, 520],
+      [t.max, CHAT_WIDTH_MAX],
     ].forEach(([label, width]) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -4743,26 +6012,26 @@
     widthRow.appendChild(buttons);
 
     panel.appendChild(createSettingsGroup(
-      'Chat',
+      t.groupChat,
       widthRow,
       createSettingsSwitches(
-        createSettingsCheckbox('Dock chat on left', chatSide === 'left', (checked) => {
+        createSettingsCheckbox(t.dockLeft, chatSide === 'left', (checked) => {
           chatSide = checked ? 'left' : 'right';
           syncControlState();
           nudgePlayerResize();
           persistSettings();
         }, 'kfc-settings-dock-left-input'),
-        createSettingsCheckbox('Open chats as overlay', openChatAsOverlay, (checked) => {
+        createSettingsCheckbox(t.openAsOverlay, openChatAsOverlay, (checked) => {
           openChatAsOverlay = checked;
           syncControlState();
           persistSettings();
         }, 'kfc-settings-open-overlay-input'),
-        createSettingsCheckbox('Open chat on fullscreen', restoreChatOnFullscreen, (checked) => {
+        createSettingsCheckbox(t.openOnFullscreen, restoreChatOnFullscreen, (checked) => {
           restoreChatOnFullscreen = checked;
           syncControlState();
           persistSettings();
         }, 'kfc-settings-restore-input'),
-        createSettingsCheckbox('Messages only', messagesOnly, (checked) => {
+        createSettingsCheckbox(t.messagesOnly, messagesOnly, (checked) => {
           messagesOnly = checked;
           syncControlState();
           updateBtnLabel();
@@ -4772,10 +6041,10 @@
     ));
 
     panel.appendChild(createSettingsGroup(
-      'Overlay',
+      t.groupOverlay,
       opacityRange.row,
       createSettingsSwitches(
-        createSettingsCheckbox('Auto-hide overlay chat', autoHideOverlayChat, (checked) => {
+        createSettingsCheckbox(t.autoHideOverlay, autoHideOverlayChat, (checked) => {
           autoHideOverlayChat = checked;
           syncControlState();
           onFsMouseMove();
@@ -4785,15 +6054,15 @@
     ));
 
     panel.appendChild(createSettingsGroup(
-      'Stream info',
+      t.groupInfo,
       infoOpacityRange.row,
       createSettingsSwitches(
-        createSettingsCheckbox('Show follow, sub & share', infoShowActions, (checked) => {
+        createSettingsCheckbox(t.showActions, infoShowActions, (checked) => {
           infoShowActions = checked;
           syncControlState();
           persistSettings();
         }, 'kfc-settings-info-actions-input'),
-        createSettingsCheckbox('Show tags', infoShowTags, (checked) => {
+        createSettingsCheckbox(t.showTags, infoShowTags, (checked) => {
           infoShowTags = checked;
           syncControlState();
           persistSettings();
@@ -4802,10 +6071,10 @@
     ));
 
     panel.appendChild(createSettingsGroup(
-      'Controls',
+      t.groupControls,
       idleRange.row,
       createSettingsSwitches(
-        createSettingsCheckbox('Auto-hide controls', autoHideControls, (checked) => {
+        createSettingsCheckbox(t.autoHideControls, autoHideControls, (checked) => {
           autoHideControls = checked;
           syncControlState();
           onFsMouseMove();
@@ -4815,9 +6084,9 @@
     ));
 
     panel.appendChild(createSettingsGroup(
-      'Ads',
+      t.groupAds,
       createSettingsSwitches(
-        createSettingsCheckbox('Mute ads', muteAds, (checked) => {
+        createSettingsCheckbox(t.muteAds, muteAds, (checked) => {
           muteAds = checked;
           updateAdMuteWatch();
           syncControlState();
@@ -4829,7 +6098,7 @@
     const resetButton = document.createElement('button');
     resetButton.type = 'button';
     resetButton.className = 'kfc-settings-chip kfc-settings-reset';
-    resetButton.textContent = 'Reset settings';
+    resetButton.textContent = t.reset;
     blurOnPointerActivate(resetButton);
     resetButton.addEventListener('click', resetSessionSettings);
     panel.appendChild(resetButton);
@@ -5028,7 +6297,8 @@
       btn.id = BTN_ID;
       btn.type = 'button';
       btn.setAttribute('dir', 'ltr');
-      btn.innerHTML = `${BTN_SVG}<span>Chat</span>`;
+      btn.innerHTML = `${BTN_SVG}<span></span>`;
+      btn.querySelector('span').textContent = uiText().chat;
       wireControlButton(btn, () => {
         const target = document.fullscreenElement || document.webkitFullscreenElement;
         log('button clicked, fullscreen target:', target, 'active:', active);
@@ -5058,6 +6328,7 @@
   // on re-render (e.g. during a resize) and would strip them, reverting the
   // controls. Safe to call repeatedly.
   const syncControlState = () => {
+    const t = uiText();
     const overlayActive = overlayMode && active;
     document.documentElement.style.setProperty(
       '--kfc-overlay-opacity',
@@ -5132,13 +6403,13 @@
       modeBtn.classList.toggle('kfc-on', overlayMode);
       modeBtn.setAttribute(
         'aria-label',
-        overlayMode ? 'Switch to side-by-side chat' : 'Switch to overlay chat'
+        overlayMode ? t.toSide : t.toOverlay
       );
     }
     const infoBtn = document.getElementById(INFO_BTN_ID);
     if (infoBtn) {
       infoBtn.classList.toggle('kfc-off', infoHidden);
-      infoBtn.setAttribute('aria-label', infoHidden ? 'Show stream info' : 'Hide stream info');
+      infoBtn.setAttribute('aria-label', infoHidden ? t.showInfo : t.hideInfo);
     }
     const settingsBtn = document.getElementById(SETTINGS_BTN_ID);
     if (settingsBtn) {
@@ -5156,7 +6427,7 @@
       // this script mistake its own gear for Kick's chat toggle.
       settingsBtn.setAttribute(
         'aria-label',
-        settingsOpen ? 'Close fullscreen chat settings' : 'Open fullscreen chat settings'
+        settingsOpen ? t.closeSettings : t.openSettings
       );
     }
     const widthValue = document.querySelector(`#${SETTINGS_PANEL_ID} .kfc-settings-width-value`);
@@ -5720,7 +6991,7 @@
     debug: (on) => {
       debugOn = on === undefined ? !debugOn : !!on;
       saveSettings();
-      console.log('[KickFullscreenChat] debug logging', debugOn ? 'on' : 'off');
+      console.log('[KickFullscreenChat] ' + (debugOn ? uiText().debugOn : uiText().debugOff));
       return debugOn;
     },
     // The recorded page errors, oldest first — for a crash seen outside

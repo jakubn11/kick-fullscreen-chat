@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-11-27
+
+### Added
+- **The script speaks Kick's language.** The **Chat** button, the settings panel (its groups, switches, sliders, width presets and **Reset settings**), the labels on the layout, stream-info, settings and **Show more** buttons, the two error toasts and the console lines now follow the language Kick is shown in, for the same 28 languages as the other kick-* scripts, and English otherwise. The panel's name, **Fullscreen Chat**, stays as it is. The debug log stays in English, for bug reports.
+- Longer labels are worded to fit the 300px panel on one line in every language; checked in Chrome with all 27 tables.
+- No translated button label reads like Kick's own **Hide chat** / **Show chat** button or contains "settings" or "quality", so neither this script's chat-toggle matcher nor kick-quality-saver's gear lookup can land on one. The tests check every table.
+
 ## [0.28.2] - 2026-11-27
 
 ### Changed

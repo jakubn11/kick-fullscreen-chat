@@ -45,6 +45,7 @@
 - Forces a containing block on the marked player layers so Kick's `position: fixed` video and timeline / controls stay inside the shrunken video area instead of overlapping the chat
 - **Player gestures kept working:** clicking a paused stream resumes it and double-clicking exits fullscreen, both of which Kick handles on the `<video>` element that the side layout has to make click-through. The click is one-way — it never pauses a playing stream — and the pointer cursor appears only while a click would actually resume
 - Restores the original DOM on exit — chat returns to its original location, no leftover wrappers
+- **In Kick's language** — the button, the settings panel, the control labels and the console follow the language Kick is shown in (the same 28 languages as the sibling scripts), English otherwise
 - **Console hook** — a persisted `KickFullscreenChat.debug()` switch, the running version as `KickFullscreenChat.version`, and `KickFullscreenChat.lastErrors()` — the page's recent errors, also printed automatically when Kick's chat crashes in side chat
 - No network requests and no `GM_*` permissions — the only persistence is a single `localStorage` key (`kfc-settings`) holding your UI preferences and that switch
 

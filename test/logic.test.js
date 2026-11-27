@@ -363,6 +363,52 @@ let recordThrew = false;
 try { recordError('error', null); } catch (_) { recordThrew = true; }
 check('recordError never throws', recordThrew, false);
 
+// ── words in Kick's language (0.29.0) ──────────────────────────────────────
+
+{
+  const langs = Object.keys(UI_TEXT);
+  const keys = Object.keys(UI_TEXT.en);
+  check('28 Kick languages have a table (uk falls back to English)', langs.length, 27);
+  const gaps = [];
+  for (const lang of langs) {
+    for (const k of keys) {
+      const v = UI_TEXT[lang][k];
+      if (typeof v !== 'string' || !v.trim()) gaps.push(`${lang}.${k}`);
+    }
+    for (const k of Object.keys(UI_TEXT[lang])) if (!keys.includes(k)) gaps.push(`${lang}.${k}?`);
+    if (!/\{v\}/.test(UI_TEXT[lang].duplicate) || !/\{running\}/.test(UI_TEXT[lang].duplicate) ||
+        !/\{v\}/.test(UI_TEXT[lang].active)) gaps.push(`${lang} placeholders`);
+  }
+  check('every table has every word, and the placeholders', gaps, []);
+
+  // The labels this script puts on buttons must never read like Kick's own chat
+  // toggle (our Chat button is skipped by id, so only it may say "Show chat"),
+  // and must never send kick-quality-saver to our gear instead of Kick's.
+  const labelKeys = ['moreActions', 'fewerActions', 'showMore', 'showLess', 'chat', 'loadingVideo',
+    'close', 'closeSettings', 'openSettings', 'toSide', 'toOverlay', 'showInfo', 'hideInfo'];
+  const unsafe = [];
+  for (const lang of langs) {
+    for (const k of labelKeys) {
+      const v = UI_TEXT[lang][k].trim().toLowerCase();
+      if (CHAT_TOGGLE_RE.test(v) || SHOW_CHAT_RE.test(v)) unsafe.push(`${lang}.${k} toggle`);
+      if ((v.includes('settings') || v.includes('quality')) && !v.includes('chat')) unsafe.push(`${lang}.${k} kqs`);
+    }
+  }
+  check('no button label looks like Kick\'s chat toggle or gear', unsafe, []);
+  check('English labels stay as they were',
+    [UI_TEXT.en.closeSettings, UI_TEXT.en.openSettings, UI_TEXT.en.moreActions, UI_TEXT.en.loadingVideo],
+    ['Close fullscreen chat settings', 'Open fullscreen chat settings', 'Show more chat actions', 'Loading video...']);
+
+  const langAt = (lang) => { document.documentElement.lang = lang; return uiText(); };
+  check('Kick in Czech', [langAt('cs').chat, langAt('cs').showChat, langAt('cs').reset],
+    ['Chat', 'Zobrazit chat', 'Obnovit nastavení']);
+  check('a region subtag picks the language', langAt('pt-BR').hideChat, 'Ocultar chat');
+  check('an unknown language falls back to English', langAt('xx').hideChat, 'Hide chat');
+  check('no lang falls back to English', langAt('').chat, 'Chat');
+  check('a prototype name is not a language', langAt('constructor').chat, 'Chat');
+  delete document.documentElement.lang;
+}
+
 say(`${passed} passed, ${failures} failed`);
 if (failures) throw new Error(`${failures} logic test(s) failed`);
 say('all logic tests passed');
