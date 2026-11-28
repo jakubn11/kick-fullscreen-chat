@@ -4,10 +4,9 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.30.0** — Ukrainian
+**0.30.1** — Keyboard focus on settings chips
 
-- **Ukrainian** — Kick offers Ukrainian, and the script showed English there. The button, the settings panel, the control labels and the notices now have their own Ukrainian text, so all 28 of Kick's languages are covered.
-- **Viewer count** — the backup way of finding Kick's viewer count now recognises its Ukrainian text too.
+- **Settings chips** — tabbing to a width or layout chip now gives it the hover look as well as the green focus ring, as the close and reset buttons already did.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
