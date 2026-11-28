@@ -15,7 +15,7 @@ Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/bl
 ## Features
 
 - **Chat button** in the top-right of the fullscreen player — docks chat on the right (340px wide by default), or on the left via a setting
-- **Resizable chat** — drag the divider to set the width (260–640px, at most 60% of the screen); drag past the minimum and release to close chat in one gesture; in a narrow chat, channel points, Kicks and drops fold behind a **Show more** button so the gear and **Chat** stay on one row
+- **Resizable chat** — drag the divider to set the width (260–640px, at most 60% of the screen); drag past the minimum and release to close chat in one gesture; channel points, Kicks and drops fold behind a **Show more** button, so the bar under the message box shows only it, the gear and **Chat**
 - **Overlay mode** — switch between side-by-side and chat floating semi-transparently over the full-width video
 - **Stream-info overlay** — avatar, name, title, category, tags and viewer count in the top-left, with Kick's follow / subscribe / gift / share / report buttons under it, fading with Kick's own controls; Kick's buttons work right there in fullscreen, and the profile / category links take you to the page
 - **Fullscreen settings** — overlay and stream-info opacity, which parts of the stream info to show (follow / sub / share buttons, tags), width presets, hide delay, dock side, control and overlay auto-hide, default overlay mode, auto-open chat on fullscreen, messages-only chat, mute ads, reset to defaults

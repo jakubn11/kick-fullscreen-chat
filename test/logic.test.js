@@ -461,6 +461,51 @@ check('recordError never throws', recordThrew, false);
   ]);
 }
 
+// ── folded chat bar (0.31.0: always folded) ───────────────────────────────
+
+{
+  const kids = (list) => list;
+  const node = (opts) => Object.assign({
+    id: '', children: [],
+    querySelector(sel) {
+      if (sel === 'button, a') return this.hasControl ? {} : null;
+      return null;
+    },
+  }, opts);
+  const send = { id: 'send-message-button' };
+  const right = node({ hasControl: true, children: [send] });
+  const classes = new Set();
+  const slot = { classList: { toggle(c, on) { on ? classes.add(c) : classes.delete(c); }, contains: (c) => classes.has(c), remove: (c) => classes.delete(c) } };
+  const savedGet = document.getElementById;
+  document.getElementById = () => null;
+  const barWith = (left) => {
+    const bar = node({ children: kids(left.concat(right)) });
+    bar.querySelector = (sel) => (sel === ':scope > * > #send-message-button' ? send : null);
+    send.parentElement = right;
+    return bar;
+  };
+
+  const full = barWith([node({ hasControl: true })]);
+  check('chatBarHasLeft: points and Kicks', chatBarHasLeft(full, right), true);
+  check('chatBarHasLeft: an empty left group', chatBarHasLeft(barWith([node()]), right), false);
+  check('chatBarHasLeft: no left group', chatBarHasLeft(barWith([]), right), false);
+  check('chatBarHasLeft: our own button is not something to fold',
+    chatBarHasLeft(barWith([node({ id: BAR_MORE_ID, hasControl: true })]), right), false);
+
+  chatSlot = slot;
+  chatBar = full;
+  fitChatBar();
+  check('fitChatBar folds a bar with points and Kicks, whatever its width', classes.has('kfc-bar-folded'), true);
+  classes.add('kfc-bar-open');
+  chatBar = barWith([node()]);
+  fitChatBar();
+  check('fitChatBar unfolds (and closes) a bar with nothing to fold',
+    [classes.has('kfc-bar-folded'), classes.has('kfc-bar-open')], [false, false]);
+  chatSlot = null;
+  chatBar = null;
+  document.getElementById = savedGet;
+}
+
 say(`${passed} passed, ${failures} failed`);
 if (failures) throw new Error(`${failures} logic test(s) failed`);
 say('all logic tests passed');

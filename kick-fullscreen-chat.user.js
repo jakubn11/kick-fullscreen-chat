@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.30.2
+// @version      0.31.0
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.30.2';
+  const VERSION = '0.31.0';
 
   // ── Words in Kick's language (0.29.0) ──────────────────────────────────
   // Every word the script shows — the Chat button, the settings panel, the
@@ -2980,13 +2980,14 @@
         width: auto !important;
         flex: 0 1 auto !important;
       }
-      /* Folded action bar: when the row would wrap, the left group (points,
-         Kicks, drops) goes behind one "Show more" button of ours, and the
-         gear + green Chat send button stay, so the bar stays a single row;
-         pressing it brings back the wrapped two-row layout above. fitChatBar() decides by measuring the unfolded row,
-         since the width it needs depends on what Kick shows (logged out it
-         always fits; logged in it depends on the points value). The state
-         lives on our slot, not on Kick's bar, which React re-renders. */
+      /* Folded action bar: the left group (points, Kicks, drops) goes
+         behind one "Show more" button of ours, and the gear + green Chat send
+         button stay, so the bar is a single row; pressing it brings the group
+         back (the wrapped two-row layout above when it doesn't fit beside
+         them). Always folded since 0.31.0, as kick-chat-utils folds the same
+         bar in normal view; fitChatBar() only checks there is something to
+         fold. The state lives on our slot, not on Kick's bar, which React
+         re-renders. */
       #${BAR_MORE_ID} {
         display: none !important;
       }
@@ -3022,6 +3023,15 @@
       #${BAR_MORE_ID}:focus-visible {
         background: linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013;
       }
+      /* Keyboard focus on the script's floating buttons: the hover tint plus
+         the family focus ring (DESIGN.md, 0.31.0). A mouse click never shows
+         it: the Chat, control and Show more buttons blur after a click. */
+      #${BTN_ID}:focus-visible,
+      .kfc-control-btn:focus-visible,
+      #${BAR_MORE_ID}:focus-visible {
+        outline: 2px solid rgba(34,197,94,.65);
+        outline-offset: 2px;
+      }
       .kfc-chat-slot.kfc-bar-open #${BAR_MORE_ID} {
         background: linear-gradient(rgba(34,197,94,.18), rgba(34,197,94,.18)), #101013;
         border-color: rgba(34,197,94,.5);
@@ -3036,10 +3046,14 @@
       .kfc-chat-slot.kfc-bar-open #${BAR_MORE_ID} svg {
         transform: rotate(180deg);
       }
-      /* Open, the button moves after the points/Kicks/drops group, so the
-         shown items take the first row and "Show less" opens the second,
-         left of the gear + Chat (a first-row button beside the ~190px group
-         would push it onto a row of its own). */
+      /* Open, the points/Kicks/drops group takes the first row on its own
+         and "Show less" opens the second, left of the gear + Chat, at every
+         chat width (0.31.0; the same layout as kick-chat-utils' open bar in
+         normal view). The group's full-row basis outranks the left-group
+         release rule above by the extra .kfc-bar-open class. */
+      .kfc-chat-slot.kfc-bar-open :has(> div > #send-message-button) > :not(:has(#send-message-button)):not(#${BAR_MORE_ID}) {
+        flex: 0 0 100% !important;
+      }
       .kfc-chat-slot.kfc-bar-open #${BAR_MORE_ID} {
         order: 1;
       }
@@ -4594,36 +4608,22 @@
   };
 
   // ── Chat action bar fold ─────────────────────────────────────────────
-  // In a narrow chat, Kick's action bar (points, Kicks, drops, gear, the
-  // green Chat send button) doesn't fit one row and wraps to two. Fold it
-  // instead: points, Kicks and drops go behind one "Show more" button (the
-  // gear and Chat stay), which unfolds the wrapped layout on demand. The
-  // bar is found from the send
-  // button and re-found whenever the chat slot's subtree changes, since
-  // React replaces it on remounts (log-in, chatroom switch).
+  // Kick's action bar (points, Kicks, drops, gear, the green Chat send
+  // button) is folded: points, Kicks and drops go behind one "Show more"
+  // button (the gear and Chat stay), which brings them back on demand.
+  // Always folded since 0.31.0 (before, only when the row would wrap), the
+  // same as kick-chat-utils' fold of this bar in normal view; it steps aside
+  // inside our .kfc-chat-slot. The bar is found from the send button and
+  // re-found whenever the chat slot's subtree changes, since React replaces
+  // it on remounts (log-in, chatroom switch).
   let chatBar = null;
-  let chatBarObserver = null;
-  // Width the unfolded row needed the last time it wrapped. Logged in this
-  // depends on the points value, so it is measured, not assumed.
-  let chatBarFitWidth = 0;
 
   const chatBarRightGroup = (bar) => bar.querySelector(':scope > * > #send-message-button')?.parentElement || null;
 
-  // Whether the unfolded row wraps, and the width it would need on one row
-  // (column-gap is 0 in the slot, so the items' widths add up exactly).
-  const measureChatBar = (bar, right) => {
-    const rightRect = right.getBoundingClientRect();
-    let needed = rightRect.width;
-    let wrapped = false;
-    for (const el of bar.children) {
-      if (el === right || el.id === BAR_MORE_ID) continue;
-      const r = el.getBoundingClientRect();
-      if (!r.width) continue;
-      needed += r.width;
-      if (rightRect.top > r.top + r.height / 2) wrapped = true;
-    }
-    return { wrapped, needed };
-  };
+  // Anything to fold: logged out the left group can be empty (or hold only
+  // drops), and an empty fold would leave a button that shows nothing.
+  const chatBarHasLeft = (bar, right) => Array.from(bar.children)
+    .some((el) => el !== right && el.id !== BAR_MORE_ID && !!el.querySelector('button, a'));
 
   const setChatBarOpen = (open) => {
     if (!chatSlot) return;
@@ -4640,18 +4640,11 @@
   const fitChatBar = () => {
     if (!chatSlot || !chatBar) return;
     const right = chatBarRightGroup(chatBar);
-    if (!right) return;
-    if (chatSlot.classList.contains('kfc-bar-folded')) {
-      // Hidden (Messages only) measures 0 wide — leave it as it is.
-      if (!chatBar.clientWidth || chatBar.clientWidth < chatBarFitWidth + 1) return;
-      chatSlot.classList.remove('kfc-bar-folded');
-      setChatBarOpen(false);
-    }
-    const { wrapped, needed } = measureChatBar(chatBar, right);
-    if (!wrapped) return;
-    chatBarFitWidth = Math.ceil(needed);
-    chatSlot.classList.add('kfc-bar-folded');
-    log('chat action bar folded; one row needs', chatBarFitWidth, 'px');
+    const fold = !!right && chatBarHasLeft(chatBar, right);
+    if (fold === chatSlot.classList.contains('kfc-bar-folded')) return;
+    chatSlot.classList.toggle('kfc-bar-folded', fold);
+    if (!fold) setChatBarOpen(false);
+    log(fold ? 'chat action bar folded' : 'chat action bar: nothing to fold');
   };
 
   const onChatBarMoreClick = (e) => {
@@ -4678,10 +4671,7 @@
   };
 
   const unbindChatBar = () => {
-    chatBarObserver?.disconnect();
-    chatBarObserver = null;
     chatBar = null;
-    chatBarFitWidth = 0;
     if (chatSlot) {
       setChatBarOpen(false);
       chatSlot.classList.remove('kfc-bar-folded');
@@ -4689,25 +4679,19 @@
     document.getElementById(BAR_MORE_ID)?.remove();
   };
 
-  // Cheap enough to run on every coalesced chat mutation: one id lookup
-  // unless the bar was replaced.
+  // Cheap enough to run on every coalesced chat mutation: one id lookup and a
+  // query in a handful of nodes, writing only when something changed.
   const refreshChatBar = () => {
     if (!chatSlot) return;
     const send = chatSlot.querySelector('#send-message-button');
     const bar = send?.parentElement?.parentElement || null;
-    if (bar === chatBar) {
-      if (bar) ensureChatBarMoreButton(bar);
-      return;
+    if (bar !== chatBar) {
+      unbindChatBar();
+      if (!bar) return;
+      chatBar = bar;
     }
-    unbindChatBar();
-    if (!bar || typeof ResizeObserver !== 'function') return;
-    chatBar = bar;
     ensureChatBarMoreButton(bar);
-    // A wrap changes the bar's height and a wider chat its width, so the
-    // bar's own size is all that needs watching; the first callback does the
-    // initial fit, before the next paint.
-    chatBarObserver = new ResizeObserver(fitChatBar);
-    chatBarObserver.observe(bar);
+    fitChatBar();
   };
 
   const enableSideChat = (fsEl) => {

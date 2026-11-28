@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-11-28
+
+### Changed
+- **The chat bar is always folded in the side chat.** Points, Kicks and drops now wait behind **Show more** at every chat width, not only when the row would wrap, so the bar under the message box always shows **Show more**, the gear and **Chat**. Opened, points, Kicks and drops take a row of their own, with **Show less** beside the gear and **Chat** below, at every width too. This matches kick-chat-utils 0.31.0, which folds the same bar the same way in Kick's normal view. A bar with nothing to fold (logged out, no drops) gets no **Show more**.
+
+### Fixed
+- **Keyboard focus is visible on the floating buttons.** Tabbing to **Chat**, the stream-info, layout and settings buttons, or **Show more** now shows the family's green focus ring as well as the hover tint, as the design spec asks. A mouse click still leaves no ring.
+
 ## [0.30.2] - 2026-11-28
 
 ### Fixed
