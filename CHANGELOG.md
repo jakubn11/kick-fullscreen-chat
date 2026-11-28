@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.2] - 2026-11-28
+
+### Fixed
+- **The settings panel closes on Esc** when the key reaches the page, and focus goes back to the gear. In browser fullscreen the browser usually takes Esc itself to leave fullscreen, which closes the panel too.
+- **Tab stays inside the settings panel.** Tab on its last control wraps back to the first, Shift+Tab on the first wraps to the last, and Tab from elsewhere moves into the panel.
+- **Screen readers announce the settings panel as a dialog** named *Fullscreen Chat*.
+
 ## [0.30.1] - 2026-11-28
 
 ### Fixed

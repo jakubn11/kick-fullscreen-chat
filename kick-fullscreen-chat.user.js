@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.30.1
+// @version      0.30.2
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.30.1';
+  const VERSION = '0.30.2';
 
   // ── Words in Kick's language (0.29.0) ──────────────────────────────────
   // Every word the script shows — the Chat button, the settings panel, the
@@ -6024,6 +6024,10 @@
     const t = uiText();
     const panel = document.createElement('div');
     panel.id = SETTINGS_PANEL_ID;
+    // A non-modal dialog named like its title (0.30.2); the page stays usable
+    // around it, so no aria-modal.
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Fullscreen Chat');
     panel.addEventListener('click', (e) => e.stopPropagation());
     panel.addEventListener('pointerdown', (e) => e.stopPropagation());
     // The control buttons' refocus guard (see wireControlButton), one level
@@ -6601,8 +6605,52 @@
     if (muteAdsInput) muteAdsInput.checked = muteAds;
   };
 
+  // Keeps Tab inside an open card (DESIGN.md, 0.30.2): Tab from the last control
+  // wraps to the first, Shift+Tab from the first wraps to the last, and a Tab
+  // pressed while focus is outside the card brings it to the card's first (or,
+  // with Shift, last) control. Hidden and disabled controls are skipped.
+  const familyTrapTab = (e, card) => {
+    if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey || !card || !card.isConnected) return;
+    const items = Array.from(card.querySelectorAll('button, [href], input, select, textarea, [tabindex]'))
+      .filter((el) => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    let target = null;
+    if (!card.contains(active)) target = e.shiftKey ? last : first;
+    else if (!e.shiftKey && active === last) target = first;
+    else if (e.shiftKey && active === first) target = last;
+    if (!target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    target.focus();
+  };
+
+  // Escape closes the panel and Tab stays inside it (0.30.2), as in the
+  // sibling scripts' cards. Listening only while the panel is open. In browser
+  // fullscreen the browser usually takes Escape itself to leave fullscreen,
+  // which tears the panel down anyway; this covers the presses that reach the
+  // page. A keyboard user who closes it this way lands back on the gear.
+  const onSettingsKeydown = (e) => {
+    const panel = document.getElementById(SETTINGS_PANEL_ID);
+    if (e.key === 'Tab') { familyTrapTab(e, panel); return; }
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const hadFocus = !!panel && panel.contains(document.activeElement);
+    closeSettingsPanel();
+    if (hadFocus) document.getElementById(SETTINGS_BTN_ID)?.focus();
+  };
+
+  const listenSettingsKeys = (on) => {
+    if (on) document.addEventListener('keydown', onSettingsKeydown, true);
+    else document.removeEventListener('keydown', onSettingsKeydown, true);
+  };
+
   const toggleSettingsPanel = () => {
     settingsOpen = !settingsOpen;
+    listenSettingsKeys(settingsOpen);
     syncControlState();
     onFsMouseMove();
   };
@@ -6610,6 +6658,7 @@
   const closeSettingsPanel = () => {
     if (!settingsOpen) return;
     settingsOpen = false;
+    listenSettingsKeys(false);
     syncControlState();
   };
 
