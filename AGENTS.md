@@ -14,7 +14,7 @@ This file is the map and the rules. **The reasoning behind a rule lives next to 
 
 ## Commands
 
-There is no package manager, build step, or linter. `test/run.sh` is the one entry point for the automated checks: the syntax check below, then `@version` / `VERSION` / top CHANGELOG entry agreeing, then the logic tests, then `test/family-style.js` (shared by all five kick-* repos; only its config block differs) checks that every colour in the script is a family colour or a listed exception with its reason. It exits non-zero on any failure.
+There is no package manager, build step, or linter. `test/run.sh` is the one entry point for the automated checks: the syntax check below, then `@version` / `VERSION` / top CHANGELOG entry agreeing, then the logic tests, then `test/family-style.js` (shared by all five kick-* repos; only its config block differs) checks that every colour in the script is a family colour or a listed exception with its reason, that `DESIGN.md` matches every sibling repo's copy and names every family colour. It exits non-zero on any failure.
 
 The logic tests (`test/logic.test.js`) call the shipped code: settings validation (`applySettings`), save/load round-trips and the 300ms debounce (`saveSettings`, `loadSettings`, `persistSettings`, `flushSettings`), the cross-tab merge (`onSettingsStorage`), `clampChatWidth`, `getCurrentChannelPath`, `isRecordingPage`, `VIEWER_COUNT_RE`, `QUALITY_OPTION_RE`, `GO_LIVE_RE` and the recent-errors log. `test/run.sh` builds one file from `test/env.js` (a fake page: `localStorage`, a virtual clock, `location`, a stub `document`), every top-level `const` / `let` declaration of the script and the tests, and runs it with jsc. The IIFE's other top-level statements (listeners, boot) are left out, so nothing starts. A top-level `function` in `test/env.js` replaces the script's declaration of that name; that is how `syncControlState`, `updateAdMuteWatch`, `nudgePlayerResize` and `scheduleLiveResizeLayout` become call recorders. Keep top-level declarations at two-space indentation, and add a field to the tests' `settings()` / `NON_DEFAULTS` lists when you add a persisted setting. They also check every `UI_TEXT` table against the label contract (0.29.0), the language-free chat-crash state (`chatCrashState`) and the *Go to live* button shape (`liveStatusText`) (0.29.2). Kick's markup, the player and fullscreen are still covered only by the manual tests.
 
@@ -199,45 +199,34 @@ The video monitor (`startVideoLoadingMonitor`) attaches to whatever `<video>` is
 
 ## UI Design System
 
-All script-injected UI must follow this design language consistently. Do not deviate from it when adding new buttons, overlays, or controls.
+The family-wide spec (palette, type, radii, shadows, components, states, motion, layers) is [DESIGN.md](DESIGN.md), word for word the same in every kick-* repo and checked by `test/family-style.js`. Read it before adding or restyling UI. This section keeps only what is specific to this script; where the two disagree, DESIGN.md wins.
 
-### Palette
+Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. What the script paints itself is the control cluster (DESIGN.md's floating buttons), the settings panel (the family settings card), the resize divider and the error toast.
 
-Most visible UI inherits Kick's look by cloning Kick's own nodes (info overlay) or rendering Kick's chat inside our slot. The elements the script paints itself follow the **kick-\* family design language** (shared with `kick-third-party-emotes`, `kick-quality-saver`, `kick-chat-utils`, and `kick-vod-resume`). Keep these tokens in sync with the sibling scripts' design sections (`## UI Design System` in kick-third-party-emotes and kick-chat-utils; `### Design tokens (kick-* family)` in kick-quality-saver and kick-vod-resume).
+### Script-specific values
 
 | Token | Value | Usage |
 |---|---|---|
-| Surface | `#101013` | Button background (Chat + `.kfc-control-btn`), settings panel |
-| Green accent | `#22c55e` | Single accent per component — button icons (`fill`), resize divider on hover/drag |
-| Neutral border | `rgba(255,255,255,.1)` | Button borders, idle resize divider |
-| Hover tint | `rgba(34,197,94,.1)` | Composited over the surface on hover/focus, never as a standalone (transparent) fill |
-| Pressed tint | `rgba(34,197,94,.18)` | `#kfc-mode-btn` / `#kfc-settings-btn` while on (composited over the surface) |
-| Box shadow | `0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)` | Button depth |
-| Backdrop | `blur(10px)` | Button glass effect |
-| Border radius | `8px` | Button corners |
 | Button sizing | `7px 12px` padding, `500 13px/1.2` family stack, `18px` icon (Chat); `7px` padding, `18px` icon (`.kfc-control-btn`) | Every cluster button is 34px tall — the same as kick-quality-saver's docked video button |
 | `BTN_SVG` / `MODE_SVG` / `INFO_SVG` / `SETTINGS_SVG` | hardcoded icons | Button icon path data (recoloured green via CSS) |
 | `--kfc-chat-width` | default `340px` | Chat-panel width; drives both the slot width and the video-shrink `calc()` |
 | `top: 1.75rem; right: 1.75rem` | Kick's `top-7 right-7` placement | `#kfc-toggle-wrap` positioning |
-| Family toast spec | opaque `#101013`, neutral border, `8px` radius, family shadow, `blur(10px)`, `8px 12px` padding, `500 13px/1.3` family stack | `#kfc-toast` (errors only) — shared with every sibling toast |
+| Pressed tint | `rgba(34,197,94,.18)` over the surface | `#kfc-mode-btn` / `#kfc-settings-btn` while on |
 
 ### Rules
 
-- **Self-painted buttons use the family tokens, not Kick's classes.** `#kfc-toggle-btn` and `.kfc-control-btn` share the surface / border / blur / shadow / radius above; all styling lives in `injectStyles()`.
-- **One green accent per component** — the icon. Never paint a surface green or add a second green element.
-- **Hover is the green tint composited over the surface** (`linear-gradient(rgba(34,197,94,.1), rgba(34,197,94,.1)), #101013`) — never the transparent tint alone, or the video shows through.
+- **Self-painted buttons are DESIGN.md's floating buttons**, styled in `injectStyles()` and never with Kick's classes. Every cluster button is 34px tall, the same as kick-quality-saver's docked video button.
 - **Disabled state is painted by the script:** set `btn.disabled`; `#kfc-toggle-btn:disabled { opacity: .3; pointer-events: none }` does the rest.
 - **On/off state is recolouring or the pressed tint** (`#kfc-info-btn.kfc-off` dims the icon; `#kfc-mode-btn.kfc-on` / `#kfc-settings-btn.kfc-on` use the pressed tint) — never a new token.
 - **Per-button visibility is CSS, not a wrapper toggle.** The wrap stays visible; `.kfc-chat-open` on the wrap shows the mode toggle and hides **Chat**. Don't hide the whole wrapper.
 - **`#kfc-toggle-wrap` is a shared surface with kick-quality-saver.** That script prepends its own button, appends its panel (absolutely positioned, right-aligned under the wrap) while open, and exempts its panel from the idle fade in its own stylesheet (`#kfc-toggle-wrap.kfc-idle:has(#kqs-settings-panel)`). So: `ensureButton()` must keep re-appending the *same* wrap (foreign children must survive), the wrap must not assume it owns all its children (`removeButton()` dropping them on teardown is fine — kqs rebuilds), and **renaming `#kfc-toggle-wrap` / `.kfc-idle` / `.kfc-chat-open`, changing how the wrap moves, or changing the controls' aria-labels (see the controls entry) is a breaking change for kick-quality-saver.** Update both scripts together.
-- **The settings panel shares kick-quality-saver's panel design.** `#kfc-settings-panel`: opaque `#101013`, neutral border, one green accent; radii `14px` card / `11px` groups / `8px` controls. A header (`.kfc-settings-head`: icon mark, name, ✕) then one `.kfc-settings-group` per topic. Toggle rows sit in a gap-less `.kfc-settings-switches` column, so each `.kfc-settings-check` row's `7px` vertical padding is the only spacing; `.kfc-settings-switches:last-child` gets `margin-bottom: -7px` to even out the group's padding. Selected chips (`.kfc-selected`) and checked switches use the green tint plus a `0 0 0 3px` green ring. The destructive controls — `.kfc-settings-reset` and `.kfc-settings-close` — share one look (`#fca5a5` glyph on the neutral chip, `rgba(239,68,68,.14)` tint and `rgba(248,113,113,.5)` border on hover), identical to kqs's `.kqs-chip--danger` / `.kqs-close`.
+- **The settings panel is the family settings card**, in step with kick-quality-saver's `.kqs-card` and kick-third-party-emotes' `#kte-panel`. Script-specific choices:
   - **The open animation is fade + an 8px drop, no scale** (0.24.2): pinned under the gear, a centre-origin scale slid the left edge sideways as the panel opened. kqs's centred card keeps its scale.
   - **No `backdrop-filter` and no backdrop element** — the surface is opaque, so a blur would only add a compositing layer over the video.
   - **Capped and scrollable:** `max-height: 76vh; overflow-y: auto` plus the family scrollbar (8px, `rgba(255,255,255,.13)` thumb inset by a 2px transparent border with `background-clip: padding-box`, `999px` radius), copied verbatim from `.kqs-card`. Uncapped, it ran off the bottom at 720p / 110%+ zoom. **Every new settings row must keep this true — check the panel at 720p.**
-  - **Equal insets while scrolling:** under `@supports selector(::-webkit-scrollbar)` the panel uses `overflow-y: scroll` with `padding-right: calc(1rem - 8px)`, so the transparent track is always reserved and paid for by the padding. Both insets stay 17px and the content width doesn't depend on whether the panel scrolls. Keep the `8px` in that calc in step with the scrollbar width. kick-quality-saver's and kick-third-party-emotes' cards do the same.
-  - Keep it in step with the sibling panel; changing one usually means changing both.
+  - The reset button (`.kfc-settings-reset`) is the family danger chip.
 - **The resize divider is a thin neutral line** — 2px `rgba(255,255,255,.12)`, green (`#22c55e`) on hover/drag. No label, fill or shadow.
-- **Toasts follow the family toast spec** shared by the kick-* scripts — opaque `#101013`, `rgba(255,255,255,.1)` border, `8px` radius, the family shadow (`0 8px 24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)`), `blur(10px)`, `8px 12px` padding, `500 13px/1.3` text in the family stack (`system-ui, -apple-system, "Segoe UI", sans-serif`) — and no green (an error surface, not a control). With `prefers-reduced-motion: reduce` the toast fades in place instead of sliding down.
+- **The toast is the family toast** with no green (an error surface, not a control). It slides down as it appears; under `prefers-reduced-motion: reduce` it fades in place.
 - **The info overlay reuses Kick's own card markup** — a clone plus positioning and a readability gradient. No custom typography, badges, or colour tokens. Kick's buttons in it keep Kick's own styling.
 - **No new self-painted tooltips, menus, or popovers.** The script's own UI is limited to: the control cluster, one settings panel, one chat slot, one resize divider, one toast, one info overlay (a clone), a per-popover clone wrapper, and the folded chat bar's **Show more** button. Clone Kick's nodes instead of painting new UI.
 
@@ -310,6 +299,8 @@ Manual testing is required in a browser with a userscript manager installed. The
 ## Documentation
 
 Update `INSTALL.md` when installation steps, supported browsers, troubleshooting guidance, or user-visible behavior changes.
+
+`DESIGN.md` is the kick-* family design spec, shared word for word by all five repos: change it in every repo at once (the command is at its top), never in one.
 
 **Troubleshooting rows live in `INSTALL.md` only.** A user-visible bug fix adds one row under **Fixed in a past release** (oldest first, "Update to **x.y.z+** — …"); general diagnostics go under **If something doesn't work**. `README.md` keeps a three-row summary that links there — don't copy rows into it, since two copies drifted apart before.
 
