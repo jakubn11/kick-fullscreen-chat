@@ -4,11 +4,10 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.30.2** — Keyboard: Esc and Tab in the settings panel
+**0.31.0** — An always-folded chat bar, and visible keyboard focus
 
-- **Esc closes the settings panel** when the key reaches the page, and focus goes back to the gear. In browser fullscreen the browser usually takes Esc itself to leave fullscreen, which closes the panel too.
-- **Tab stays inside the settings panel** — Tab on its last control wraps to the first, Shift+Tab on the first wraps to the last.
-- **Screen readers** announce the settings panel as a dialog named *Fullscreen Chat*.
+- **Chat bar** — points, Kicks and drops now wait behind **Show more** at every chat width, so the bar under the message box always shows **Show more**, the gear and **Chat**. Opened, they take a row of their own, with **Show less** beside the gear and **Chat**.
+- **Keyboard focus** — tabbing to **Chat**, the stream-info, layout and settings buttons, or **Show more** now shows a green focus ring as well as the hover tint. A mouse click still leaves no ring.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
