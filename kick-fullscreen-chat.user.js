@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kick Fullscreen Chat
 // @namespace    https://github.com/jakubn11/kick-fullscreen-chat
-// @version      0.30.0
+// @version      0.30.1
 // @description  Adds a Twitch-style "side chat" toggle button when watching a Kick stream in fullscreen
 // @author       jakubnl94@gmail.com
 // @license      GPL-3.0-only
@@ -21,7 +21,7 @@
   // the `@version` in the metadata header above — if the two drift, the
   // console API reports a build the user isn't running, which is the one
   // thing it exists to rule out.
-  const VERSION = '0.30.0';
+  const VERSION = '0.30.1';
 
   // ── Words in Kick's language (0.29.0) ──────────────────────────────────
   // Every word the script shows — the Chat button, the settings panel, the
@@ -2689,7 +2689,10 @@
         appearance: none;
         transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
       }
-      #${SETTINGS_PANEL_ID} .kfc-settings-chip:hover {
+      /* Keyboard focus takes the hover look as well as the ring (0.30.1), as on
+         the close and reset buttons and the sibling scripts' chips. */
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip:hover,
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip:focus-visible {
         background: rgba(255,255,255,.09);
         border-color: rgba(255,255,255,.16);
         color: #fff;
@@ -2703,7 +2706,8 @@
         color: #4ade80;
         box-shadow: 0 0 0 3px rgba(34,197,94,.07);
       }
-      #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected:hover {
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected:hover,
+      #${SETTINGS_PANEL_ID} .kfc-settings-chip.kfc-selected:focus-visible {
         background: rgba(34,197,94,.18);
         border-color: rgba(34,197,94,.6);
         color: #4ade80;
