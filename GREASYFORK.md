@@ -4,9 +4,11 @@ Adds a Twitch-style **side chat** to the **fullscreen Kick player**: one click s
 
 ## Latest changes
 
-**0.30.1** — Keyboard focus on settings chips
+**0.30.2** — Keyboard: Esc and Tab in the settings panel
 
-- **Settings chips** — tabbing to a width or layout chip now gives it the hover look as well as the green focus ring, as the close and reset buttons already did.
+- **Esc closes the settings panel** when the key reaches the page, and focus goes back to the gear. In browser fullscreen the browser usually takes Esc itself to leave fullscreen, which closes the panel too.
+- **Tab stays inside the settings panel** — Tab on its last control wraps to the first, Shift+Tab on the first wraps to the last.
+- **Screen readers** announce the settings panel as a dialog named *Fullscreen Chat*.
 
 Full history: [CHANGELOG.md](https://github.com/jakubn11/kick-fullscreen-chat/blob/main/CHANGELOG.md)
 
